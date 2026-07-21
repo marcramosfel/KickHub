@@ -13,6 +13,7 @@ import {
 } from '../api'
 import { drawTeams } from '../lib/draw'
 import { awardWinners, formatDia, hojeLocal } from '../lib/format'
+import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
 import { colors, fonts, styles, disabled } from '../theme'
@@ -249,6 +250,7 @@ export default function AdminScreen({ onExit }) {
         <div style={{ textAlign: 'center', margin: '40px 0 24px' }}>
           <div style={{ fontSize: 34, marginBottom: 6 }}>🔐</div>
           <h1 style={{ ...styles.title, fontSize: 24 }}>Área do admin</h1>
+          <p style={{ ...styles.mutedText, marginTop: 6 }}>{ADMIN_NAME}</p>
         </div>
         <form onSubmit={entrar} style={styles.panel}>
           <label style={styles.label}>Senha de admin</label>
@@ -329,9 +331,12 @@ export default function AdminScreen({ onExit }) {
           marginBottom: 14,
         }}
       >
-        <h1 style={{ ...styles.title, fontSize: 22 }}>
-          Admin <span style={{ color: colors.grass }}>⚖️</span>
-        </h1>
+        <div>
+          <h1 style={{ ...styles.title, fontSize: 22 }}>
+            Admin <span style={{ color: colors.grass }}>⚖️</span>
+          </h1>
+          <p style={{ ...styles.mutedText, fontSize: 13, marginTop: 2 }}>{ADMIN_NAME}</p>
+        </div>
         <button onClick={onExit} style={linkStyle}>
           Sair
         </button>

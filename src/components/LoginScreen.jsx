@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { login, register } from '../api'
 import { fileToDataURL } from '../lib/image'
+import { ADMIN_NAME, APP_NAME, APP_TAGLINE } from '../config'
 import { colors, fonts, styles, disabled } from '../theme'
 
 function Header() {
@@ -8,11 +9,9 @@ function Header() {
     <div style={{ textAlign: 'center', margin: '24px 0 28px' }}>
       <div style={{ fontSize: 34, marginBottom: 6 }}>⚖️</div>
       <h1 style={{ ...styles.title, fontSize: 30, lineHeight: 1.1 }}>
-        Pelada <span style={{ color: colors.grass }}>Equilibrada</span>
+        {APP_NAME.main} <span style={{ color: colors.grass }}>{APP_NAME.accent}</span>
       </h1>
-      <p style={{ ...styles.mutedText, marginTop: 6 }}>
-        Times justos, sorteados pela nota do grupo.
-      </p>
+      <p style={{ ...styles.mutedText, marginTop: 6 }}>{APP_TAGLINE}</p>
     </div>
   )
 }
@@ -269,6 +268,9 @@ export default function LoginScreen({ onLogin, onAdmin }) {
         >
           Área do admin
         </button>
+        <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 14 }}>
+          ⚽ Organizado por {ADMIN_NAME}
+        </p>
       </div>
     </div>
   )

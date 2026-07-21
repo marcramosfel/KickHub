@@ -7,6 +7,7 @@ import {
   updatePhoto,
 } from '../api'
 import { fileToDataURL } from '../lib/image'
+import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
 import { colors, fonts, styles } from '../theme'
@@ -103,7 +104,7 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
         }}
       >
         <h1 style={{ ...styles.title, fontSize: 22 }}>
-          Pelada <span style={{ color: colors.grass }}>Equilibrada</span>
+          {APP_NAME.main} <span style={{ color: colors.grass }}>{APP_NAME.accent}</span>
         </h1>
         <button
           onClick={onLogout}
@@ -325,6 +326,10 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
           </button>
         </div>
       )}
+
+      <p style={{ ...styles.mutedText, textAlign: 'center', fontSize: 12, marginTop: 24 }}>
+        ⚽ Organizado por {ADMIN_NAME}
+      </p>
     </div>
   )
 }

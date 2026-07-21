@@ -1,6 +1,6 @@
-# ⚖️ Pelada Equilibrada
+# ⚖️ Pelada Browns
 
-Webapp mobile-first para um grupo de amigos sortear equipas de futebol **equilibradas**, com base na nota (0–5) que cada jogador dá aos outros — uma única vez.
+Webapp mobile-first para a pelada do **Browns** sortear equipas de futebol **equilibradas**, com base na nota (0–5) que cada jogador dá aos outros — uma única vez. Organizada por **Wallace Chagas**.
 
 **Stack:** Vite + React (JavaScript) · Supabase (Postgres) · deploy na Vercel como site estático.
 
