@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getPlayers, submitRatings } from '../api'
+import { getPendingRatings, getPlayers, submitRatings } from '../api'
 import { RATING_LABELS } from '../lib/labels'
 import Avatar from './Avatar'
 import { colors, fonts, styles, disabled } from '../theme'
@@ -7,21 +7,27 @@ import { colors, fonts, styles, disabled } from '../theme'
 // Cor do rótulo conforme a nota: bagre → craque
 const labelColor = (v) => (v <= 1 ? colors.error : v === 2 ? colors.teamA : v === 3 ? colors.muted : colors.grass)
 
-// Avaliação inicial: uma única vez, nota de 0 a 5 a cada outro jogador aprovado.
+// Avaliação: dá nota a cada jogador que ainda não avaliaste. Aparece
+// sempre que entram jogadores novos (ou o admin reinicia as avaliações).
 export default function RateScreen({ session, onDone, onSkip }) {
-  const [players, setPlayers] = useState(null)
+  const [others, setOthers] = useState(null) // jogadores que faltam avaliar
   const [scores, setScores] = useState({}) // { [playerId]: 0..5 }
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
 
   useEffect(() => {
-    getPlayers()
-      .then(setPlayers)
-      .catch((err) => setError(err.message))
+    getPendingRatings(session.id, session.pin)
+      .then(setOthers)
+      .catch(() =>
+        // fallback se a migração 0005 ainda não estiver aplicada: avalia todos os outros
+        getPlayers()
+          .then((pls) => setOthers(pls.filter((p) => p.id !== session.id)))
+          .catch((err) => setError(err.message))
+      )
   }, [])
 
-  if (players === null) {
+  if (others === null) {
     return (
       <div style={styles.page}>
         <p style={{ ...styles.mutedText, textAlign: 'center', marginTop: 60 }}>
@@ -31,16 +37,14 @@ export default function RateScreen({ session, onDone, onSkip }) {
     )
   }
 
-  const others = players.filter((p) => p.id !== session.id)
-
   if (others.length === 0) {
     return (
       <div style={styles.page}>
         <div style={{ ...styles.panel, textAlign: 'center', padding: 28, marginTop: 40 }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>🤷</div>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
           <p style={styles.mutedText}>
-            Ainda não há outros jogadores aprovados para avaliar. Quando houver, pedimos-te as
-            notas.
+            Já avaliaste toda a gente. Quando entrarem jogadores novos, pedimos-te as notas
+            deles aqui.
           </p>
           <button style={{ ...styles.button, marginTop: 20 }} onClick={onSkip}>
             Continuar
@@ -63,9 +67,7 @@ export default function RateScreen({ session, onDone, onSkip }) {
       await submitRatings(session.id, session.pin, scores)
       onDone()
     } catch (err) {
-      // Se por alguma razão já tinha votado, segue em frente.
-      if (err.code === 'JAVOTOU') onDone()
-      else setError(err.message)
+      setError(err.message)
     } finally {
       setBusy(false)
     }
@@ -75,8 +77,8 @@ export default function RateScreen({ session, onDone, onSkip }) {
     <div style={styles.page}>
       <h1 style={{ ...styles.title, fontSize: 24, marginBottom: 6 }}>Avalia o grupo</h1>
       <p style={{ ...styles.mutedText, marginBottom: 4 }}>
-        Dá uma nota de 0 a 5 a cada jogador. Isto faz-se <strong>uma única vez</strong> e é
-        anónimo entre vocês.
+        Dá uma nota de 0 a 5 a cada jogador que ainda não avaliaste. É{' '}
+        <strong>anónimo</strong> entre vocês.
       </p>
       <p
         style={{

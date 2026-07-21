@@ -5,6 +5,8 @@ import {
   adminPending,
   adminApprove,
   adminReject,
+  adminResetRatings,
+  adminResetRatingsFor,
   getMatches,
   getPlayers,
   getPublishedDraw,
@@ -166,6 +168,21 @@ export default function AdminScreen({ onExit }) {
   const rejeitar = (p, verbo) => {
     if (!window.confirm(`${verbo} ${p.name}? Esta ação apaga a conta e os votos.`)) return
     acao(() => adminReject(pw, p.id))
+  }
+
+  const reavaliarUm = (p) => {
+    if (!window.confirm(`Reiniciar a avaliação de ${p.name}? Todo o grupo terá de o avaliar de novo.`))
+      return
+    acao(() => adminResetRatingsFor(pw, p.id))
+  }
+  const reavaliarTodos = () => {
+    if (
+      !window.confirm(
+        'Reiniciar TODAS as avaliações? Todo o grupo terá de avaliar toda a gente outra vez, do zero.'
+      )
+    )
+      return
+    acao(() => adminResetRatings(pw))
   }
 
   // ---------- sorteio ----------
@@ -425,6 +442,14 @@ export default function AdminScreen({ onExit }) {
                 </div>
               </div>
               <button
+                onClick={() => reavaliarUm(p)}
+                disabled={busy}
+                title="Todo o grupo reavalia este jogador"
+                style={{ ...linkStyle, color: colors.teamA }}
+              >
+                Reavaliar
+              </button>
+              <button
                 onClick={() => rejeitar(p, 'Remover')}
                 disabled={busy}
                 style={{ ...linkStyle, color: colors.error }}
@@ -433,6 +458,26 @@ export default function AdminScreen({ onExit }) {
               </button>
             </div>
           ))}
+          {players.length > 0 && (
+            <div style={{ padding: '12px 8px 4px', borderTop: `1px solid ${colors.line}` }}>
+              <button
+                onClick={reavaliarTodos}
+                disabled={busy}
+                style={{
+                  ...styles.buttonGhost,
+                  color: colors.teamA,
+                  borderColor: colors.teamA,
+                  fontSize: 14,
+                }}
+              >
+                🔄 Reiniciar avaliações de todos
+              </button>
+              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
+                Todo o grupo terá de avaliar toda a gente outra vez. Usa "Reavaliar" num jogador
+                para reiniciar só as notas dele.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

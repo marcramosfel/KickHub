@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   getMatches,
   getMyAwardVotes,
+  getPendingRatings,
   getPlayers,
   getPublishedDraw,
   updatePhoto,
@@ -29,6 +30,7 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
   const [players, setPlayers] = useState(null)
   const [draw, setDraw] = useState(null)
   const [pendingVotes, setPendingVotes] = useState(0)
+  const [pendingRatings, setPendingRatings] = useState(null) // null = RPC indisponível
   const [error, setError] = useState('')
 
   const fileRef = useRef(null)
@@ -39,13 +41,15 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
     Promise.all([
       getPlayers(),
       getPublishedDraw(),
-      // não-fatais: se a migração 0002 ainda não estiver aplicada, a Home continua a funcionar
+      // não-fatais: se as migrações 0002/0005 ainda não estiverem aplicadas, a Home continua a funcionar
       getMatches().catch(() => []),
       getMyAwardVotes(session.id, session.pin).catch(() => []),
+      getPendingRatings(session.id, session.pin).catch(() => null),
     ])
-      .then(([pls, d, ms, mv]) => {
+      .then(([pls, d, ms, mv, pr]) => {
         setPlayers(pls || [])
         setDraw(d)
+        setPendingRatings(pr)
         const votados = mv || []
         setPendingVotes(
           (ms || []).filter(
@@ -91,6 +95,12 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
 
   const me = players.find((p) => p.id === session.id)
   const others = players.filter((p) => p.id !== session.id)
+
+  // Se a migração 0005 já expõe get_pending_ratings, usa as lacunas reais;
+  // senão cai para o comportamento antigo (session.voted).
+  const faltamAvaliar =
+    pendingRatings != null ? pendingRatings.length : session.voted ? 0 : others.length
+  const avaliouTudo = faltamAvaliar === 0
 
   return (
     <div style={styles.page}>
@@ -186,11 +196,11 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
               borderRadius: 999,
               fontSize: 12,
               fontWeight: 600,
-              background: session.voted ? 'rgba(52,208,88,0.12)' : 'rgba(255,197,49,0.12)',
-              color: session.voted ? colors.grass : colors.teamA,
+              background: avaliouTudo ? 'rgba(52,208,88,0.12)' : 'rgba(255,197,49,0.12)',
+              color: avaliouTudo ? colors.grass : colors.teamA,
             }}
           >
-            {session.voted ? 'Avaliação feita ✓' : 'Avaliação pendente'}
+            {avaliouTudo ? 'Avaliação feita ✓' : 'Avaliação pendente'}
           </div>
           <div style={{ marginTop: 6 }}>
             <button
@@ -236,10 +246,14 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
       </button>
 
       {/* aviso de avaliação pendente */}
-      {!session.voted && others.length > 0 && (
+      {faltamAvaliar > 0 && (
         <div style={{ ...styles.panel, marginTop: 12, borderColor: colors.teamA }}>
           <p style={{ fontSize: 14, marginBottom: 10 }}>
-            Falta dares as tuas notas ao grupo — é rápido e só se faz uma vez.
+            {pendingRatings != null
+              ? `Falta avaliares ${faltamAvaliar} ${
+                  faltamAvaliar === 1 ? 'jogador' : 'jogadores'
+                } — pode ser gente nova no grupo.`
+              : 'Falta dares as tuas notas ao grupo — é rápido.'}
           </p>
           <button style={styles.button} onClick={onRate}>
             Avaliar agora

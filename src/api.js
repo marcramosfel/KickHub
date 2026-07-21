@@ -56,6 +56,10 @@ export const getStats = () => rpc('get_stats')
 export const submitRatings = (raterId, pin, scores) =>
   rpc('submit_ratings', { p_rater: raterId, p_pin: pin, p_scores: scores })
 
+// Jogadores que este avaliador ainda tem de avaliar (as suas lacunas)
+export const getPendingRatings = (raterId, pin) =>
+  rpc('get_pending_ratings', { p_rater: raterId, p_pin: pin })
+
 export const updatePhoto = (id, pin, photo) =>
   rpc('update_photo', { p_id: id, p_pin: pin, p_photo: photo })
 
@@ -93,3 +97,9 @@ export const adminAddMatch = (pw, playedAt, stats) =>
 
 export const adminDeleteMatch = (pw, id) =>
   rpc('admin_delete_match', { p_pw: pw, p_id: id })
+
+// Reiniciar avaliações — de todos, ou só de um jogador (todos reavaliam-no)
+export const adminResetRatings = (pw) => rpc('admin_reset_ratings', { p_pw: pw })
+
+export const adminResetRatingsFor = (pw, targetId) =>
+  rpc('admin_reset_ratings_for', { p_pw: pw, p_target: targetId })
