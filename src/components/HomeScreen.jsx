@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react'
-import { getMatches, getMyAwardVotes, getPlayers, getPublishedDraw } from '../api'
+import { useEffect, useRef, useState } from 'react'
+import {
+  getMatches,
+  getMyAwardVotes,
+  getPlayers,
+  getPublishedDraw,
+  updatePhoto,
+} from '../api'
+import { fileToDataURL } from '../lib/image'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
 import { colors, fonts, styles } from '../theme'
@@ -23,7 +30,11 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
   const [pendingVotes, setPendingVotes] = useState(0)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const fileRef = useRef(null)
+  const [savingPhoto, setSavingPhoto] = useState(false)
+  const [photoErr, setPhotoErr] = useState('')
+
+  const load = () =>
     Promise.all([
       getPlayers(),
       getPublishedDraw(),
@@ -45,7 +56,27 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
         )
       })
       .catch((err) => setError(err.message))
+
+  useEffect(() => {
+    load()
   }, [])
+
+  const handlePhoto = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite voltar a escolher o mesmo ficheiro
+    if (!file) return
+    setPhotoErr('')
+    setSavingPhoto(true)
+    try {
+      const dataUrl = await fileToDataURL(file)
+      await updatePhoto(session.id, session.pin, dataUrl)
+      await load()
+    } catch (err) {
+      setPhotoErr(err.message)
+    } finally {
+      setSavingPhoto(false)
+    }
+  }
 
   if (players === null) {
     return (
@@ -90,7 +121,47 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
 
       {/* cartão do próprio */}
       <div style={{ ...styles.panel, display: 'flex', alignItems: 'center', gap: 14 }}>
-        <Avatar name={session.name} photo={me?.photo_url} size={64} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhoto}
+          style={{ display: 'none' }}
+        />
+        <button
+          type="button"
+          onClick={() => !savingPhoto && fileRef.current?.click()}
+          title="Trocar foto"
+          style={{
+            position: 'relative',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: savingPhoto ? 'wait' : 'pointer',
+            lineHeight: 0,
+            flexShrink: 0,
+          }}
+        >
+          <Avatar name={session.name} photo={me?.photo_url} size={64} />
+          <span
+            style={{
+              position: 'absolute',
+              right: -2,
+              bottom: -2,
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              background: colors.grass,
+              border: `2px solid ${colors.panel}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+            }}
+          >
+            {savingPhoto ? '…' : '📷'}
+          </span>
+        </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 18 }}>{session.name}</div>
           <div style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
@@ -119,6 +190,26 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
             }}
           >
             {session.voted ? 'Avaliação feita ✓' : 'Avaliação pendente'}
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <button
+              type="button"
+              onClick={() => !savingPhoto && fileRef.current?.click()}
+              disabled={savingPhoto}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: colors.muted,
+                fontSize: 13,
+                textDecoration: 'underline',
+                padding: 0,
+              }}
+            >
+              {savingPhoto ? 'A guardar foto…' : '📷 Trocar foto'}
+            </button>
+            {photoErr && (
+              <p style={{ ...styles.errorText, fontSize: 13, marginTop: 4 }}>{photoErr}</p>
+            )}
           </div>
         </div>
       </div>

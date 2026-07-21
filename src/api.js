@@ -56,6 +56,9 @@ export const getStats = () => rpc('get_stats')
 export const submitRatings = (raterId, pin, scores) =>
   rpc('submit_ratings', { p_rater: raterId, p_pin: pin, p_scores: scores })
 
+export const updatePhoto = (id, pin, photo) =>
+  rpc('update_photo', { p_id: id, p_pin: pin, p_photo: photo })
+
 export const getPublishedDraw = () => rpc('get_published_draw')
 
 // ---------- Estatísticas / rodadas ----------
