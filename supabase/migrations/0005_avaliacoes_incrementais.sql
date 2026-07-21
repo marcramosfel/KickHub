@@ -57,7 +57,9 @@ returns table(id uuid, name text, photo_url text)
 language plpgsql security definer set search_path = public, extensions as $$
 declare r players;
 begin
-  select * into r from players where id = p_rater;
+  -- players.id qualificado: sem isto, "id" colide com a coluna de saída
+  -- (returns table id ...) e o Postgres dá "column reference id is ambiguous"
+  select * into r from players p where p.id = p_rater;
   if r.id is null or p_pin is null or r.pin_hash <> crypt(p_pin, r.pin_hash) then raise exception 'CRED'; end if;
   if not r.approved then raise exception 'PENDENTE'; end if;
   return query

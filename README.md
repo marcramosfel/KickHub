@@ -43,6 +43,7 @@ O schema está em `supabase/migrations/`, por ordem:
 - [`0003_seguranca_pin.sql`](supabase/migrations/0003_seguranca_pin.sql) — correção de segurança: torna a verificação do PIN em `login`/`submit_ratings` imune a `p_pin = null`. **Aplicar sempre.**
 - [`0004_trocar_foto.sql`](supabase/migrations/0004_trocar_foto.sql) — permite ao jogador trocar a própria foto (função `update_photo`, validada por PIN).
 - [`0005_avaliacoes_incrementais.sql`](supabase/migrations/0005_avaliacoes_incrementais.sql) — avaliação passa a ser por lacunas (novos jogadores são avaliados pelos veteranos); admin pode reiniciar avaliações de todos ou de um jogador.
+- [`0006_fix_pending_ratings.sql`](supabase/migrations/0006_fix_pending_ratings.sql) — corrige `get_pending_ratings` (coluna `id` ambígua na 0005). **Aplicar se já aplicaste a 0005.**
 
 Duas formas de aplicar:
 
@@ -53,7 +54,7 @@ supabase link --project-ref gfowkkchpqoirubumnau
 supabase db push
 ```
 
-**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → 0003 → 0004 → 0005) → *Run*.
+**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → 0003 → 0004 → 0005 → 0006) → *Run*.
 
 A migração cria as tabelas (`players`, `ratings`, `draws`, `app_config`), ativa RLS sem políticas (tabelas fechadas) e cria as funções RPC que a app usa.
 
