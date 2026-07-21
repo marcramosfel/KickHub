@@ -1,0 +1,11 @@
+# dependências e build
+node_modules
+dist
+
+# ficheiros locais/temporários
+*.local
+.DS_Store
+
+# NOTA: o .env NÃO está ignorado de propósito — só contém a chave
+# publishable do Supabase (sb_publishable_...), que é pública.
+# NUNCA commitar chaves sb_secret_... nem a connection string do Postgres.
