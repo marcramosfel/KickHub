@@ -89,11 +89,12 @@ returns json language sql security definer set search_path = public, extensions 
 $$;
 
 -- Admin: reiniciar TODAS as avaliações (todos reavaliam todos).
+-- 'where true' é obrigatório: o Supabase bloqueia DELETE sem WHERE.
 create or replace function admin_reset_ratings(p_pw text)
 returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not admin_ok(p_pw) then raise exception 'ADMIN'; end if;
-  delete from ratings;
+  delete from ratings where true;
 end; $$;
 
 -- Admin: reiniciar as avaliações DE UM jogador (todos reavaliam-no).
