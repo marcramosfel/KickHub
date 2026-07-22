@@ -84,12 +84,16 @@ end; $$;
 -- ---------- LOGIN por NOME ou USER_ID ----------
 create or replace function login(p_name text, p_pin text)
 returns json language plpgsql security definer set search_path = public, extensions as $$
-declare r players; norm text; name_ids uuid[]; v_pending int;
+declare r players; raw text; norm text; name_ids uuid[]; v_pending int;
 begin
+  raw := lower(btrim(coalesce(p_name, '')));
   norm := slugify(p_name);
   if norm = '' then raise exception 'CRED'; end if;
-  -- 1) match exato por user_id (o identificador único vence sempre)
-  select * into r from players where user_id = norm;
+  -- 1) match por user_id: compara com o texto só em minúsculas (mantém
+  --    espaços/acentos). Como um user_id nunca tem espaços/acentos, só um ID
+  --    realmente digitado casa aqui; um NOME (com espaço/acento) não casa e
+  --    segue para a resolução por nome — que mostra AMBIGUO se for partilhado.
+  select * into r from players where user_id = raw;
   -- 2) senão, por nome normalizado (ignora maiúsculas/acentos/espaços)
   if r.id is null then
     select array_agg(id) into name_ids from players where slugify(name) = norm;
