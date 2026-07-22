@@ -13,7 +13,10 @@ import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
 import RoundResult from './RoundResult'
+import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
+
+const MEDALS = ['🥇', '🥈', '🥉']
 
 function formatDate(iso) {
   try {
@@ -91,9 +94,17 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
   if (players === null) {
     return (
       <div style={styles.page}>
-        <p style={{ ...styles.mutedText, textAlign: 'center', marginTop: 60 }}>
-          {error || 'A carregar…'}
-        </p>
+        <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 18 }}>
+          {APP_NAME.main} <span style={{ color: colors.grass }}>{APP_NAME.accent}</span>
+        </h1>
+        {error ? (
+          <ErrorBox>{error}</ErrorBox>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <SkeletonCard lines={2} />
+            <SkeletonCard lines={3} />
+          </div>
+        )}
       </div>
     )
   }
@@ -274,7 +285,7 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
       )}
 
       {/* último sorteio */}
-      <h2 style={{ ...styles.title, fontSize: 17, margin: '24px 0 10px' }}>Último sorteio</h2>
+      <SectionTitle>Último sorteio</SectionTitle>
       {draw ? (
         <div>
           <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 10 }}>
@@ -289,9 +300,7 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
       )}
 
       {/* classificação */}
-      <h2 style={{ ...styles.title, fontSize: 17, margin: '24px 0 10px' }}>
-        Classificação do grupo
-      </h2>
+      <SectionTitle>Classificação do grupo</SectionTitle>
       <div style={{ ...styles.panel, padding: 8 }}>
         {players.map((p, i) => (
           <div
@@ -312,10 +321,10 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
                 color: colors.muted,
                 width: 22,
                 textAlign: 'center',
-                fontSize: 14,
+                fontSize: i < 3 ? 17 : 14,
               }}
             >
-              {i + 1}
+              {i < 3 ? MEDALS[i] : i + 1}
             </span>
             <Avatar name={p.name} photo={p.photo_url} size={36} />
             <span style={{ flex: 1, fontSize: 15, fontWeight: p.id === session.id ? 700 : 400 }}>

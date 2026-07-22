@@ -4,7 +4,10 @@ import { assisters as getAssisters, awardWinners, formatDia, matchWinner, scorer
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import Avatar from './Avatar'
 import RoundDetail from './RoundDetail'
+import { ErrorBox, SkeletonCard } from './Ui'
 import { colors, fonts, styles, disabled } from '../theme'
+
+const MEDALS = ['🥇', '🥈', '🥉']
 
 // Cartão do vencedor com GIF — só na rodada mais recente, para a página não pesar
 function WinnerGif({ tipo, winner }) {
@@ -303,14 +306,18 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
   if (stats === null || matches === null) {
     return (
       <div style={styles.page}>
-        <p style={{ ...styles.mutedText, textAlign: 'center', marginTop: 60 }}>
-          {error || 'A carregar estatísticas…'}
-        </p>
-        {error && (
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <button style={styles.buttonGhost} onClick={onBack}>
+        <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 16 }}>Estatísticas 📊</h1>
+        {error ? (
+          <>
+            <ErrorBox>{error}</ErrorBox>
+            <button style={{ ...styles.buttonGhost, marginTop: 16 }} onClick={onBack}>
               Voltar
             </button>
+          </>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <SkeletonCard lines={4} />
+            <SkeletonCard lines={3} />
           </div>
         )}
       </div>
@@ -409,10 +416,10 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
                       color: colors.muted,
                       width: 22,
                       textAlign: 'center',
-                      fontSize: 14,
+                      fontSize: i < 3 && p.goals > 0 ? 17 : 14,
                     }}
                   >
-                    {i + 1}
+                    {i < 3 && p.goals > 0 ? MEDALS[i] : i + 1}
                   </span>
                   <Avatar name={p.name} photo={p.photo} size={36} />
                   <span

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getPendingRatings, getPlayers, submitRatings } from '../api'
 import { RATING_LABELS } from '../lib/labels'
 import Avatar from './Avatar'
+import { ErrorBox, SkeletonCard } from './Ui'
 import { colors, fonts, styles, disabled } from '../theme'
 
 // Cor do rótulo conforme a nota: bagre → craque
@@ -30,9 +31,16 @@ export default function RateScreen({ session, onDone, onSkip }) {
   if (others === null) {
     return (
       <div style={styles.page}>
-        <p style={{ ...styles.mutedText, textAlign: 'center', marginTop: 60 }}>
-          {error || 'A carregar jogadores…'}
-        </p>
+        <h1 style={{ ...styles.title, fontSize: 24, marginBottom: 16 }}>Avalia o grupo</h1>
+        {error ? (
+          <ErrorBox>{error}</ErrorBox>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <SkeletonCard lines={2} />
+            <SkeletonCard lines={2} />
+            <SkeletonCard lines={2} />
+          </div>
+        )}
       </div>
     )
   }

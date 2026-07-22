@@ -30,6 +30,7 @@ export const styles = {
     border: `1px solid ${colors.line}`,
     borderRadius: 16,
     padding: 16,
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.28)', // profundidade subtil
   },
   title: {
     fontFamily: fonts.title,
@@ -90,3 +91,17 @@ export const styles = {
 
 // Um botão desativado fica esbatido
 export const disabled = (base) => ({ ...base, opacity: 0.4, cursor: 'not-allowed' })
+
+// Etiqueta/pill reutilizável (estado, contagem, categoria).
+export const chip = (cor = colors.muted, bg) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '3px 10px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 600,
+  color: cor,
+  background: bg || 'rgba(127, 160, 144, 0.12)',
+  whiteSpace: 'nowrap',
+})

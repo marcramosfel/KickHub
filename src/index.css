@@ -21,6 +21,13 @@ body {
 button {
   font-family: inherit;
   cursor: pointer;
+  transition: transform 120ms ease, opacity 150ms ease, background-color 160ms ease,
+    border-color 160ms ease, color 160ms ease;
+}
+
+/* feedback de toque discreto (sem deslocar o layout) */
+button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 button:disabled {
@@ -37,8 +44,54 @@ input:focus {
   border-color: #34d058 !important;
 }
 
+/* foco visível por teclado — acessibilidade */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #34d058;
+  outline-offset: 2px;
+}
+
 img {
   display: block;
+}
+
+/* scrollbar a condizer com o tema */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e3a2e;
+  border-radius: 8px;
+}
+
+/* skeleton de carregamento (shimmer) */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, #12241d 25%, #1b3128 37%, #12241d 63%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 10px;
+}
+@media (prefers-reduced-motion: reduce) {
+  button,
+  button:active {
+    transition: none;
+    transform: none;
+  }
+  .skeleton {
+    animation: none;
+  }
 }
 
 /* entrada subtil dos destaques — desligada com reduced-motion */

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { login, register } from '../api'
 import { fileToDataURL } from '../lib/image'
 import { ADMIN_NAME, APP_NAME, APP_TAGLINE } from '../config'
+import { ErrorBox } from './Ui'
 import { colors, fonts, styles, disabled } from '../theme'
 
 function Header() {
@@ -232,7 +233,7 @@ export default function LoginScreen({ onLogin, onAdmin }) {
           <button type="submit" style={busy ? disabled(styles.button) : styles.button} disabled={busy}>
             {busy ? 'A entrar…' : 'Entrar'}
           </button>
-          {error && <p style={styles.errorText}>{error}</p>}
+          {error && <ErrorBox style={{ marginTop: 12 }}>{error}</ErrorBox>}
         </form>
       )}
 
@@ -312,7 +313,7 @@ export default function LoginScreen({ onLogin, onAdmin }) {
           <button type="submit" style={busy ? disabled(styles.button) : styles.button} disabled={busy}>
             {busy ? 'A enviar…' : 'Enviar registo'}
           </button>
-          {error && <p style={styles.errorText}>{error}</p>}
+          {error && <ErrorBox style={{ marginTop: 12 }}>{error}</ErrorBox>}
           <p style={{ ...styles.mutedText, marginTop: 12, fontSize: 13 }}>
             A conta fica pendente até o admin aprovar.
           </p>
