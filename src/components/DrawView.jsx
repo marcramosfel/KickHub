@@ -3,6 +3,11 @@ import Avatar from './Avatar'
 import { teamAvg } from '../lib/draw'
 import { colors, fonts, styles } from '../theme'
 
+// Times do sorteio: Pretos vs Brancos (com marcadores ⚫/⚪ para ficarem
+// claros no tema escuro).
+const TEAM_A = { nome: '⚫ Pretos', cor: '#8A96A0' } // cinza legível (time preto)
+const TEAM_B = { nome: '⚪ Brancos', cor: '#F2F5F2' } // branco
+
 // A "balança" assinatura: inclina conforme a diferença de média entre os times.
 // Fica verde quando Δ ≤ 0,4.
 function Balanca({ mA, mB }) {
@@ -22,9 +27,9 @@ function Balanca({ mA, mB }) {
           <rect x="36" y="29" width="128" height="6" rx="3" fill={cor} />
           <circle cx="100" cy="32" r="6" fill={cor} />
           <line x1="44" y1="35" x2="44" y2="48" stroke={cor} strokeWidth="3" />
-          <path d="M30 48 Q44 62 58 48" fill="none" stroke={colors.teamA} strokeWidth="5" strokeLinecap="round" />
+          <path d="M30 48 Q44 62 58 48" fill="none" stroke={TEAM_A.cor} strokeWidth="5" strokeLinecap="round" />
           <line x1="156" y1="35" x2="156" y2="48" stroke={cor} strokeWidth="3" />
-          <path d="M142 48 Q156 62 170 48" fill="none" stroke={colors.teamB} strokeWidth="5" strokeLinecap="round" />
+          <path d="M142 48 Q156 62 170 48" fill="none" stroke={TEAM_B.cor} strokeWidth="5" strokeLinecap="round" />
         </g>
       </svg>
       <div
@@ -98,7 +103,7 @@ function TeamPanel({ nome, cor, team, selectedId, onPick }) {
   )
 }
 
-// Mostra um sorteio (A = Amarelos, B = Azuis).
+// Mostra um sorteio (A = Pretos, B = Brancos).
 // Com `onSwap`, permite trocar jogadores tocando num de cada time.
 export default function DrawView({ A, B, onSwap }) {
   const [sel, setSel] = useState({ A: null, B: null })
@@ -128,15 +133,15 @@ export default function DrawView({ A, B, onSwap }) {
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <TeamPanel
-          nome="Amarelos"
-          cor={colors.teamA}
+          nome={TEAM_A.nome}
+          cor={TEAM_A.cor}
           team={A}
           selectedId={sel.A}
           onPick={onSwap ? pick('A') : undefined}
         />
         <TeamPanel
-          nome="Azuis"
-          cor={colors.teamB}
+          nome={TEAM_B.nome}
+          cor={TEAM_B.cor}
           team={B}
           selectedId={sel.B}
           onPick={onSwap ? pick('B') : undefined}
