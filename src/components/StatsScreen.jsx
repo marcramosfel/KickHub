@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getMatches, getMyAwardVotes, getPlayerStats, voteAward } from '../api'
-import { awardWinners, formatDia } from '../lib/format'
+import { assisters as getAssisters, awardWinners, formatDia, matchWinner, scorers as getScorers } from '../lib/format'
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import Avatar from './Avatar'
+import RoundDetail from './RoundDetail'
 import { colors, fonts, styles, disabled } from '../theme'
 
 // Cartão do vencedor com GIF — só na rodada mais recente, para a página não pesar
@@ -136,12 +137,15 @@ function VoteCard({ match, session, onVoted }) {
   )
 }
 
-// Painel de resultados de uma rodada já votada (ou de quem não jogou)
-function MatchPanel({ match, destaque }) {
-  const scorers = match.players.filter((p) => p.goals > 0)
-  const assisters = match.players.filter((p) => p.assists > 0)
+// Card de uma rodada no histórico: placar, vencedor, marcadores/assistentes,
+// craque/bagre e "Ver detalhes" (que abre a rodada com fotos).
+function MatchPanel({ match, destaque, onDetail }) {
+  const scorers = getScorers(match)
+  const assisters = getAssisters(match)
   const craque = awardWinners(match.craque)
   const bagre = awardWinners(match.bagre)
+  const w = matchWinner(match)
+  const temPlacar = Number(match.score_a || 0) + Number(match.score_b || 0) > 0 || match.team_a_name
 
   return (
     <div style={{ ...styles.panel, padding: 14, marginBottom: 10 }}>
@@ -151,28 +155,62 @@ function MatchPanel({ match, destaque }) {
           justifyContent: 'space-between',
           alignItems: 'baseline',
           marginBottom: 8,
+          gap: 8,
         }}
       >
         <span style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15 }}>
           {formatDia(match.played_at)}
         </span>
-        <span style={{ fontSize: 12, color: colors.muted }}>
+        <span style={{ fontSize: 12, color: colors.muted, flexShrink: 0 }}>
           {match.votes}/{match.players.length} votaram
         </span>
       </div>
 
+      {/* placar compacto */}
+      {temPlacar && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 10,
+            padding: '8px 12px',
+            borderRadius: 10,
+            background: '#0C1915',
+            border: `1px solid ${colors.line}`,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: fonts.title,
+              fontSize: 20,
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ color: colors.teamA }}>{Number(match.score_a || 0)}</span>
+            <span style={{ color: colors.muted }}> — </span>
+            <span style={{ color: colors.teamB }}>{Number(match.score_b || 0)}</span>
+          </span>
+          <span style={{ fontSize: 13, color: w.isDraw ? colors.muted : colors.grass, fontWeight: 600 }}>
+            {w.isDraw ? '🤝 Empate' : `🏆 ${w.name}`}
+          </span>
+        </div>
+      )}
+
       <p style={{ fontSize: 13, marginBottom: 4 }}>
         ⚽{' '}
         {scorers.length ? (
-          scorers.map((p) => `${p.name} (${p.goals})`).join(', ')
+          scorers.map((p) => `${p.name}${p.goals > 1 ? ` (${p.goals})` : ''}`).join(', ')
         ) : (
-          <span style={{ color: colors.muted }}>sem gols… ninguém quis decidir 🥱</span>
+          <span style={{ color: colors.muted }}>sem gols</span>
         )}
       </p>
       <p style={{ fontSize: 13, marginBottom: 8 }}>
         🅰️{' '}
         {assisters.length ? (
-          assisters.map((p) => `${p.name} (${p.assists})`).join(', ')
+          assisters.map((p) => `${p.name}${p.assists > 1 ? ` (${p.assists})` : ''}`).join(', ')
         ) : (
           <span style={{ color: colors.muted }}>sem assistências</span>
         )}
@@ -203,6 +241,13 @@ function MatchPanel({ match, destaque }) {
       ) : (
         <p style={{ ...styles.mutedText, fontSize: 13 }}>Ainda sem votos de craque/bagre.</p>
       )}
+
+      <button
+        onClick={() => onDetail(match.id)}
+        style={{ ...styles.buttonGhost, marginTop: 12, padding: '10px 16px', fontSize: 14 }}
+      >
+        Ver detalhes →
+      </button>
     </div>
   )
 }
@@ -212,6 +257,7 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
   const [stats, setStats] = useState(null)
   const [matches, setMatches] = useState(null)
   const [myVotes, setMyVotes] = useState([])
+  const [detailId, setDetailId] = useState(null) // rodada aberta em detalhe
   const [error, setError] = useState('')
 
   const load = () =>
@@ -227,6 +273,11 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
   useEffect(() => {
     load()
   }, [])
+
+  // detalhe de uma rodada (com fotos) sobrepõe-se ao resto
+  if (detailId) {
+    return <RoundDetail matchId={detailId} onBack={() => setDetailId(null)} />
+  }
 
   const tabBtn = (id, label) => (
     <button
@@ -408,7 +459,12 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
           {matches
             .filter((m) => !pendentes.some((p) => p.id === m.id))
             .map((m) => (
-              <MatchPanel key={m.id} match={m} destaque={m.id === matches[0]?.id} />
+              <MatchPanel
+                key={m.id}
+                match={m}
+                destaque={m.id === matches[0]?.id}
+                onDetail={setDetailId}
+              />
             ))}
         </div>
       )}

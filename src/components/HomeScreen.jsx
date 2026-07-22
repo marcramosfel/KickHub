@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  getLatestMatch,
   getMatches,
   getMyAwardVotes,
   getPendingRatings,
@@ -11,6 +12,7 @@ import { fileToDataURL } from '../lib/image'
 import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
+import RoundResult from './RoundResult'
 import { colors, fonts, styles } from '../theme'
 
 function formatDate(iso) {
@@ -29,6 +31,7 @@ function formatDate(iso) {
 export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats }) {
   const [players, setPlayers] = useState(null)
   const [draw, setDraw] = useState(null)
+  const [latestMatch, setLatestMatch] = useState(undefined) // undefined = a carregar, null = sem rodadas
   const [pendingVotes, setPendingVotes] = useState(0)
   const [pendingRatings, setPendingRatings] = useState(null) // null = RPC indisponível
   const [error, setError] = useState('')
@@ -41,15 +44,17 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
     Promise.all([
       getPlayers(),
       getPublishedDraw(),
-      // não-fatais: se as migrações 0002/0005 ainda não estiverem aplicadas, a Home continua a funcionar
+      // não-fatais: se as migrações 0002/0005/0010 ainda não estiverem aplicadas, a Home continua a funcionar
       getMatches().catch(() => []),
       getMyAwardVotes(session.id, session.pin).catch(() => []),
       getPendingRatings(session.id, session.pin).catch(() => null),
+      getLatestMatch().catch(() => undefined),
     ])
-      .then(([pls, d, ms, mv, pr]) => {
+      .then(([pls, d, ms, mv, pr, lm]) => {
         setPlayers(pls || [])
         setDraw(d)
         setPendingRatings(pr)
+        setLatestMatch(lm)
         const votados = mv || []
         setPendingVotes(
           (ms || []).filter(
@@ -258,6 +263,13 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
           <button style={styles.button} onClick={onRate}>
             Avaliar agora
           </button>
+        </div>
+      )}
+
+      {/* campeões da semana (rodada mais recente) — só se a 0010 estiver aplicada */}
+      {latestMatch !== undefined && (
+        <div style={{ marginTop: 20 }}>
+          <RoundResult match={latestMatch} onHistory={() => onStats('rodadas')} />
         </div>
       )}
 

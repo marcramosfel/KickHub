@@ -47,6 +47,7 @@ O schema está em `supabase/migrations/`, por ordem:
 - [`0007_fix_reset_all.sql`](supabase/migrations/0007_fix_reset_all.sql) — corrige "reiniciar avaliações de todos" (`DELETE` sem `WHERE` era bloqueado pelo Supabase). **Aplicar se já aplicaste a 0005.**
 - [`0008_user_ids.sql`](supabase/migrations/0008_user_ids.sql) — `user_id` único por jogador (gerado do nome, com deduplicação), backfill dos existentes, login por **Nome ou ID**, e RPCs de gestão de IDs no admin.
 - [`0009_login_ambiguidade.sql`](supabase/migrations/0009_login_ambiguidade.sql) — login mostra `AMBIGUO` (pede o ID) quando o nome é partilhado por vários jogadores. **Aplicar se já aplicaste a 0008.**
+- [`0010_rodadas.sql`](supabase/migrations/0010_rodadas.sql) — resumo completo da rodada: nome/placar de cada time, time de cada jogador, foto do vencedor + foto do local + observações; RPCs `get_latest_match`/`get_match`/`admin_save_match` (criar/editar).
 
 Duas formas de aplicar:
 
@@ -57,7 +58,7 @@ supabase link --project-ref gfowkkchpqoirubumnau
 supabase db push
 ```
 
-**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009) → *Run*.
+**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010) → *Run*.
 
 A migração cria as tabelas (`players`, `ratings`, `draws`, `app_config`), ativa RLS sem políticas (tabelas fechadas) e cria as funções RPC que a app usa.
 

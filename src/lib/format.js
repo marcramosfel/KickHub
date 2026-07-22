@@ -33,3 +33,19 @@ export function awardWinners(list) {
     votes: top,
   }
 }
+
+// Quem venceu a rodada, a partir do placar.
+export function matchWinner(m) {
+  const a = Number(m.score_a || 0)
+  const b = Number(m.score_b || 0)
+  if (a > b) return { side: 'A', name: m.team_a_name || 'Amarelos', isDraw: false }
+  if (b > a) return { side: 'B', name: m.team_b_name || 'Azuis', isDraw: false }
+  return { side: null, name: 'Empate', isDraw: true }
+}
+
+// Jogadores de um time ('A' ou 'B').
+export const teamPlayers = (m, side) => (m.players || []).filter((p) => p.team === side)
+
+// Marcadores e assistentes (já vêm ordenados por gols/assistências desc).
+export const scorers = (m) => (m.players || []).filter((p) => p.goals > 0)
+export const assisters = (m) => (m.players || []).filter((p) => p.assists > 0)

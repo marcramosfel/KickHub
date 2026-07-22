@@ -40,3 +40,23 @@ input:focus {
 img {
   display: block;
 }
+
+/* entrada subtil dos destaques — desligada com reduced-motion */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise-in {
+  animation: riseIn 260ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise-in {
+    animation: none;
+  }
+}

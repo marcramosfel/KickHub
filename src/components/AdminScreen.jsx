@@ -7,9 +7,11 @@ import {
   adminReject,
   adminResetRatings,
   adminResetRatingsFor,
+  adminSaveMatch,
   adminUsers,
   adminRegenUserId,
   adminSetUserId,
+  getMatch,
   getMatches,
   getPlayers,
   getPublishedDraw,
@@ -17,10 +19,12 @@ import {
   publishDraw,
 } from '../api'
 import { drawTeams } from '../lib/draw'
-import { awardWinners, formatDia, hojeLocal } from '../lib/format'
+import { fileToDataURL } from '../lib/image'
+import { awardWinners, formatDia, hojeLocal, matchWinner } from '../lib/format'
 import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
+import { PhotoFrame } from './RoundParts'
 import { colors, fonts, styles, disabled } from '../theme'
 
 function idade(dob) {
@@ -92,8 +96,17 @@ export default function AdminScreen({ onExit }) {
   const [lastDraw, setLastDraw] = useState(null)
   const [jogoDate, setJogoDate] = useState(hojeLocal)
   const [jogou, setJogou] = useState({}) // { [id]: bool }
+  const [team, setTeam] = useState({}) // { [id]: 'A' | 'B' }
   const [gols, setGols] = useState({}) // { [id]: int }
   const [assists, setAssists] = useState({}) // { [id]: int }
+  const [teamAName, setTeamAName] = useState('Amarelos')
+  const [teamBName, setTeamBName] = useState('Azuis')
+  const [scoreA, setScoreA] = useState(0)
+  const [scoreB, setScoreB] = useState(0)
+  const [winnerPhoto, setWinnerPhoto] = useState('')
+  const [locationPhoto, setLocationPhoto] = useState('')
+  const [notes, setNotes] = useState('')
+  const [editingId, setEditingId] = useState(null) // null = criar; senão editar
   const [jogoOk, setJogoOk] = useState(false)
 
   // utilizadores / IDs
@@ -285,24 +298,106 @@ export default function AdminScreen({ onExit }) {
   // ---------- jogos / rodadas ----------
   const jogadoresDoJogo = players.filter((p) => jogou[p.id])
 
+  const limparFormJogo = () => {
+    setEditingId(null)
+    setJogoDate(hojeLocal())
+    setTeam({})
+    setGols({})
+    setAssists({})
+    setTeamAName('Amarelos')
+    setTeamBName('Azuis')
+    setScoreA(0)
+    setScoreB(0)
+    setWinnerPhoto('')
+    setLocationPhoto('')
+    setNotes('')
+    // volta as presenças ao default (último sorteio / todos)
+    setJogou(() => {
+      const next = {}
+      for (const p of players) next[p.id] = true
+      return next
+    })
+  }
+
+  const escolherFoto = (setter) => async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setError('')
+    try {
+      setter(await fileToDataURL(file, 1280, 0.8)) // paisagem, um pouco maior
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const guardarJogo = async () => {
     setError('')
     setJogoOk(false)
-    const lista = jogadoresDoJogo.map((p) => ({
+    const stats = jogadoresDoJogo.map((p) => ({
       player_id: p.id,
+      team: team[p.id] || null,
       goals: gols[p.id] || 0,
       assists: assists[p.id] || 0,
     }))
     if (!jogoDate) return setError('A data do jogo é obrigatória.')
-    // mínimo 3: com menos, a votação de craque/bagre seria impossível
-    if (lista.length < 3) return setError('Marca pelo menos 3 jogadores que jogaram.')
+    if (stats.length < 3) return setError('Marca pelo menos 3 jogadores que jogaram.')
     setBusy(true)
     try {
-      await adminAddMatch(pw, jogoDate, lista)
-      setGols({})
-      setAssists({})
+      await adminSaveMatch(pw, editingId, {
+        playedAt: jogoDate,
+        teamAName,
+        teamBName,
+        scoreA: Number(scoreA) || 0,
+        scoreB: Number(scoreB) || 0,
+        winnerPhoto,
+        locationPhoto,
+        notes,
+        stats,
+      })
       setJogoOk(true)
+      limparFormJogo()
       await refresh()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const editarJogo = async (m) => {
+    setError('')
+    setJogoOk(false)
+    setBusy(true)
+    try {
+      const full = await getMatch(m.id) // traz as fotos
+      const jg = {}, tm = {}, gl = {}, as = {}
+      for (const pl of full.players || []) {
+        jg[pl.player_id] = true
+        if (pl.team) tm[pl.player_id] = pl.team
+        gl[pl.player_id] = pl.goals
+        as[pl.player_id] = pl.assists
+      }
+      // jogadores não incluídos ficam desmarcados
+      setJogou(() => {
+        const next = {}
+        for (const p of players) next[p.id] = !!jg[p.id]
+        return next
+      })
+      setTeam(tm)
+      setGols(gl)
+      setAssists(as)
+      setEditingId(m.id)
+      setJogoDate(full.played_at)
+      setTeamAName(full.team_a_name || 'Amarelos')
+      setTeamBName(full.team_b_name || 'Azuis')
+      setScoreA(Number(full.score_a || 0))
+      setScoreB(Number(full.score_b || 0))
+      setWinnerPhoto(full.winner_photo || '')
+      setLocationPhoto(full.location_photo || '')
+      setNotes(full.notes || '')
+      setTab('jogos')
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -312,6 +407,7 @@ export default function AdminScreen({ onExit }) {
 
   const apagarJogo = (m) => {
     if (!window.confirm(`Apagar a rodada de ${formatDia(m.played_at)}? Leva os gols e os votos junto.`)) return
+    if (editingId === m.id) limparFormJogo()
     acao(() => adminDeleteMatch(pw, m.id))
   }
 
@@ -663,13 +759,26 @@ export default function AdminScreen({ onExit }) {
             </div>
           )}
 
-          {/* registar jogo */}
+          {/* registar / editar jogo */}
           <div style={{ ...styles.panel, marginBottom: 12, padding: 12 }}>
             <div
-              style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 10 }}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}
             >
-              Registar jogo
+              <span style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15 }}>
+                {editingId ? '✎ Editar rodada' : 'Registar jogo'}
+              </span>
+              {editingId && (
+                <button onClick={limparFormJogo} style={linkStyle}>
+                  cancelar edição
+                </button>
+              )}
             </div>
+
             <label style={styles.label}>Data do jogo</label>
             <input
               style={{ ...styles.input, marginBottom: 12 }}
@@ -677,41 +786,108 @@ export default function AdminScreen({ onExit }) {
               value={jogoDate}
               onChange={(e) => setJogoDate(e.target.value)}
             />
+
+            {/* nomes dos times + placar */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end', marginBottom: 12 }}>
+              <div>
+                <label style={{ ...styles.label, color: colors.teamA }}>Time A</label>
+                <input
+                  style={styles.input}
+                  value={teamAName}
+                  onChange={(e) => setTeamAName(e.target.value)}
+                  placeholder="Amarelos"
+                />
+                <input
+                  style={{ ...styles.input, marginTop: 6, textAlign: 'center', fontSize: 22, fontWeight: 700, color: colors.teamA }}
+                  type="number"
+                  min="0"
+                  max="99"
+                  inputMode="numeric"
+                  value={scoreA}
+                  onChange={(e) => setScoreA(e.target.value)}
+                  aria-label="Gols do time A"
+                />
+              </div>
+              <span style={{ fontFamily: fonts.title, fontSize: 22, color: colors.muted, paddingBottom: 10 }}>
+                —
+              </span>
+              <div>
+                <label style={{ ...styles.label, color: colors.teamB }}>Time B</label>
+                <input
+                  style={styles.input}
+                  value={teamBName}
+                  onChange={(e) => setTeamBName(e.target.value)}
+                  placeholder="Azuis"
+                />
+                <input
+                  style={{ ...styles.input, marginTop: 6, textAlign: 'center', fontSize: 22, fontWeight: 700, color: colors.teamB }}
+                  type="number"
+                  min="0"
+                  max="99"
+                  inputMode="numeric"
+                  value={scoreB}
+                  onChange={(e) => setScoreB(e.target.value)}
+                  aria-label="Gols do time B"
+                />
+              </div>
+            </div>
+
             <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 4 }}>
-              Marca quem jogou e regista os gols ⚽ e as assistências 🅰️ de cada um.
+              Marca quem jogou, o time (A/B) e os gols ⚽ e assistências 🅰️ de cada um.
             </p>
             {players.map((p) => (
               <div
                 key={p.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '7px 0',
-                  borderBottom: `1px solid ${colors.line}`,
-                }}
+                style={{ padding: '8px 0', borderBottom: `1px solid ${colors.line}` }}
               >
-                <input
-                  type="checkbox"
-                  checked={!!jogou[p.id]}
-                  onChange={(e) => setJogou({ ...jogou, [p.id]: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: colors.grass }}
-                />
-                <Avatar name={p.name} photo={p.photo_url} size={28} />
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 14,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {p.name}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!jogou[p.id]}
+                    onChange={(e) => setJogou({ ...jogou, [p.id]: e.target.checked })}
+                    style={{ width: 18, height: 18, accentColor: colors.grass }}
+                  />
+                  <Avatar name={p.name} photo={p.photo_url} size={28} />
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 14,
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.name}
+                  </span>
+                  {jogou[p.id] &&
+                    ['A', 'B'].map((t) => {
+                      const on = team[p.id] === t
+                      const cor = t === 'A' ? colors.teamA : colors.teamB
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTeam({ ...team, [p.id]: on ? undefined : t })}
+                          aria-label={`Time ${t}`}
+                          style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 8,
+                            border: `1px solid ${on ? cor : colors.line}`,
+                            background: on ? cor : '#0C1915',
+                            color: on ? '#06130D' : colors.muted,
+                            fontWeight: 700,
+                            fontSize: 13,
+                          }}
+                        >
+                          {t}
+                        </button>
+                      )
+                    })}
+                </div>
                 {jogou[p.id] && (
-                  <>
+                  <div style={{ display: 'flex', gap: 14, marginTop: 8, paddingLeft: 34 }}>
                     <Stepper
                       icon="⚽"
                       value={gols[p.id] || 0}
@@ -722,25 +898,70 @@ export default function AdminScreen({ onExit }) {
                       value={assists[p.id] || 0}
                       onChange={(v) => setAssists({ ...assists, [p.id]: v })}
                     />
-                  </>
+                  </div>
                 )}
               </div>
             ))}
             {players.length === 0 && <p style={styles.mutedText}>Sem jogadores aprovados.</p>}
+
+            {/* fotos */}
+            <div style={{ marginTop: 14 }}>
+              <label style={{ ...styles.label, marginBottom: 6 }}>🏆 Foto do time vencedor</label>
+              {winnerPhoto ? (
+                <div>
+                  <PhotoFrame src={winnerPhoto} alt="Time vencedor" />
+                  <button onClick={() => setWinnerPhoto('')} style={{ ...linkStyle, color: colors.error, marginTop: 6 }}>
+                    remover foto
+                  </button>
+                </div>
+              ) : (
+                <input type="file" accept="image/*" onChange={escolherFoto(setWinnerPhoto)} style={{ color: colors.muted, fontSize: 13 }} />
+              )}
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <label style={{ ...styles.label, marginBottom: 6 }}>📍 Foto do local</label>
+              {locationPhoto ? (
+                <div>
+                  <PhotoFrame src={locationPhoto} alt="Local da pelada" />
+                  <button onClick={() => setLocationPhoto('')} style={{ ...linkStyle, color: colors.error, marginTop: 6 }}>
+                    remover foto
+                  </button>
+                </div>
+              ) : (
+                <input type="file" accept="image/*" onChange={escolherFoto(setLocationPhoto)} style={{ color: colors.muted, fontSize: 13 }} />
+              )}
+            </div>
+
+            {/* observações */}
+            <div style={{ marginTop: 14 }}>
+              <label style={{ ...styles.label, marginBottom: 6 }}>📝 Observações (opcional)</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Algo memorável da partida…"
+                style={{ ...styles.input, resize: 'vertical', minHeight: 64 }}
+              />
+            </div>
+
             <button
               onClick={guardarJogo}
               disabled={busy || jogadoresDoJogo.length < 3}
               style={
                 busy || jogadoresDoJogo.length < 3
-                  ? disabled({ ...styles.button, marginTop: 14 })
-                  : { ...styles.button, marginTop: 14 }
+                  ? disabled({ ...styles.button, marginTop: 16 })
+                  : { ...styles.button, marginTop: 16 }
               }
             >
-              {busy ? 'A guardar…' : `Guardar jogo (${jogadoresDoJogo.length} jogadores)`}
+              {busy
+                ? 'A guardar…'
+                : editingId
+                ? `Guardar alterações (${jogadoresDoJogo.length})`
+                : `Guardar jogo (${jogadoresDoJogo.length} jogadores)`}
             </button>
             {jogoOk && (
               <p style={{ color: colors.grass, fontSize: 13, marginTop: 8 }}>
-                Rodada registada ✓ — a votação de craque/bagre já está aberta para quem jogou.
+                Rodada guardada ✓ — aparece em "Campeões da semana" e no histórico.
               </p>
             )}
           </div>
@@ -760,6 +981,8 @@ export default function AdminScreen({ onExit }) {
             const craque = awardWinners(m.craque)
             const bagre = awardWinners(m.bagre)
             const golsTot = m.players.reduce((s, p) => s + p.goals, 0)
+            const w = matchWinner(m)
+            const temPlacar = Number(m.score_a || 0) + Number(m.score_b || 0) > 0
             return (
               <div key={m.id} style={{ ...styles.panel, padding: 12, marginBottom: 10 }}>
                 <div
@@ -767,22 +990,41 @@ export default function AdminScreen({ onExit }) {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'baseline',
+                    gap: 8,
                   }}
                 >
                   <span style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 14 }}>
                     {formatDia(m.played_at)}
                   </span>
-                  <button
-                    onClick={() => apagarJogo(m)}
-                    disabled={busy}
-                    style={{ ...linkStyle, color: colors.error }}
-                  >
-                    Apagar
-                  </button>
+                  <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
+                    <button onClick={() => editarJogo(m)} disabled={busy} style={{ ...linkStyle, color: colors.teamA }}>
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => apagarJogo(m)}
+                      disabled={busy}
+                      style={{ ...linkStyle, color: colors.error }}
+                    >
+                      Apagar
+                    </button>
+                  </div>
                 </div>
+                {temPlacar && (
+                  <p style={{ fontSize: 14, marginTop: 6, fontWeight: 700 }}>
+                    <span style={{ color: colors.teamA }}>{Number(m.score_a || 0)}</span>
+                    <span style={{ color: colors.muted }}> — </span>
+                    <span style={{ color: colors.teamB }}>{Number(m.score_b || 0)}</span>
+                    <span style={{ color: w.isDraw ? colors.muted : colors.grass, fontWeight: 600, fontSize: 13 }}>
+                      {'  '}
+                      {w.isDraw ? '🤝 Empate' : `🏆 ${w.name}`}
+                    </span>
+                  </p>
+                )}
                 <p style={{ fontSize: 13, color: colors.muted, marginTop: 6 }}>
                   {m.players.length} jogadores · {golsTot} {golsTot === 1 ? 'gol' : 'gols'} ·{' '}
                   {m.votes}/{m.players.length} votaram
+                  {m.has_winner_photo ? ' · 🏆📸' : ''}
+                  {m.has_location_photo ? ' · 📍📸' : ''}
                 </p>
                 {(craque || bagre) && (
                   <p style={{ fontSize: 13, marginTop: 4 }}>

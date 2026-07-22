@@ -14,6 +14,7 @@ const ERROS = {
   DATA: 'A data do jogo é obrigatória.',
   JOGADORES: 'Marca pelo menos 3 jogadores que jogaram.',
   STATS: 'Gols e assistências têm de estar entre 0 e 99.',
+  PLACAR: 'O placar tem de estar entre 0 e 99.',
   VOTOFEITO: 'Já votaste no craque e no bagre desta rodada.',
   NAOJOGOU: 'Só quem jogou esta rodada pode votar.',
   PROPRIO: 'Não podes votar em ti próprio. 😄',
@@ -73,6 +74,12 @@ export const getPublishedDraw = () => rpc('get_published_draw')
 // ---------- Estatísticas / rodadas ----------
 export const getMatches = () => rpc('get_matches')
 
+// rodada mais recente com fotos (destaque "Campeões da semana")
+export const getLatestMatch = () => rpc('get_latest_match')
+
+// uma rodada específica com fotos (ver detalhes)
+export const getMatch = (id) => rpc('get_match', { p_id: id })
+
 export const getPlayerStats = () => rpc('get_player_stats')
 
 export const getMyAwardVotes = (voterId, pin) =>
@@ -108,6 +115,23 @@ export const publishDraw = (pw, teamA, teamB) =>
 
 export const adminAddMatch = (pw, playedAt, stats) =>
   rpc('admin_add_match', { p_pw: pw, p_played_at: playedAt, p_stats: stats })
+
+// Cria (id=null) ou edita uma rodada completa.
+// stats: [{ player_id, team: 'A'|'B'|null, goals, assists }]
+export const adminSaveMatch = (pw, id, m) =>
+  rpc('admin_save_match', {
+    p_pw: pw,
+    p_id: id,
+    p_played_at: m.playedAt,
+    p_team_a_name: m.teamAName,
+    p_team_b_name: m.teamBName,
+    p_score_a: m.scoreA,
+    p_score_b: m.scoreB,
+    p_winner_photo: m.winnerPhoto || null,
+    p_location_photo: m.locationPhoto || null,
+    p_notes: m.notes || null,
+    p_stats: m.stats,
+  })
 
 export const adminDeleteMatch = (pw, id) =>
   rpc('admin_delete_match', { p_pw: pw, p_id: id })
