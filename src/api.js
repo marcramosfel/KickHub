@@ -19,6 +19,9 @@ const ERROS = {
   PROPRIO: 'Não podes votar em ti próprio. 😄',
   IGUAL: 'O craque e o bagre não podem ser o mesmo jogador.',
   INVALIDO: 'O craque e o bagre têm de ter jogado esta rodada.',
+  AMBIGUO: 'Encontrámos mais de um jogador com esse nome. Entra com o teu ID de utilizador.',
+  IDVAZIO: 'Esse ID fica vazio depois de limpo — usa letras ou números.',
+  IDEXISTE: 'Esse ID já está a ser usado por outro jogador.',
 }
 
 export class ApiError extends Error {
@@ -44,10 +47,12 @@ async function rpc(fn, args) {
 }
 
 // ---------- Jogador ----------
+// register devolve o user_id único gerado pelo servidor.
 export const register = (name, dob, photo, pin) =>
   rpc('register', { p_name: name, p_dob: dob, p_photo: photo, p_pin: pin })
 
-export const login = (name, pin) => rpc('login', { p_name: name, p_pin: pin })
+// nomeOuId: aceita o nome OU o user_id único.
+export const login = (nomeOuId, pin) => rpc('login', { p_name: nomeOuId, p_pin: pin })
 
 export const getPlayers = () => rpc('get_players')
 
@@ -88,6 +93,15 @@ export const adminPending = (pw) => rpc('admin_pending', { p_pw: pw })
 export const adminApprove = (pw, id) => rpc('admin_approve', { p_pw: pw, p_id: id })
 
 export const adminReject = (pw, id) => rpc('admin_reject', { p_pw: pw, p_id: id })
+
+// ---------- Admin: gestão de IDs de utilizador ----------
+export const adminUsers = (pw) => rpc('admin_users', { p_pw: pw })
+
+export const adminRegenUserId = (pw, id) =>
+  rpc('admin_regen_user_id', { p_pw: pw, p_id: id })
+
+export const adminSetUserId = (pw, id, newId) =>
+  rpc('admin_set_user_id', { p_pw: pw, p_id: id, p_new: newId })
 
 export const publishDraw = (pw, teamA, teamB) =>
   rpc('publish_draw', { p_pw: pw, p_a: teamA, p_b: teamB })

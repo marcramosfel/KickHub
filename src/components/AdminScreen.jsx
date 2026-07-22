@@ -7,6 +7,9 @@ import {
   adminReject,
   adminResetRatings,
   adminResetRatingsFor,
+  adminUsers,
+  adminRegenUserId,
+  adminSetUserId,
   getMatches,
   getPlayers,
   getPublishedDraw,
@@ -93,6 +96,12 @@ export default function AdminScreen({ onExit }) {
   const [assists, setAssists] = useState({}) // { [id]: int }
   const [jogoOk, setJogoOk] = useState(false)
 
+  // utilizadores / IDs
+  const [users, setUsers] = useState([])
+  const [usersErr, setUsersErr] = useState('')
+  const [copiedId, setCopiedId] = useState(null) // user_id copiado (feedback)
+  const [copiedList, setCopiedList] = useState(false)
+
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -122,6 +131,13 @@ export default function AdminScreen({ onExit }) {
         setMatchesErr('')
       })
       .catch((err) => setMatchesErr(err.message))
+    // utilizadores/IDs (não-fatal: sem a migração 0008 esta aba mostra o aviso)
+    adminUsers(senha)
+      .then((u) => {
+        setUsers(u || [])
+        setUsersErr('')
+      })
+      .catch((err) => setUsersErr(err.message))
   }
 
   // presenças do jogo a registar: por defeito, quem estava no último sorteio publicado
@@ -183,6 +199,45 @@ export default function AdminScreen({ onExit }) {
     )
       return
     acao(() => adminResetRatings(pw))
+  }
+
+  // ---------- utilizadores / IDs ----------
+  const copiarTexto = async (texto, onOk) => {
+    try {
+      await navigator.clipboard.writeText(texto)
+      onOk?.()
+    } catch {
+      window.prompt('Copia manualmente:', texto)
+    }
+  }
+  const copiarId = (u) =>
+    copiarTexto(u.user_id, () => {
+      setCopiedId(u.user_id)
+      setTimeout(() => setCopiedId(null), 1600)
+    })
+  const copiarLista = () =>
+    copiarTexto(users.map((u) => `${u.name} — ${u.user_id}`).join('\n'), () => {
+      setCopiedList(true)
+      setTimeout(() => setCopiedList(false), 1800)
+    })
+  const regenerarId = (u) => {
+    if (
+      !window.confirm(
+        `Regenerar o ID de ${u.name}? O ID atual (${u.user_id}) deixa de servir para o login.`
+      )
+    )
+      return
+    acao(() => adminRegenUserId(pw, u.id))
+  }
+  const editarId = (u) => {
+    const novo = window.prompt(
+      `Novo ID para ${u.name} (letras e números; será normalizado):`,
+      u.user_id
+    )
+    if (novo == null) return
+    if (!window.confirm(`Mudar o ID de ${u.name} para "${novo}"? Passará a entrar com o novo ID.`))
+      return
+    acao(() => adminSetUserId(pw, u.id, novo))
   }
 
   // ---------- sorteio ----------
@@ -364,6 +419,7 @@ export default function AdminScreen({ onExit }) {
         {tabBtn('plantel', 'Plantel', 0)}
         {tabBtn('sorteio', 'Sorteio', 0)}
         {tabBtn('jogos', 'Jogos', 0)}
+        {tabBtn('utilizadores', 'IDs', 0)}
       </div>
 
       {error && <p style={{ ...styles.errorText, marginBottom: 12 }}>{error}</p>}
@@ -737,6 +793,160 @@ export default function AdminScreen({ onExit }) {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ---------- UTILIZADORES / IDs ---------- */}
+      {tab === 'utilizadores' && (
+        <div>
+          {usersErr && (
+            <div style={{ ...styles.panel, marginBottom: 12 }}>
+              <p style={{ ...styles.mutedText, fontSize: 13 }}>
+                ⚠️ Não consegui carregar os utilizadores ({usersErr}). Se ainda não aplicaste a
+                migração <strong>0008_user_ids.sql</strong> no Supabase, é isso que falta.
+              </p>
+            </div>
+          )}
+
+          {!usersErr && (
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 10,
+                  gap: 10,
+                }}
+              >
+                <span style={{ ...styles.mutedText, fontSize: 13 }}>
+                  {users.length} {users.length === 1 ? 'utilizador' : 'utilizadores'}
+                </span>
+                <button
+                  onClick={copiarLista}
+                  disabled={!users.length}
+                  style={{
+                    ...styles.buttonGhost,
+                    width: 'auto',
+                    padding: '9px 14px',
+                    fontSize: 13,
+                    color: copiedList ? colors.grass : colors.text,
+                    borderColor: copiedList ? colors.grass : colors.line,
+                  }}
+                >
+                  {copiedList ? 'Lista copiada ✓' : '📋 Copiar lista (nome — ID)'}
+                </button>
+              </div>
+
+              {users.length === 0 && (
+                <div style={{ ...styles.panel, textAlign: 'center', padding: 22 }}>
+                  <p style={styles.mutedText}>Ainda não há utilizadores.</p>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {users.map((u) => (
+                  <div key={u.id} style={{ ...styles.panel, padding: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <span style={{ fontSize: 15, fontWeight: 600 }}>{u.name}</span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              background: u.approved
+                                ? 'rgba(52,208,88,0.12)'
+                                : 'rgba(255,197,49,0.12)',
+                              color: u.approved ? colors.grass : colors.teamA,
+                            }}
+                          >
+                            {u.approved ? 'aprovado' : 'pendente'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                          registado a {formatDia(u.created_at)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ID + copiar */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginTop: 10,
+                        background: '#0C1915',
+                        border: `1px solid ${colors.line}`,
+                        borderRadius: 10,
+                        padding: '7px 10px',
+                      }}
+                    >
+                      <code
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: colors.grass,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {u.user_id}
+                      </code>
+                      <button
+                        onClick={() => copiarId(u)}
+                        aria-label={`Copiar ID de ${u.name}`}
+                        style={{
+                          ...linkStyle,
+                          color: copiedId === u.user_id ? colors.grass : colors.text,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {copiedId === u.user_id ? 'Copiado ✓' : 'Copiar'}
+                      </button>
+                    </div>
+
+                    {/* ações */}
+                    <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
+                      <button
+                        onClick={() => editarId(u)}
+                        disabled={busy}
+                        style={{ ...linkStyle, color: colors.teamA }}
+                      >
+                        ✎ Editar ID
+                      </button>
+                      <button
+                        onClick={() => regenerarId(u)}
+                        disabled={busy}
+                        style={linkStyle}
+                      >
+                        ↻ Regenerar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 12 }}>
+                O ID serve para o jogador entrar (além do nome). Editar/regenerar muda como ele
+                faz login — usa só quando preciso.
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

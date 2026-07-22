@@ -60,17 +60,29 @@ export default function LoginScreen({ onLogin, onAdmin }) {
 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [newUserId, setNewUserId] = useState('') // ID gerado no registo
+  const [copied, setCopied] = useState(false)
 
   const switchMode = (m) => {
     setMode(m)
     setError('')
   }
 
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(newUserId)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* clipboard indisponível — o ID fica visível na mesma */
+    }
+  }
+
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
     if (!name.trim() || !/^\d{4}$/.test(pin)) {
-      setError('Preenche o nome e o PIN de 4 dígitos.')
+      setError('Preenche o nome (ou ID) e o PIN de 4 dígitos.')
       return
     }
     setBusy(true)
@@ -105,7 +117,8 @@ export default function LoginScreen({ onLogin, onAdmin }) {
     if (!/^\d{4}$/.test(regPin)) return setError('O PIN tem de ter exatamente 4 dígitos.')
     setBusy(true)
     try {
-      await register(regName.trim(), regDob, photo, regPin)
+      const uid = await register(regName.trim(), regDob, photo, regPin)
+      setNewUserId(uid || '')
       setMode('sent')
     } catch (err) {
       setError(err.message)
@@ -122,9 +135,57 @@ export default function LoginScreen({ onLogin, onAdmin }) {
           <div style={{ fontSize: 40, marginBottom: 12 }}>📨</div>
           <h2 style={{ ...styles.title, fontSize: 20, marginBottom: 10 }}>Registo enviado</h2>
           <p style={styles.mutedText}>
-            Aguarda a aprovação do admin. Depois de aprovado, já podes entrar com o teu nome e
-            PIN.
+            Aguarda a aprovação do admin. Depois de aprovado, entras com o teu nome ou com o teu
+            ID e o PIN.
           </p>
+
+          {newUserId && (
+            <div
+              style={{
+                marginTop: 18,
+                padding: 14,
+                borderRadius: 12,
+                background: '#0C1915',
+                border: `1px solid ${colors.line}`,
+              }}
+            >
+              <div style={{ ...styles.label, marginBottom: 8 }}>O teu ID de entrada</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+                <code
+                  style={{
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: colors.grass,
+                    letterSpacing: 0.5,
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {newUserId}
+                </code>
+                <button
+                  type="button"
+                  onClick={copyId}
+                  aria-label="Copiar ID"
+                  style={{
+                    ...styles.buttonGhost,
+                    width: 'auto',
+                    padding: '8px 12px',
+                    fontSize: 13,
+                    color: copied ? colors.grass : colors.text,
+                    borderColor: copied ? colors.grass : colors.line,
+                    flexShrink: 0,
+                  }}
+                >
+                  {copied ? 'Copiado ✓' : 'Copiar'}
+                </button>
+              </div>
+              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
+                Guarda-o: serve para entrar mesmo que alguém tenha um nome parecido.
+              </p>
+            </div>
+          )}
+
           <button
             style={{ ...styles.buttonGhost, marginTop: 20 }}
             onClick={() => switchMode('login')}
@@ -144,14 +205,17 @@ export default function LoginScreen({ onLogin, onAdmin }) {
       {mode === 'login' && (
         <form onSubmit={handleLogin} style={styles.panel}>
           <div style={{ marginBottom: 14 }}>
-            <label style={styles.label}>Nome</label>
+            <label style={styles.label}>Nome ou ID de utilizador</label>
             <input
               style={styles.input}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="O teu nome na pelada"
+              placeholder="O teu nome ou o teu ID"
               autoComplete="off"
             />
+            <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 6 }}>
+              Podes usar o teu nome ou o ID único (ex.: <code>marcosfelipe</code>).
+            </p>
           </div>
           <div style={{ marginBottom: 18 }}>
             <label style={styles.label}>PIN (4 dígitos)</label>

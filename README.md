@@ -45,6 +45,7 @@ O schema está em `supabase/migrations/`, por ordem:
 - [`0005_avaliacoes_incrementais.sql`](supabase/migrations/0005_avaliacoes_incrementais.sql) — avaliação passa a ser por lacunas (novos jogadores são avaliados pelos veteranos); admin pode reiniciar avaliações de todos ou de um jogador.
 - [`0006_fix_pending_ratings.sql`](supabase/migrations/0006_fix_pending_ratings.sql) — corrige `get_pending_ratings` (coluna `id` ambígua na 0005). **Aplicar se já aplicaste a 0005.**
 - [`0007_fix_reset_all.sql`](supabase/migrations/0007_fix_reset_all.sql) — corrige "reiniciar avaliações de todos" (`DELETE` sem `WHERE` era bloqueado pelo Supabase). **Aplicar se já aplicaste a 0005.**
+- [`0008_user_ids.sql`](supabase/migrations/0008_user_ids.sql) — `user_id` único por jogador (gerado do nome, com deduplicação), backfill dos existentes, login por **Nome ou ID**, e RPCs de gestão de IDs no admin.
 
 Duas formas de aplicar:
 
@@ -55,7 +56,7 @@ supabase link --project-ref gfowkkchpqoirubumnau
 supabase db push
 ```
 
-**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007) → *Run*.
+**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008) → *Run*.
 
 A migração cria as tabelas (`players`, `ratings`, `draws`, `app_config`), ativa RLS sem políticas (tabelas fechadas) e cria as funções RPC que a app usa.
 
