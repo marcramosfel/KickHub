@@ -1,6 +1,79 @@
 import Avatar from './Avatar'
 import { assisters, matchWinner, scorers, teamPlayers } from '../lib/format'
+import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import { colors, fonts, styles } from '../theme'
+
+// Prémio da rodada (craque/bagre): GIF grande (rosto todo, sem cortar) +
+// foto real do jogador votado ao lado + nº de votos.
+export function AwardCard({ tipo, list, players }) {
+  if (!list || !list.length) return null
+  const top = list[0].votes
+  const winners = list.filter((x) => x.votes === top) // trata empates no topo
+  const craque = tipo === 'craque'
+  const cor = craque ? colors.teamA : colors.teamB
+  const label = craque ? '👑 Craque da rodada' : '🐟 Bagre da rodada'
+  const gif = craque ? GIF_CRAQUE : GIF_BAGRE
+  const photoOf = (pid) => (players || []).find((p) => p.player_id === pid)?.photo
+  return (
+    <div
+      style={{
+        border: `1px solid ${cor}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+        background: '#0C1915',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: fonts.title,
+          fontSize: 13,
+          letterSpacing: 1,
+          color: cor,
+          padding: '10px 12px 0',
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12 }}>
+        <img
+          src={gif}
+          alt={label}
+          style={{
+            width: 132,
+            height: 132,
+            objectFit: 'contain', // mostra o GIF inteiro (rosto todo do Ronaldinho)
+            borderRadius: 10,
+            background: '#06130D',
+            flexShrink: 0,
+          }}
+        />
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+          {winners.map((w) => (
+            <div key={w.player_id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Avatar name={w.name} photo={photoOf(w.player_id)} size={46} />
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {w.name}
+                </div>
+                <div style={{ fontSize: 13, color: cor, fontWeight: 600 }}>
+                  {w.votes} {w.votes === 1 ? 'voto' : 'votos'}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // Foto em proporção 16:9 (ou empty state quando não há).
 export function PhotoFrame({ src, alt, empty = 'Sem foto', height }) {
@@ -186,6 +259,14 @@ export function RoundBody({ m, full = false }) {
       {full && <PhotoFrame src={m.winner_photo} alt="Time vencedor" empty="Sem foto do time vencedor" />}
 
       <ScoreBoard m={m} />
+
+      {/* prémios da rodada — ao lado dos campeões, logo no destaque */}
+      {((m.craque && m.craque.length) || (m.bagre && m.bagre.length)) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <AwardCard tipo="craque" list={m.craque} players={m.players} />
+          <AwardCard tipo="bagre" list={m.bagre} players={m.players} />
+        </div>
+      )}
 
       {temTimes && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

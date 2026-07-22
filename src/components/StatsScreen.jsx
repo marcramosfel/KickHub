@@ -1,46 +1,12 @@
 import { useEffect, useState } from 'react'
 import { getMatches, getMyAwardVotes, getPlayerStats, voteAward } from '../api'
 import { assisters as getAssisters, awardWinners, formatDia, matchWinner, scorers as getScorers } from '../lib/format'
-import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import Avatar from './Avatar'
 import RoundDetail from './RoundDetail'
 import { ErrorBox, SkeletonCard } from './Ui'
 import { colors, fonts, styles, disabled } from '../theme'
 
 const MEDALS = ['🥇', '🥈', '🥉']
-
-// Cartão do vencedor com GIF — só na rodada mais recente, para a página não pesar
-function WinnerGif({ tipo, winner }) {
-  if (!winner) return null
-  const craque = tipo === 'craque'
-  const cor = craque ? colors.teamA : colors.teamB
-  const rotulo = craque ? '👑 Craque da rodada' : '🐟 Bagre da rodada'
-  return (
-    <div
-      style={{
-        border: `1px solid ${cor}`,
-        borderRadius: 12,
-        overflow: 'hidden',
-        background: '#0C1915',
-      }}
-    >
-      <img
-        src={craque ? GIF_CRAQUE : GIF_BAGRE}
-        alt={rotulo}
-        style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }}
-      />
-      <div style={{ padding: '8px 10px' }}>
-        <div style={{ fontFamily: fonts.title, fontSize: 12, letterSpacing: 1, color: cor }}>
-          {rotulo}
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{winner.names}</div>
-        <div style={{ fontSize: 12, color: colors.muted }}>
-          {winner.votes} {winner.votes === 1 ? 'voto' : 'votos'}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // Cartão de votação de craque + bagre numa rodada pendente
 function VoteCard({ match, session, onVoted }) {
@@ -142,7 +108,7 @@ function VoteCard({ match, session, onVoted }) {
 
 // Card de uma rodada no histórico: placar, vencedor, marcadores/assistentes,
 // craque/bagre e "Ver detalhes" (que abre a rodada com fotos).
-function MatchPanel({ match, destaque, onDetail }) {
+function MatchPanel({ match, onDetail }) {
   const scorers = getScorers(match)
   const assisters = getAssisters(match)
   const craque = awardWinners(match.craque)
@@ -220,27 +186,20 @@ function MatchPanel({ match, destaque, onDetail }) {
       </p>
 
       {match.votes > 0 ? (
-        destaque ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
-            <WinnerGif tipo="craque" winner={craque} />
-            <WinnerGif tipo="bagre" winner={bagre} />
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
-            {craque && (
-              <span style={{ color: colors.teamA }}>
-                👑 {craque.names} <span style={{ color: colors.muted }}>({craque.votes}{' '}
-                {craque.votes === 1 ? 'voto' : 'votos'})</span>
-              </span>
-            )}
-            {bagre && (
-              <span style={{ color: colors.teamB }}>
-                🐟 {bagre.names} <span style={{ color: colors.muted }}>({bagre.votes}{' '}
-                {bagre.votes === 1 ? 'voto' : 'votos'})</span>
-              </span>
-            )}
-          </div>
-        )
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
+          {craque && (
+            <span style={{ color: colors.teamA }}>
+              👑 {craque.names} <span style={{ color: colors.muted }}>({craque.votes}{' '}
+              {craque.votes === 1 ? 'voto' : 'votos'})</span>
+            </span>
+          )}
+          {bagre && (
+            <span style={{ color: colors.teamB }}>
+              🐟 {bagre.names} <span style={{ color: colors.muted }}>({bagre.votes}{' '}
+              {bagre.votes === 1 ? 'voto' : 'votos'})</span>
+            </span>
+          )}
+        </div>
       ) : (
         <p style={{ ...styles.mutedText, fontSize: 13 }}>Ainda sem votos de craque/bagre.</p>
       )}
@@ -466,12 +425,7 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
           {matches
             .filter((m) => !pendentes.some((p) => p.id === m.id))
             .map((m) => (
-              <MatchPanel
-                key={m.id}
-                match={m}
-                destaque={m.id === matches[0]?.id}
-                onDetail={setDetailId}
-              />
+              <MatchPanel key={m.id} match={m} onDetail={setDetailId} />
             ))}
         </div>
       )}
