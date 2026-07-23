@@ -4,12 +4,20 @@ import RateScreen from './components/RateScreen'
 import HomeScreen from './components/HomeScreen'
 import AdminScreen from './components/AdminScreen'
 import StatsScreen from './components/StatsScreen'
+import PlayerProfile from './components/PlayerProfile'
 
 export default function App() {
   // Sessão do jogador: { id, name, is_admin, voted, pin } — só em memória.
   const [session, setSession] = useState(null)
-  const [view, setView] = useState('auth') // auth | rate | home | admin | stats
+  const [view, setView] = useState('auth') // auth | rate | home | admin | stats | profile
   const [statsTab, setStatsTab] = useState('geral')
+  const [profile, setProfile] = useState(null) // { id, from, totalRodadas }
+
+  // abre o perfil de um jogador, lembrando de onde veio
+  const abrirPerfil = (from) => (id, totalRodadas = 0) => {
+    setProfile({ id, from, totalRodadas })
+    setView('profile')
+  }
 
   const handleLogin = (s) => {
     setSession(s)
@@ -42,12 +50,23 @@ export default function App() {
     )
   }
 
+  if (view === 'profile' && profile) {
+    return (
+      <PlayerProfile
+        playerId={profile.id}
+        totalRodadas={profile.totalRodadas}
+        onBack={() => setView(profile.from)}
+      />
+    )
+  }
+
   if (view === 'stats') {
     return (
       <StatsScreen
         session={session}
         initialTab={statsTab}
         onBack={() => setView('home')}
+        onProfile={abrirPerfil('stats')}
       />
     )
   }
@@ -62,6 +81,7 @@ export default function App() {
         setStatsTab(tab || 'geral')
         setView('stats')
       }}
+      onProfile={abrirPerfil('home')}
     />
   )
 }

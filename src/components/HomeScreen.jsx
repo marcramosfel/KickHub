@@ -31,10 +31,11 @@ function formatDate(iso) {
   }
 }
 
-export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats }) {
+export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats, onProfile }) {
   const [players, setPlayers] = useState(null)
   const [draw, setDraw] = useState(null)
   const [latestMatch, setLatestMatch] = useState(undefined) // undefined = a carregar, null = sem rodadas
+  const [totalRodadas, setTotalRodadas] = useState(0)
   const [pendingVotes, setPendingVotes] = useState(0)
   const [pendingRatings, setPendingRatings] = useState(null) // null = RPC indisponível
   const [error, setError] = useState('')
@@ -58,6 +59,7 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
         setDraw(d)
         setPendingRatings(pr)
         setLatestMatch(lm)
+        setTotalRodadas((ms || []).length)
         const votados = mv || []
         setPendingVotes(
           (ms || []).filter(
@@ -305,6 +307,11 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
         {players.map((p, i) => (
           <div
             key={p.id}
+            onClick={() => onProfile?.(p.id, totalRodadas)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onProfile?.(p.id, totalRodadas)}
+            title={`Ver perfil de ${p.name}`}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -313,6 +320,7 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
               borderBottom: i < players.length - 1 ? `1px solid ${colors.line}` : 'none',
               background: p.id === session.id ? 'rgba(52,208,88,0.06)' : 'transparent',
               borderRadius: 8,
+              cursor: 'pointer',
             }}
           >
             <span

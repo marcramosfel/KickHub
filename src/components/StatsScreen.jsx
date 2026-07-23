@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getMatches, getMyAwardVotes, getPlayerStats, voteAward } from '../api'
 import { assisters as getAssisters, awardWinners, formatDia, matchWinner, scorers as getScorers } from '../lib/format'
+import { liderancas } from '../lib/trophies'
 import Avatar from './Avatar'
 import RoundDetail from './RoundDetail'
 import { ErrorBox, SkeletonCard } from './Ui'
@@ -214,7 +215,7 @@ function MatchPanel({ match, onDetail }) {
   )
 }
 
-export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
+export default function StatsScreen({ session, onBack, initialTab = 'geral', onProfile }) {
   const [tab, setTab] = useState(initialTab) // geral | rodadas
   const [stats, setStats] = useState(null)
   const [matches, setMatches] = useState(null)
@@ -358,6 +359,11 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
               {stats.map((p, i) => (
                 <div
                   key={p.id}
+                  onClick={() => onProfile?.(p.id, matches.length)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && onProfile?.(p.id, matches.length)}
+                  title={`Ver perfil de ${p.name}`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -367,6 +373,7 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
                     background:
                       p.id === session.id ? 'rgba(52,208,88,0.06)' : 'transparent',
                     borderRadius: 8,
+                    cursor: 'pointer',
                   }}
                 >
                   <span
@@ -405,6 +412,68 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral' }) {
           <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
             J = jogos · ⚽ gols · 🅰️ assistências · 👑 craque da rodada · 🐟 bagre da rodada
           </p>
+
+          {/* quadro de troféus do grupo */}
+          {(() => {
+            const l = liderancas(stats)
+            const linhas = [
+              ['⚽', 'Artilheiro', l.artilheiro, 'gols'],
+              ['🅰️', 'Rei das assistências', l.garcom, 'assist.'],
+              ['👑', 'Mais craques', l.craque, '×'],
+              ['🐟', 'Mais bagres', l.bagre, '×'],
+            ].filter(([, , v]) => v)
+            if (!linhas.length) return null
+            return (
+              <>
+                <div
+                  style={{
+                    fontFamily: fonts.title,
+                    letterSpacing: 1,
+                    fontSize: 15,
+                    margin: '22px 0 8px',
+                  }}
+                >
+                  🏆 Troféus do grupo
+                </div>
+                <div style={{ ...styles.panel, padding: 10 }}>
+                  {linhas.map(([icon, titulo, dados, unidade], i) => (
+                    <div
+                      key={titulo}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 4px',
+                        borderBottom: i < linhas.length - 1 ? `1px solid ${colors.line}` : 'none',
+                      }}
+                    >
+                      <span style={{ fontSize: 20 }} aria-hidden>
+                        {icon}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: colors.muted }}>{titulo}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>
+                          {dados.jogadores.map((j) => j.name).join(' e ')}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontFamily: fonts.title,
+                          fontSize: 18,
+                          fontWeight: 700,
+                          color: colors.grass,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {dados.valor}
+                        <span style={{ fontSize: 11, color: colors.muted }}> {unidade}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
+          })()}
         </div>
       )}
 

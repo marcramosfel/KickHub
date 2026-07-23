@@ -82,6 +82,9 @@ export const getMatch = (id) => rpc('get_match', { p_id: id })
 
 export const getPlayerStats = () => rpc('get_player_stats')
 
+// Perfil completo de um jogador (médias, totais e histórico rodada a rodada)
+export const getPlayerProfile = (id) => rpc('get_player_profile', { p_id: id })
+
 export const getMyAwardVotes = (voterId, pin) =>
   rpc('get_my_award_votes', { p_voter: voterId, p_pin: pin })
 
@@ -103,6 +106,10 @@ export const adminReject = (pw, id) => rpc('admin_reject', { p_pw: pw, p_id: id 
 
 // Quem ainda não votou (craque/bagre da última rodada) e quem tem notas por dar
 export const adminPendingVotes = (pw) => rpc('admin_pending_votes', { p_pw: pw })
+
+// Snapshot dos dados para backup (comFotos = true fica bem maior)
+export const adminExport = (pw, comFotos = false) =>
+  rpc('admin_export', { p_pw: pw, p_photos: comFotos })
 
 // ---------- Admin: gestão de IDs de utilizador ----------
 export const adminUsers = (pw) => rpc('admin_users', { p_pw: pw })

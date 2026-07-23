@@ -5,6 +5,7 @@ import {
   adminPending,
   adminApprove,
   adminReject,
+  adminExport,
   adminPendingVotes,
   adminResetRatings,
   adminResetRatingsFor,
@@ -246,6 +247,28 @@ export default function AdminScreen({ onExit }) {
       setCopiedList(true)
       setTimeout(() => setCopiedList(false), 1800)
     })
+  // descarrega um snapshot dos dados em JSON (backup)
+  const exportarDados = async (comFotos) => {
+    setError('')
+    setBusy(true)
+    try {
+      const dump = await adminExport(pw, comFotos)
+      const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `pelada-browns-backup-${hojeLocal()}${comFotos ? '-com-fotos' : ''}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // copia uma lista de "quem falta" pronta a colar no grupo
   const copiarFaltas = (lista, chave) =>
     copiarTexto(lista.map((u) => `${u.name} — ${u.user_id}`).join('\n'), () => {
@@ -1375,6 +1398,37 @@ export default function AdminScreen({ onExit }) {
               </p>
             </>
           )}
+
+          {/* backup / exportação */}
+          <div style={{ ...styles.panel, padding: 12, marginTop: 18 }}>
+            <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 6 }}>
+              💾 Backup dos dados
+            </div>
+            <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+              Descarrega um ficheiro JSON com jogadores, avaliações, rodadas e votos. Guarda-o de
+              vez em quando — é a tua rede de segurança.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => exportarDados(false)}
+                disabled={busy}
+                style={{ ...styles.buttonGhost, fontSize: 13 }}
+              >
+                ⬇️ Exportar (leve)
+              </button>
+              <button
+                onClick={() => exportarDados(true)}
+                disabled={busy}
+                style={{ ...styles.buttonGhost, fontSize: 13 }}
+              >
+                🖼️ Com fotos
+              </button>
+            </div>
+            <p style={{ ...styles.mutedText, fontSize: 11, marginTop: 8 }}>
+              O "leve" não inclui fotos (ficheiro pequeno). Por segurança, os PINs nunca são
+              exportados.
+            </p>
+          </div>
         </div>
       )}
     </div>
