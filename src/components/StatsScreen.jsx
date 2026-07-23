@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
-import { getMatches, getMyAwardVotes, getPlayerStats, voteAward } from '../api'
-import { assisters as getAssisters, awardWinners, formatDia, matchWinner, scorers as getScorers } from '../lib/format'
+import { getMatches, getMyAwardVotes, getPlayerStats, getPlayerStatsRange, voteAward } from '../api'
+import {
+  assisters as getAssisters,
+  awardWinners,
+  formatDia,
+  intervaloDe,
+  matchWinner,
+  PERIODOS,
+  scorers as getScorers,
+} from '../lib/format'
 import { liderancas } from '../lib/trophies'
 import Avatar from './Avatar'
 import RoundDetail from './RoundDetail'
@@ -221,12 +229,25 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
   const [matches, setMatches] = useState(null)
   const [myVotes, setMyVotes] = useState([])
   const [detailId, setDetailId] = useState(null) // rodada aberta em detalhe
+  const [periodo, setPeriodo] = useState('sempre')
   const [error, setError] = useState('')
 
+  // totais do período escolhido (cai para o get_player_stats se a 0013
+  // ainda não estiver aplicada)
+  const carregarStats = (p) => {
+    const { de, ate } = intervaloDe(p)
+    return getPlayerStatsRange(de, ate)
+      .catch(() => getPlayerStats())
+      .then((s) => setStats(s || []))
+  }
+
   const load = () =>
-    Promise.all([getPlayerStats(), getMatches(), getMyAwardVotes(session.id, session.pin)])
-      .then(([s, m, v]) => {
-        setStats(s || [])
+    Promise.all([
+      carregarStats(periodo),
+      getMatches(),
+      getMyAwardVotes(session.id, session.pin),
+    ])
+      .then(([, m, v]) => {
         setMatches(m || [])
         setMyVotes(v || [])
         setError('')
@@ -236,6 +257,11 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
   useEffect(() => {
     load()
   }, [])
+
+  // ao trocar de período, recarrega só os totais
+  useEffect(() => {
+    if (stats !== null) carregarStats(periodo).catch(() => {})
+  }, [periodo])
 
   // detalhe de uma rodada (com fotos) sobrepõe-se ao resto
   if (detailId) {
@@ -330,6 +356,40 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
       {/* ---------- GERAL ---------- */}
       {tab === 'geral' && (
         <div>
+          {/* período / temporada */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              marginBottom: 12,
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {PERIODOS.map((p) => {
+              const on = periodo === p.id
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriodo(p.id)}
+                  style={{
+                    flexShrink: 0,
+                    padding: '7px 14px',
+                    borderRadius: 999,
+                    border: `1px solid ${on ? colors.grass : colors.line}`,
+                    background: on ? 'rgba(52,208,88,0.14)' : '#0C1915',
+                    color: on ? colors.grass : colors.muted,
+                    fontSize: 13,
+                    fontWeight: on ? 700 : 500,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {p.label}
+                </button>
+              )
+            })}
+          </div>
+
           {stats.length === 0 ? (
             <div style={{ ...styles.panel, textAlign: 'center', padding: 22 }}>
               <p style={styles.mutedText}>Ainda não há jogadores aprovados.</p>

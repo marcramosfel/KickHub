@@ -34,6 +34,33 @@ export function awardWinners(list) {
   }
 }
 
+// Períodos para os rankings ("temporadas").
+export const PERIODOS = [
+  { id: 'sempre', label: 'Sempre' },
+  { id: 'ano', label: 'Este ano' },
+  { id: '3meses', label: '3 meses' },
+  { id: '30dias', label: '30 dias' },
+]
+
+// Converte um período no intervalo de datas (local, não UTC).
+export function intervaloDe(periodo) {
+  const iso = (x) =>
+    `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+  const hoje = new Date()
+  if (periodo === 'ano') return { de: `${hoje.getFullYear()}-01-01`, ate: null }
+  if (periodo === '3meses') {
+    const x = new Date(hoje)
+    x.setMonth(x.getMonth() - 3)
+    return { de: iso(x), ate: null }
+  }
+  if (periodo === '30dias') {
+    const x = new Date(hoje)
+    x.setDate(x.getDate() - 30)
+    return { de: iso(x), ate: null }
+  }
+  return { de: null, ate: null } // sempre
+}
+
 // Quem venceu a rodada, a partir do placar.
 export function matchWinner(m) {
   const a = Number(m.score_a || 0)

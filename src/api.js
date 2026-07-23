@@ -85,6 +85,13 @@ export const getPlayerStats = () => rpc('get_player_stats')
 // Perfil completo de um jogador (médias, totais e histórico rodada a rodada)
 export const getPlayerProfile = (id) => rpc('get_player_profile', { p_id: id })
 
+// Totais filtrados por período (null/null = desde sempre)
+export const getPlayerStatsRange = (de, ate) =>
+  rpc('get_player_stats_range', { p_from: de, p_to: ate })
+
+// Com quem ganha mais (mesmo time) e contra quem se dá melhor
+export const getPlayerChemistry = (id) => rpc('get_player_chemistry', { p_id: id })
+
 export const getMyAwardVotes = (voterId, pin) =>
   rpc('get_my_award_votes', { p_voter: voterId, p_pin: pin })
 

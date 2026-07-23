@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getPlayerProfile } from '../api'
+import { getPlayerChemistry, getPlayerProfile } from '../api'
 import { formatDia } from '../lib/format'
+import Avatar from './Avatar'
 import { descarregarCard, overallDe, partilharCard, renderPlayerCard } from '../lib/card'
 import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '../lib/trophies'
 import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
@@ -35,17 +36,48 @@ function StatBox({ label, valor, cor }) {
   )
 }
 
+// Linha de "química": avatar, nome e a percentagem de vitórias.
+function QuimicaRow({ x, cor }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
+      <Avatar name={x.name} photo={x.photo} size={32} />
+      <span style={{ flex: 1, fontSize: 14, minWidth: 0 }}>{x.name}</span>
+      <span style={{ fontSize: 12, color: colors.muted, flexShrink: 0 }}>
+        {x.vitorias}/{x.jogos}
+      </span>
+      <span
+        style={{
+          fontFamily: fonts.title,
+          fontSize: 17,
+          fontWeight: 700,
+          color: cor,
+          width: 52,
+          textAlign: 'right',
+          flexShrink: 0,
+        }}
+      >
+        {x.pct}%
+      </span>
+    </div>
+  )
+}
+
 export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
   const [p, setP] = useState(null)
   const [error, setError] = useState('')
   const [cardUrl, setCardUrl] = useState('')
   const [aviso, setAviso] = useState('')
+  const [quimica, setQuimica] = useState(null) // null = indisponível (0013 por aplicar)
 
   useEffect(() => {
     let vivo = true
     getPlayerProfile(playerId)
       .then((d) => vivo && setP(d))
       .catch((err) => vivo && setError(err.message))
+    // não-fatal: sem a 0013 a secção de curiosidades simplesmente não aparece
+    getPlayerChemistry(playerId)
+      .then((d) => vivo && setQuimica(d))
+      .catch(() => {})
     return () => {
       vivo = false
     }
@@ -241,6 +273,67 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
           Por desbloquear: {bloqueadas.map((t) => `${t.icon} ${t.titulo}`).join(' · ')}
         </p>
       )}
+
+      {/* curiosidades / química */}
+      {quimica &&
+        (() => {
+          const MIN = 2 // com menos de 2 jogos juntos não dá para concluir nada
+          const parceiros = (quimica.parceiros || []).filter((x) => x.jogos >= MIN)
+          const advers = (quimica.adversarios || []).filter((x) => x.jogos >= MIN)
+          if (!parceiros.length && !advers.length) {
+            return (
+              <>
+                <SectionTitle cor={colors.teamB}>Curiosidades</SectionTitle>
+                <div style={{ ...styles.panel, textAlign: 'center', padding: 20 }}>
+                  <p style={styles.mutedText}>
+                    Ainda não há jogos suficientes para tirar conclusões — joga mais umas peladas! ⚽
+                  </p>
+                </div>
+              </>
+            )
+          }
+          const freguês = advers[0]
+          const pesadelo = advers.length > 1 ? advers[advers.length - 1] : null
+          return (
+            <>
+              <SectionTitle cor={colors.teamB}>Curiosidades</SectionTitle>
+              <div style={{ ...styles.panel, padding: 12 }}>
+                {parceiros.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 13, color: colors.muted, marginBottom: 4 }}>
+                      🤝 Com quem ganha mais (mesmo time)
+                    </div>
+                    {parceiros.slice(0, 3).map((x) => (
+                      <QuimicaRow key={x.player_id} x={x} cor={colors.grass} />
+                    ))}
+                  </>
+                )}
+
+                {freguês && (
+                  <div style={{ marginTop: parceiros.length ? 14 : 0 }}>
+                    <div style={{ fontSize: 13, color: colors.muted, marginBottom: 4 }}>
+                      😎 Freguês (ganha mais vezes contra)
+                    </div>
+                    <QuimicaRow x={freguês} cor={colors.grass} />
+                  </div>
+                )}
+
+                {pesadelo && pesadelo.player_id !== freguês?.player_id && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 13, color: colors.muted, marginBottom: 4 }}>
+                      👻 Pesadelo (contra quem ganha menos)
+                    </div>
+                    <QuimicaRow x={pesadelo} cor={colors.error} />
+                  </div>
+                )}
+
+                <p style={{ ...styles.mutedText, fontSize: 11, marginTop: 12 }}>
+                  Só conta pares com {MIN}+ jogos juntos. A percentagem é de vitórias.
+                </p>
+              </div>
+            </>
+          )
+        })()}
 
       {/* histórico */}
       <SectionTitle>Histórico</SectionTitle>
