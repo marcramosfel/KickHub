@@ -62,7 +62,7 @@ export async function renderPlayerCard(perfil) {
   ctx.stroke()
 
   // ---- overall (canto superior esquerdo) ----
-  const { overall, provisorio } = calcularOverall(perfil)
+  const { overall } = calcularOverall(perfil)
   ctx.textAlign = 'center'
   ctx.fillStyle = '#34D058'
   ctx.font = "700 92px Oswald, 'Arial Narrow', sans-serif"
@@ -87,11 +87,6 @@ export async function renderPlayerCard(perfil) {
     96,
     202
   )
-  if (provisorio) {
-    ctx.fillStyle = '#FFC531'
-    ctx.font = "600 15px Oswald, sans-serif"
-    ctx.fillText('PROVISÓRIO', 96, 224)
-  }
 
   // ---- foto (círculo) ----
   const cx = 340

@@ -6,9 +6,11 @@ import {
   getMyAwardVotes,
   getPendingRatings,
   getPlayers,
+  getPlayerStats,
   getPublishedDraw,
   updatePhoto,
 } from '../api'
+import { calcularOverall } from '../lib/overall'
 import { fileToDataURL } from '../lib/image'
 import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
@@ -47,6 +49,9 @@ export default function HomeScreen({
   const [totalRodadas, setTotalRodadas] = useState(0)
   const [pendingVotes, setPendingVotes] = useState(0)
   const [pendingRatings, setPendingRatings] = useState(null) // null = RPC indisponível
+  // gols/assistências/craques por jogador — o get_players só traz a média,
+  // e o overall precisa dos dois lados
+  const [statsPorId, setStatsPorId] = useState({})
   const [error, setError] = useState('')
 
   const fileRef = useRef(null)
@@ -71,12 +76,14 @@ export default function HomeScreen({
       getMyAwardVotes(session.id, session.pin).catch(() => []),
       getPendingRatings(session.id, session.pin).catch(() => null),
       getLatestMatch().catch(() => undefined),
+      getPlayerStats().catch(() => []),
     ])
-      .then(([pls, d, ms, mv, pr, lm]) => {
+      .then(([pls, d, ms, mv, pr, lm, ps]) => {
         setPlayers(pls || [])
         setDraw(d)
         setPendingRatings(pr)
         setLatestMatch(lm)
+        setStatsPorId(Object.fromEntries((ps || []).map((s) => [s.id, s])))
         setTotalRodadas((ms || []).length)
         const votados = mv || []
         setPendingVotes(
@@ -165,6 +172,11 @@ export default function HomeScreen({
 
   const me = players.find((p) => p.id === session.id)
   const others = players.filter((p) => p.id !== session.id)
+
+  // o overall junta a média (get_players) com os números de campo
+  // (get_player_stats); sem a segunda RPC fica só a média a contar
+  const ovrDe = (p) => calcularOverall({ ...(statsPorId[p.id] || {}), avg: p.avg }).overall
+  const meuOvr = me ? ovrDe(me) : null
 
   // Se a migração 0005 já expõe get_pending_ratings, usa as lacunas reais;
   // senão cai para o comportamento antigo (session.voted).
@@ -256,6 +268,12 @@ export default function HomeScreen({
               </>
             ) : (
               'Ainda sem votos'
+            )}
+            {meuOvr != null && (
+              <>
+                {' · '}
+                <span style={{ color: colors.teamA, fontWeight: 700 }}>Overall {meuOvr}</span>
+              </>
             )}
           </div>
           <div
@@ -434,6 +452,25 @@ export default function HomeScreen({
       {/* classificação */}
       <SectionTitle>Classificação do grupo</SectionTitle>
       <div style={{ ...styles.panel, padding: 8 }}>
+        {/* cabeçalho das colunas — sem isto os três números eram adivinha */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '0 8px 6px',
+            fontSize: 10,
+            letterSpacing: 1,
+            color: colors.muted,
+            textTransform: 'uppercase',
+          }}
+        >
+          <span style={{ width: 22 }} />
+          <span style={{ width: 32 }} />
+          <span style={{ flex: 1, minWidth: 0 }} />
+          <span style={{ width: 40, textAlign: 'right' }}>Média</span>
+          <span style={{ width: 38, textAlign: 'center', color: colors.teamA }}>Ovr</span>
+        </div>
         {players.map((p, i) => (
           <div
             key={p.id}
@@ -464,16 +501,62 @@ export default function HomeScreen({
             >
               {i < 3 ? MEDALS[i] : i + 1}
             </span>
-            <Avatar name={p.name} photo={p.photo_url} size={36} />
-            <span style={{ flex: 1, fontSize: 15, fontWeight: p.id === session.id ? 700 : 400 }}>
+            <Avatar name={p.name} photo={p.photo_url} size={32} />
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 15,
+                fontWeight: p.id === session.id ? 700 : 400,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {p.name}
             </span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>
-              {p.avg != null ? Number(p.avg).toFixed(2) : '—'}
-            </span>
-            <span style={{ fontSize: 12, color: colors.muted, width: 52, textAlign: 'right' }}>
-              {p.votes} {Number(p.votes) === 1 ? 'voto' : 'votos'}
-            </span>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                gap: 1,
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 15,
+                    width: 40,
+                    textAlign: 'right',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {p.avg != null ? Number(p.avg).toFixed(2) : '—'}
+                </span>
+                <span
+                  style={{
+                    width: 38,
+                    textAlign: 'center',
+                    fontFamily: fonts.title,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: colors.teamA,
+                    border: '1px solid rgba(255,197,49,0.35)',
+                    borderRadius: 8,
+                    padding: '1px 0',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {ovrDe(p) ?? '—'}
+                </span>
+              </div>
+              <span style={{ fontSize: 11, color: colors.muted }}>
+                {p.votes} {Number(p.votes) === 1 ? 'voto' : 'votos'}
+              </span>
+            </div>
           </div>
         ))}
         {players.length === 0 && (

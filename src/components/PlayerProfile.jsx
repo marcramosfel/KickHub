@@ -84,11 +84,6 @@ function OverallExplicado({ o }) {
 
   return (
     <>
-      {o.provisorio && (
-        <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
-          ⏳ Poucos jogos — o overall ainda está a assentar.
-        </p>
-      )}
       <details style={{ ...styles.panel, padding: 12, marginTop: 8 }}>
         <summary
           style={{
