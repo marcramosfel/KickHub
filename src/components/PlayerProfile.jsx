@@ -4,7 +4,9 @@ import { formatDia } from '../lib/format'
 import Avatar from './Avatar'
 import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
+  BONUS_CRAQUE_MAX,
   PARTICIPACOES_TOPO,
+  PENAL_BAGRE_MAX,
   PESO_DESEMPENHO,
   PESO_GRUPO,
   calcularOverall,
@@ -137,14 +139,22 @@ function OverallExplicado({ o }) {
               />
               <Parcela
                 label="👑 Bónus de craque"
-                nota={o.bonusCraque > 0 ? 'máximo +9' : 'ainda sem craques'}
-                valor={o.bonusCraque > 0 ? `+${o.bonusCraque}` : '0'}
+                nota={
+                  o.bonusCraque > 0
+                    ? `craque em ${Math.round(o.taxaCraque * 100)}% das rodadas (máximo +${BONUS_CRAQUE_MAX})`
+                    : 'ainda sem craques'
+                }
+                valor={o.bonusCraque > 0 ? `+${num(o.bonusCraque)}` : '0'}
                 cor={o.bonusCraque > 0 ? colors.teamA : colors.muted}
               />
               <Parcela
                 label="🐟 Desconto de bagre"
-                nota={o.penalBagre > 0 ? 'máximo −6' : 'sem bagres 😌'}
-                valor={o.penalBagre > 0 ? `−${o.penalBagre}` : '0'}
+                nota={
+                  o.penalBagre > 0
+                    ? `bagre em ${Math.round(o.taxaBagre * 100)}% das rodadas (máximo −${PENAL_BAGRE_MAX})`
+                    : 'sem bagres 😌'
+                }
+                valor={o.penalBagre > 0 ? `−${num(o.penalBagre)}` : '0'}
                 cor={o.penalBagre > 0 ? colors.error : colors.muted}
               />
               <div
@@ -168,8 +178,10 @@ function OverallExplicado({ o }) {
                 </span>
               </div>
               <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
-                {PARTICIPACOES_TOPO} gols+assistências por jogo valem 100 no desempenho. A média
-                0–5 continua a ser a nota do grupo — o overall é só outra forma de a ler.
+                {PARTICIPACOES_TOPO} gols+assistências por jogo valem 100 no desempenho. Os
+                prémios contam pela percentagem de rodadas, não pelo total — quem joga há mais
+                tempo não acumula bónus só por isso. A média 0–5 continua a ser a nota do grupo;
+                o overall é só outra forma de a ler.
               </p>
             </>
           )}

@@ -1,8 +1,8 @@
 // Overall do jogador (o número grande do card): junta a opinião do grupo
 // — a média 0–5 que toda a gente dá — com o que acontece mesmo em campo.
 //
-// Fórmula: 70% opinião do grupo + 30% desempenho, mais um bónus por ser
-// eleito craque e um desconto por ser eleito bagre. Fica entre 1 e 99.
+// Fórmula: 70% opinião do grupo + 30% desempenho, mais um bónus pela taxa
+// de craques e um desconto pela taxa de bagres. Fica entre 1 e 99.
 //
 // O desempenho conta desde o primeiro jogo (decisão do grupo). Só quem
 // ainda não jogou nenhuma rodada registada é que fica só pela média —
@@ -11,9 +11,10 @@
 export const PESO_GRUPO = 0.7
 export const PESO_DESEMPENHO = 0.3
 export const PARTICIPACOES_TOPO = 3 // gols + assistências por jogo que valem 100
-export const BONUS_CRAQUE = 3
+// Os prémios contam pela TAXA, não pelo total: craque em todas as rodadas
+// vale o máximo, craque numa de vinte vale quase nada. Assim quem joga há
+// muito tempo não acumula bónus só por ter jogado mais.
 export const BONUS_CRAQUE_MAX = 9
-export const PENAL_BAGRE = 2
 export const PENAL_BAGRE_MAX = 6
 
 const limitar = (n) => Math.max(1, Math.min(99, Math.round(n)))
@@ -31,10 +32,13 @@ export function calcularOverall(perfil) {
   const base = avg == null ? null : avg * 20 // 0–100, a opinião do grupo
   const ppj = matches > 0 ? (goals + assists) / matches : 0 // participações por jogo
   const desempenho = Math.min(ppj / PARTICIPACOES_TOPO, 1) * 100
-  const bonusCraque = Math.min(craques * BONUS_CRAQUE, BONUS_CRAQUE_MAX)
-  const penalBagre = Math.min(bagres * PENAL_BAGRE, PENAL_BAGRE_MAX)
+  // taxa de craque/bagre: em que fração das rodadas jogadas foi eleito
+  const taxaCraque = matches > 0 ? Math.min(craques / matches, 1) : 0
+  const taxaBagre = matches > 0 ? Math.min(bagres / matches, 1) : 0
+  const bonusCraque = taxaCraque * BONUS_CRAQUE_MAX
+  const penalBagre = taxaBagre * PENAL_BAGRE_MAX
 
-  const partes = { base, desempenho, ppj, bonusCraque, penalBagre }
+  const partes = { base, desempenho, ppj, bonusCraque, penalBagre, taxaCraque, taxaBagre }
 
   // sem notas e sem jogos não há nada para calcular
   if (base == null && matches === 0) {
