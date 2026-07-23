@@ -33,12 +33,69 @@ export function NomeClicavel({ id, nome, onProfile, style }) {
   )
 }
 
+// Linha da votação: posição, foto, nome e nº de votos com barrinha proporcional.
+function VotoRow({ pos, x, cor, photo, onProfile }) {
+  const pct = x.max > 0 ? Math.round((x.votes / x.max) * 100) : 0
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
+      <span
+        style={{
+          width: 18,
+          textAlign: 'right',
+          fontSize: 12,
+          color: colors.muted,
+          fontVariantNumeric: 'tabular-nums',
+          flexShrink: 0,
+        }}
+      >
+        {pos}
+      </span>
+      <Avatar name={x.name} photo={photo} size={26} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <NomeClicavel id={x.player_id} nome={x.name} onProfile={onProfile} />
+        </div>
+        <div
+          style={{
+            height: 3,
+            borderRadius: 2,
+            marginTop: 3,
+            background: cor,
+            opacity: 0.55,
+            width: `${Math.max(pct, 6)}%`,
+          }}
+        />
+      </div>
+      <span
+        style={{
+          fontSize: 12,
+          color: colors.muted,
+          fontVariantNumeric: 'tabular-nums',
+          flexShrink: 0,
+        }}
+      >
+        {x.votes}
+      </span>
+    </div>
+  )
+}
+
 // Prémio da rodada (craque/bagre): GIF grande (rosto todo, sem cortar) +
-// foto real do jogador votado ao lado + nº de votos.
+// foto real do jogador votado ao lado + nº de votos, seguido da votação
+// completa (toda a gente que recebeu pelo menos um voto).
 export function AwardCard({ tipo, list, players, onProfile }) {
   if (!list || !list.length) return null
   const top = list[0].votes
   const winners = list.filter((x) => x.votes === top) // trata empates no topo
+  const restantes = list.filter((x) => x.votes < top)
+  const totalVotos = list.reduce((s, x) => s + Number(x.votes || 0), 0)
   const craque = tipo === 'craque'
   const cor = craque ? colors.teamA : colors.teamB
   const label = craque ? '👑 Craque da rodada' : '🐟 Bagre da rodada'
@@ -101,6 +158,37 @@ export function AwardCard({ tipo, list, players, onProfile }) {
           ))}
         </div>
       </div>
+
+      {/* votação completa: toda a gente que recebeu votos */}
+      {restantes.length > 0 && (
+        <div style={{ borderTop: `1px solid ${colors.line}`, padding: '8px 12px 10px' }}>
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: 0.5,
+              color: colors.muted,
+              marginBottom: 2,
+              display: 'flex',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>{craque ? 'Quem mais recebeu votos' : 'Quem mais levou votos'}</span>
+            <span>
+              {totalVotos} {totalVotos === 1 ? 'voto' : 'votos'}
+            </span>
+          </div>
+          {restantes.map((x, i) => (
+            <VotoRow
+              key={x.player_id}
+              pos={winners.length + i + 1}
+              x={{ ...x, max: top }}
+              cor={cor}
+              photo={photoOf(x.player_id)}
+              onProfile={onProfile}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
