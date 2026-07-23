@@ -4,7 +4,6 @@ import { formatDia } from '../lib/format'
 import Avatar from './Avatar'
 import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
-  MIN_JOGOS,
   PARTICIPACOES_TOPO,
   PESO_DESEMPENHO,
   PESO_GRUPO,
@@ -106,9 +105,8 @@ function OverallExplicado({ o }) {
                 cor={colors.grass}
               />
               <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
-                Com menos de {MIN_JOGOS} jogos, o desempenho em campo ainda é ruído — por isso
-                conta só a nota do grupo. A partir daí entram os gols, as assistências e os
-                prémios da rodada.
+                Ainda sem rodadas registadas — por agora conta só a nota do grupo. Assim que
+                jogares uma pelada, entram os gols, as assistências e os prémios da rodada.
               </p>
             </>
           ) : soPeloCampo ? (

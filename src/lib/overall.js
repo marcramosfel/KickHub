@@ -4,14 +4,13 @@
 // Fórmula: 70% opinião do grupo + 30% desempenho, mais um bónus por ser
 // eleito craque e um desconto por ser eleito bagre. Fica entre 1 e 99.
 //
-// Com poucos jogos o desempenho é ruído (um jogo fraco não pode arrasar
-// o número de ninguém), por isso até aos 3 jogos conta só a média — e o
-// resultado fica marcado como provisório.
+// O desempenho conta desde o primeiro jogo (decisão do grupo). Só quem
+// ainda não jogou nenhuma rodada registada é que fica só pela média —
+// senão o desempenho a zero era um castigo por algo que não aconteceu.
 
 export const PESO_GRUPO = 0.7
 export const PESO_DESEMPENHO = 0.3
 export const PARTICIPACOES_TOPO = 3 // gols + assistências por jogo que valem 100
-export const MIN_JOGOS = 3
 export const BONUS_CRAQUE = 3
 export const BONUS_CRAQUE_MAX = 9
 export const PENAL_BAGRE = 2
@@ -45,8 +44,8 @@ export function calcularOverall(perfil) {
   if (base == null) {
     return { ...partes, overall: limitar(desempenho), provisorio: true }
   }
-  // poucos jogos: vale só a opinião do grupo
-  if (matches < MIN_JOGOS) {
+  // ainda sem rodadas registadas: vale só a opinião do grupo
+  if (matches === 0) {
     return { ...partes, overall: limitar(base), provisorio: true }
   }
 
