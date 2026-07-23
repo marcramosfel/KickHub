@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react'
 import { getPlayerChemistry, getPlayerProfile } from '../api'
 import { formatDia } from '../lib/format'
 import Avatar from './Avatar'
-import { descarregarCard, overallDe, partilharCard, renderPlayerCard } from '../lib/card'
+import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
+import {
+  MIN_JOGOS,
+  PARTICIPACOES_TOPO,
+  PESO_DESEMPENHO,
+  PESO_GRUPO,
+  calcularOverall,
+} from '../lib/overall'
 import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '../lib/trophies'
 import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
@@ -33,6 +40,149 @@ function StatBox({ label, valor, cor }) {
       </div>
       <div style={{ fontSize: 11, color: colors.muted, letterSpacing: 0.5 }}>{label}</div>
     </div>
+  )
+}
+
+// Uma parcela da conta do overall: descrição à esquerda, valor à direita.
+function Parcela({ label, nota, valor, cor }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 10,
+        padding: '6px 0',
+        borderBottom: `1px solid ${colors.line}`,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13 }}>{label}</div>
+        {nota && <div style={{ fontSize: 11, color: colors.muted }}>{nota}</div>}
+      </div>
+      <div
+        style={{
+          fontFamily: fonts.title,
+          fontSize: 16,
+          fontWeight: 700,
+          color: cor || colors.text,
+          fontVariantNumeric: 'tabular-nums',
+          flexShrink: 0,
+        }}
+      >
+        {valor}
+      </div>
+    </div>
+  )
+}
+
+// "Como se calcula" — a decomposição do overall, aberta só a pedido.
+function OverallExplicado({ o }) {
+  if (o.overall == null) return null
+  const num = (x) => (Math.round(x * 10) / 10).toFixed(1)
+  const soPelaMedia = o.provisorio && o.base != null
+  const soPeloCampo = o.base == null
+
+  return (
+    <>
+      {o.provisorio && (
+        <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
+          ⏳ Poucos jogos — o overall ainda está a assentar.
+        </p>
+      )}
+      <details style={{ ...styles.panel, padding: 12, marginTop: 8 }}>
+        <summary
+          style={{
+            cursor: 'pointer',
+            fontSize: 13,
+            color: colors.muted,
+            listStyle: 'revert',
+          }}
+        >
+          Como se calcula o overall?
+        </summary>
+
+        <div style={{ marginTop: 10 }}>
+          {soPelaMedia ? (
+            <>
+              <Parcela
+                label="Opinião do grupo"
+                nota={`média ${(o.base / 20).toFixed(2)} × 20`}
+                valor={num(o.base)}
+                cor={colors.grass}
+              />
+              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
+                Com menos de {MIN_JOGOS} jogos, o desempenho em campo ainda é ruído — por isso
+                conta só a nota do grupo. A partir daí entram os gols, as assistências e os
+                prémios da rodada.
+              </p>
+            </>
+          ) : soPeloCampo ? (
+            <>
+              <Parcela
+                label="Desempenho em campo"
+                nota={`${num(o.ppj)} participações por jogo`}
+                valor={num(o.desempenho)}
+                cor={colors.grass}
+              />
+              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
+                Ainda sem notas do grupo — por agora conta só o que aconteceu em campo.
+              </p>
+            </>
+          ) : (
+            <>
+              <Parcela
+                label={`Opinião do grupo (${Math.round(PESO_GRUPO * 100)}%)`}
+                nota={`média ${(o.base / 20).toFixed(2)} × 20 = ${num(o.base)}`}
+                valor={`+${num(PESO_GRUPO * o.base)}`}
+                cor={colors.grass}
+              />
+              <Parcela
+                label={`Desempenho em campo (${Math.round(PESO_DESEMPENHO * 100)}%)`}
+                nota={`${num(o.ppj)} gols+assist. por jogo = ${num(o.desempenho)}`}
+                valor={`+${num(PESO_DESEMPENHO * o.desempenho)}`}
+                cor={colors.grass}
+              />
+              <Parcela
+                label="👑 Bónus de craque"
+                nota={o.bonusCraque > 0 ? 'máximo +9' : 'ainda sem craques'}
+                valor={o.bonusCraque > 0 ? `+${o.bonusCraque}` : '0'}
+                cor={o.bonusCraque > 0 ? colors.teamA : colors.muted}
+              />
+              <Parcela
+                label="🐟 Desconto de bagre"
+                nota={o.penalBagre > 0 ? 'máximo −6' : 'sem bagres 😌'}
+                valor={o.penalBagre > 0 ? `−${o.penalBagre}` : '0'}
+                cor={o.penalBagre > 0 ? colors.error : colors.muted}
+              />
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  paddingTop: 10,
+                }}
+              >
+                <span style={{ fontSize: 13, fontWeight: 700 }}>Overall</span>
+                <span
+                  style={{
+                    fontFamily: fonts.title,
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: colors.grass,
+                  }}
+                >
+                  {o.overall}
+                </span>
+              </div>
+              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
+                {PARTICIPACOES_TOPO} gols+assistências por jogo valem 100 no desempenho. A média
+                0–5 continua a ser a nota do grupo — o overall é só outra forma de a ler.
+              </p>
+            </>
+          )}
+        </div>
+      </details>
+    </>
   )
 }
 
@@ -131,7 +281,7 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
   const seq = calcularSequencias(p)
   const bal = balanco(p)
   const { desbloqueadas, bloqueadas } = calcularConquistas(p, totalRodadas)
-  const ovr = overallDe(p.avg)
+  const ovr = calcularOverall(p)
 
   const partilhar = async () => {
     if (!cardUrl) return
@@ -195,7 +345,7 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
       <SectionTitle>Números</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
         <StatBox label="MÉDIA" valor={p.avg == null ? '—' : Number(p.avg).toFixed(2)} cor={colors.grass} />
-        <StatBox label="OVERALL" valor={ovr == null ? '—' : ovr} cor={colors.grass} />
+        <StatBox label="OVERALL" valor={ovr.overall == null ? '—' : ovr.overall} cor={colors.grass} />
         <StatBox label="JOGOS" valor={p.matches} />
         <StatBox label="GOLS" valor={p.goals} />
         <StatBox label="ASSIST." valor={p.assists} />
@@ -207,6 +357,9 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
           valor={`${bal.V}-${bal.E}-${bal.D}`}
         />
       </div>
+
+      {/* o overall tem de ser explicável, senão parece arbitrário */}
+      <OverallExplicado o={ovr} />
 
       {/* sequências */}
       {(seq.marcando.melhor > 0 || seq.vitorias.melhor > 0) && (

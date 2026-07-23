@@ -1,12 +1,11 @@
 // Card do jogador estilo "Ultimate Team", desenhado em canvas (sem
 // dependências) para poder ser partilhado como imagem no grupo.
 
+import { calcularOverall } from './overall'
+
 const W = 600
 const H = 840
 const SCALE = 2 // exporta a 2x para ficar nítido
-
-// "Overall" no estilo FIFA: a média 0–5 vira 0–100.
-export const overallDe = (avg) => (avg == null ? null : Math.round(Number(avg) * 20))
 
 export function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
@@ -63,14 +62,14 @@ export async function renderPlayerCard(perfil) {
   ctx.stroke()
 
   // ---- overall (canto superior esquerdo) ----
-  const ovr = overallDe(perfil.avg)
+  const { overall, provisorio } = calcularOverall(perfil)
   ctx.textAlign = 'center'
   ctx.fillStyle = '#34D058'
   ctx.font = "700 92px Oswald, 'Arial Narrow', sans-serif"
-  ctx.fillText(ovr == null ? '—' : String(ovr), 96, 128)
+  ctx.fillText(overall == null ? '—' : String(overall), 96, 128)
   ctx.fillStyle = '#7FA090'
   ctx.font = "600 20px Oswald, sans-serif"
-  ctx.fillText('MÉDIA', 96, 158)
+  ctx.fillText('OVERALL', 96, 158)
 
   // pequena linha decorativa
   ctx.strokeStyle = 'rgba(127,160,144,0.35)'
@@ -79,6 +78,20 @@ export async function renderPlayerCard(perfil) {
   ctx.moveTo(52, 178)
   ctx.lineTo(140, 178)
   ctx.stroke()
+
+  // a média 0–5 continua à vista — o overall é uma leitura extra
+  ctx.fillStyle = '#7FA090'
+  ctx.font = "600 18px Oswald, sans-serif"
+  ctx.fillText(
+    perfil.avg == null ? 'SEM NOTAS' : `MÉDIA ${Number(perfil.avg).toFixed(2)}`,
+    96,
+    202
+  )
+  if (provisorio) {
+    ctx.fillStyle = '#FFC531'
+    ctx.font = "600 15px Oswald, sans-serif"
+    ctx.fillText('PROVISÓRIO', 96, 224)
+  }
 
   // ---- foto (círculo) ----
   const cx = 340
