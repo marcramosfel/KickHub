@@ -5,6 +5,7 @@ import {
   adminPending,
   adminApprove,
   adminReject,
+  adminPendingVotes,
   adminResetRatings,
   adminResetRatingsFor,
   adminSaveMatch,
@@ -109,6 +110,11 @@ export default function AdminScreen({ onExit }) {
   const [editingId, setEditingId] = useState(null) // null = criar; senão editar
   const [jogoOk, setJogoOk] = useState(false)
 
+  // quem falta votar
+  const [faltas, setFaltas] = useState(null)
+  const [faltasErr, setFaltasErr] = useState('')
+  const [copiedFalta, setCopiedFalta] = useState('')
+
   // utilizadores / IDs
   const [users, setUsers] = useState([])
   const [usersErr, setUsersErr] = useState('')
@@ -151,6 +157,13 @@ export default function AdminScreen({ onExit }) {
         setUsersErr('')
       })
       .catch((err) => setUsersErr(err.message))
+    // quem falta votar (não-fatal: sem a migração 0011 esta aba mostra o aviso)
+    adminPendingVotes(senha)
+      .then((f) => {
+        setFaltas(f)
+        setFaltasErr('')
+      })
+      .catch((err) => setFaltasErr(err.message))
   }
 
   // presenças do jogo a registar: por defeito, quem estava no último sorteio publicado
@@ -232,6 +245,12 @@ export default function AdminScreen({ onExit }) {
     copiarTexto(users.map((u) => `${u.name} — ${u.user_id}`).join('\n'), () => {
       setCopiedList(true)
       setTimeout(() => setCopiedList(false), 1800)
+    })
+  // copia uma lista de "quem falta" pronta a colar no grupo
+  const copiarFaltas = (lista, chave) =>
+    copiarTexto(lista.map((u) => `${u.name} — ${u.user_id}`).join('\n'), () => {
+      setCopiedFalta(chave)
+      setTimeout(() => setCopiedFalta(''), 1800)
     })
   const regenerarId = (u) => {
     if (
@@ -448,6 +467,11 @@ export default function AdminScreen({ onExit }) {
     )
   }
 
+  // ---------- quem falta ----------
+  const awardPend = faltas?.award_pending || []
+  const ratingsPend = faltas?.ratings_pending || []
+  const faltasTotal = awardPend.length + ratingsPend.length
+
   // ---------- tabs ----------
   const tabBtn = (id, label, badge) => (
     <button
@@ -456,8 +480,10 @@ export default function AdminScreen({ onExit }) {
         setError('')
       }}
       style={{
-        flex: 1,
-        padding: '10px 0',
+        flex: '1 0 auto',
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
+        padding: '10px 12px',
         background: 'transparent',
         color: tab === id ? colors.text : colors.muted,
         border: 'none',
@@ -510,11 +536,19 @@ export default function AdminScreen({ onExit }) {
         </button>
       </div>
 
-      <div style={{ display: 'flex', marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          marginBottom: 16,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {tabBtn('pedidos', 'Pedidos', pending.length)}
         {tabBtn('plantel', 'Plantel', 0)}
         {tabBtn('sorteio', 'Sorteio', 0)}
         {tabBtn('jogos', 'Jogos', 0)}
+        {tabBtn('faltas', 'Faltas', faltasTotal)}
         {tabBtn('utilizadores', 'IDs', 0)}
       </div>
 
@@ -1035,6 +1069,158 @@ export default function AdminScreen({ onExit }) {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* ---------- QUEM FALTA VOTAR ---------- */}
+      {tab === 'faltas' && (
+        <div>
+          {faltasErr && (
+            <div style={{ ...styles.panel, marginBottom: 12 }}>
+              <p style={{ ...styles.mutedText, fontSize: 13 }}>
+                ⚠️ Não consegui carregar ({faltasErr}). Se ainda não aplicaste a migração{' '}
+                <strong>0011_quem_falta.sql</strong> no Supabase, é isso que falta.
+              </p>
+            </div>
+          )}
+
+          {!faltasErr && faltas && (
+            <>
+              {/* 1) craque/bagre da última rodada */}
+              <div style={{ ...styles.panel, marginBottom: 12, padding: 12 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <span style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15 }}>
+                    🗳️ Falta votar (craque/bagre)
+                  </span>
+                  {faltas.match && (
+                    <span style={{ fontSize: 12, color: colors.muted, flexShrink: 0 }}>
+                      {faltas.match.voted}/{faltas.match.total} votaram
+                    </span>
+                  )}
+                </div>
+
+                {!faltas.match ? (
+                  <p style={{ ...styles.mutedText, fontSize: 13 }}>
+                    Ainda não há rodadas registadas.
+                  </p>
+                ) : awardPend.length === 0 ? (
+                  <p style={{ color: colors.grass, fontSize: 14 }}>
+                    🎉 Toda a gente que jogou já votou!
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+                      Rodada de {formatDia(faltas.match.played_at)} — falta o voto de{' '}
+                      {awardPend.length}:
+                    </p>
+                    {awardPend.map((u) => (
+                      <div
+                        key={u.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '6px 0',
+                        }}
+                      >
+                        <Avatar
+                          name={u.name}
+                          photo={players.find((p) => p.id === u.id)?.photo_url}
+                          size={30}
+                        />
+                        <span style={{ flex: 1, fontSize: 14, minWidth: 0 }}>{u.name}</span>
+                        <code
+                          style={{
+                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                            fontSize: 12,
+                            color: colors.muted,
+                          }}
+                        >
+                          {u.user_id}
+                        </code>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => copiarFaltas(awardPend, 'award')}
+                      style={{
+                        ...styles.buttonGhost,
+                        marginTop: 10,
+                        fontSize: 13,
+                        color: copiedFalta === 'award' ? colors.grass : colors.text,
+                        borderColor: copiedFalta === 'award' ? colors.grass : colors.line,
+                      }}
+                    >
+                      {copiedFalta === 'award' ? 'Lista copiada ✓' : '📋 Copiar lista para o grupo'}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* 2) avaliações (notas) por dar */}
+              <div style={{ ...styles.panel, padding: 12 }}>
+                <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 8 }}>
+                  ⭐ Falta dar notas
+                </div>
+                {ratingsPend.length === 0 ? (
+                  <p style={{ color: colors.grass, fontSize: 14 }}>
+                    🎉 Toda a gente já avaliou todo o grupo!
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+                      {ratingsPend.length}{' '}
+                      {ratingsPend.length === 1 ? 'jogador tem' : 'jogadores têm'} notas por dar:
+                    </p>
+                    {ratingsPend.map((u) => (
+                      <div
+                        key={u.id}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
+                      >
+                        <Avatar
+                          name={u.name}
+                          photo={players.find((p) => p.id === u.id)?.photo_url}
+                          size={30}
+                        />
+                        <span style={{ flex: 1, fontSize: 14, minWidth: 0 }}>{u.name}</span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: colors.teamA,
+                            flexShrink: 0,
+                          }}
+                        >
+                          faltam {u.faltam}
+                        </span>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => copiarFaltas(ratingsPend, 'ratings')}
+                      style={{
+                        ...styles.buttonGhost,
+                        marginTop: 10,
+                        fontSize: 13,
+                        color: copiedFalta === 'ratings' ? colors.grass : colors.text,
+                        borderColor: copiedFalta === 'ratings' ? colors.grass : colors.line,
+                      }}
+                    >
+                      {copiedFalta === 'ratings'
+                        ? 'Lista copiada ✓'
+                        : '📋 Copiar lista para o grupo'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

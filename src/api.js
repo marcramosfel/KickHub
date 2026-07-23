@@ -101,6 +101,9 @@ export const adminApprove = (pw, id) => rpc('admin_approve', { p_pw: pw, p_id: i
 
 export const adminReject = (pw, id) => rpc('admin_reject', { p_pw: pw, p_id: id })
 
+// Quem ainda não votou (craque/bagre da última rodada) e quem tem notas por dar
+export const adminPendingVotes = (pw) => rpc('admin_pending_votes', { p_pw: pw })
+
 // ---------- Admin: gestão de IDs de utilizador ----------
 export const adminUsers = (pw) => rpc('admin_users', { p_pw: pw })
 
