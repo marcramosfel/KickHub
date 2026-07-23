@@ -282,7 +282,11 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
       {/* campeões da semana (rodada mais recente) — só se a 0010 estiver aplicada */}
       {latestMatch !== undefined && (
         <div style={{ marginTop: 20 }}>
-          <RoundResult match={latestMatch} onHistory={() => onStats('rodadas')} />
+          <RoundResult
+            match={latestMatch}
+            onHistory={() => onStats('rodadas')}
+            onProfile={(id) => onProfile?.(id, totalRodadas)}
+          />
         </div>
       )}
 

@@ -4,7 +4,7 @@ import { colors, fonts, styles } from '../theme'
 
 // Destaque da rodada mais recente — "Campeões da semana".
 // `match` vem de getLatestMatch() (com fotos). onHistory abre o histórico.
-export default function RoundResult({ match, onHistory }) {
+export default function RoundResult({ match, onHistory, onProfile }) {
   if (!match) {
     return (
       <div style={{ ...styles.panel, textAlign: 'center', padding: 22 }}>
@@ -42,7 +42,7 @@ export default function RoundResult({ match, onHistory }) {
         </span>
       </div>
 
-      <RoundBody m={match} full />
+      <RoundBody m={match} full onProfile={onProfile} />
 
       <button style={{ ...styles.buttonGhost, marginTop: 16 }} onClick={onHistory}>
         Ver rodadas anteriores →

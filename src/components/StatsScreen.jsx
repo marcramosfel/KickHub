@@ -10,6 +10,7 @@ import {
   scorers as getScorers,
 } from '../lib/format'
 import { liderancas } from '../lib/trophies'
+import { NomeClicavel } from './RoundParts'
 import Avatar from './Avatar'
 import RoundDetail from './RoundDetail'
 import { ErrorBox, SkeletonCard } from './Ui'
@@ -117,7 +118,7 @@ function VoteCard({ match, session, onVoted }) {
 
 // Card de uma rodada no histórico: placar, vencedor, marcadores/assistentes,
 // craque/bagre e "Ver detalhes" (que abre a rodada com fotos).
-function MatchPanel({ match, onDetail }) {
+function MatchPanel({ match, onDetail, onProfile }) {
   const scorers = getScorers(match)
   const assisters = getAssisters(match)
   const craque = awardWinners(match.craque)
@@ -180,7 +181,13 @@ function MatchPanel({ match, onDetail }) {
       <p style={{ fontSize: 13, marginBottom: 4 }}>
         ⚽{' '}
         {scorers.length ? (
-          scorers.map((p) => `${p.name}${p.goals > 1 ? ` (${p.goals})` : ''}`).join(', ')
+          scorers.map((p, i) => (
+            <span key={p.player_id}>
+              {i > 0 && ', '}
+              <NomeClicavel id={p.player_id} nome={p.name} onProfile={onProfile} />
+              {p.goals > 1 && <span style={{ color: colors.muted }}> ({p.goals})</span>}
+            </span>
+          ))
         ) : (
           <span style={{ color: colors.muted }}>sem gols</span>
         )}
@@ -188,7 +195,13 @@ function MatchPanel({ match, onDetail }) {
       <p style={{ fontSize: 13, marginBottom: 8 }}>
         🅰️{' '}
         {assisters.length ? (
-          assisters.map((p) => `${p.name}${p.assists > 1 ? ` (${p.assists})` : ''}`).join(', ')
+          assisters.map((p, i) => (
+            <span key={p.player_id}>
+              {i > 0 && ', '}
+              <NomeClicavel id={p.player_id} nome={p.name} onProfile={onProfile} />
+              {p.assists > 1 && <span style={{ color: colors.muted }}> ({p.assists})</span>}
+            </span>
+          ))
         ) : (
           <span style={{ color: colors.muted }}>sem assistências</span>
         )}
@@ -265,7 +278,13 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
 
   // detalhe de uma rodada (com fotos) sobrepõe-se ao resto
   if (detailId) {
-    return <RoundDetail matchId={detailId} onBack={() => setDetailId(null)} />
+    return (
+      <RoundDetail
+        matchId={detailId}
+        onBack={() => setDetailId(null)}
+        onProfile={(id) => onProfile?.(id, matches?.length || 0)}
+      />
+    )
   }
 
   const tabBtn = (id, label) => (
@@ -554,7 +573,12 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
           {matches
             .filter((m) => !pendentes.some((p) => p.id === m.id))
             .map((m) => (
-              <MatchPanel key={m.id} match={m} onDetail={setDetailId} />
+              <MatchPanel
+                key={m.id}
+                match={m}
+                onDetail={setDetailId}
+                onProfile={(id) => onProfile?.(id, matches.length)}
+              />
             ))}
         </div>
       )}

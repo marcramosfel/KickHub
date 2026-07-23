@@ -3,9 +3,39 @@ import { assisters, matchWinner, scorers, teamPlayers } from '../lib/format'
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import { colors, fonts, styles } from '../theme'
 
+// Nome que abre o perfil (se houver onProfile); senão, texto normal.
+export function NomeClicavel({ id, nome, onProfile, style }) {
+  if (!onProfile || !id) return <span style={style}>{nome}</span>
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onProfile(id)
+      }}
+      title={`Ver perfil de ${nome}`}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        font: 'inherit',
+        color: 'inherit',
+        cursor: 'pointer',
+        textDecorationLine: 'underline',
+        textDecorationStyle: 'dotted',
+        textUnderlineOffset: 3,
+        textDecorationColor: 'rgba(127,160,144,0.6)',
+        ...style,
+      }}
+    >
+      {nome}
+    </button>
+  )
+}
+
 // Prémio da rodada (craque/bagre): GIF grande (rosto todo, sem cortar) +
 // foto real do jogador votado ao lado + nº de votos.
-export function AwardCard({ tipo, list, players }) {
+export function AwardCard({ tipo, list, players, onProfile }) {
   if (!list || !list.length) return null
   const top = list[0].votes
   const winners = list.filter((x) => x.votes === top) // trata empates no topo
@@ -61,7 +91,7 @@ export function AwardCard({ tipo, list, players }) {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {w.name}
+                  <NomeClicavel id={w.player_id} nome={w.name} onProfile={onProfile} />
                 </div>
                 <div style={{ fontSize: 13, color: cor, fontWeight: 600 }}>
                   {w.votes} {w.votes === 1 ? 'voto' : 'votos'}
@@ -177,7 +207,8 @@ export function ScoreBoard({ m }) {
 }
 
 // Linha de estatística (gols/assistências) com ícone + texto (nunca só cor).
-export function StatLine({ icon, label, list, emptyText }) {
+export function StatLine({ icon, label, list, emptyText, onProfile }) {
+  const campo = label === 'Gols' ? 'goals' : 'assists'
   return (
     <div style={{ fontSize: 14, display: 'flex', gap: 8, alignItems: 'baseline' }}>
       <span aria-hidden style={{ flexShrink: 0 }}>
@@ -189,13 +220,8 @@ export function StatLine({ icon, label, list, emptyText }) {
           list.map((p, i) => (
             <span key={p.player_id}>
               {i > 0 && ', '}
-              {p.name}
-              {p[label === 'Gols' ? 'goals' : 'assists'] > 1 && (
-                <span style={{ color: colors.muted }}>
-                  {' '}
-                  ×{p[label === 'Gols' ? 'goals' : 'assists']}
-                </span>
-              )}
+              <NomeClicavel id={p.player_id} nome={p.name} onProfile={onProfile} />
+              {p[campo] > 1 && <span style={{ color: colors.muted }}> ×{p[campo]}</span>}
             </span>
           ))
         ) : (
@@ -207,7 +233,7 @@ export function StatLine({ icon, label, list, emptyText }) {
 }
 
 // Chips de jogadores de um time.
-export function TeamRoster({ m, side }) {
+export function TeamRoster({ m, side, onProfile }) {
   const cor = side === 'A' ? colors.teamA : colors.teamB
   const name = side === 'A' ? m.team_a_name || 'Amarelos' : m.team_b_name || 'Azuis'
   const list = teamPlayers(m, side)
@@ -227,24 +253,40 @@ export function TeamRoster({ m, side }) {
         {name}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {list.map((p) => (
-          <span
-            key={p.player_id}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px 4px 4px',
-              borderRadius: 999,
-              background: '#0C1915',
-              border: `1px solid ${colors.line}`,
-              fontSize: 13,
-            }}
-          >
-            <Avatar name={p.name} photo={p.photo} size={22} />
-            {p.name}
-          </span>
-        ))}
+        {list.map((p) => {
+          const conteudo = (
+            <>
+              <Avatar name={p.name} photo={p.photo} size={22} />
+              {p.name}
+            </>
+          )
+          const estilo = {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px 4px 4px',
+            borderRadius: 999,
+            background: '#0C1915',
+            border: `1px solid ${colors.line}`,
+            fontSize: 13,
+            color: colors.text,
+          }
+          return onProfile ? (
+            <button
+              key={p.player_id}
+              type="button"
+              onClick={() => onProfile(p.player_id)}
+              title={`Ver perfil de ${p.name}`}
+              style={{ ...estilo, cursor: 'pointer', font: 'inherit', fontSize: 13 }}
+            >
+              {conteudo}
+            </button>
+          ) : (
+            <span key={p.player_id} style={estilo}>
+              {conteudo}
+            </span>
+          )
+        })}
       </div>
     </div>
   )
@@ -252,7 +294,7 @@ export function TeamRoster({ m, side }) {
 
 // Corpo partilhado de uma rodada (placar, rosters, gols/assistências, local, obs).
 // `full` inclui as fotos (detalhe/destaque); sem `full` mostra só o resumo.
-export function RoundBody({ m, full = false }) {
+export function RoundBody({ m, full = false, onProfile }) {
   const temTimes = (m.players || []).some((p) => p.team)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -263,21 +305,27 @@ export function RoundBody({ m, full = false }) {
       {/* prémios da rodada — ao lado dos campeões, logo no destaque */}
       {((m.craque && m.craque.length) || (m.bagre && m.bagre.length)) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <AwardCard tipo="craque" list={m.craque} players={m.players} />
-          <AwardCard tipo="bagre" list={m.bagre} players={m.players} />
+          <AwardCard tipo="craque" list={m.craque} players={m.players} onProfile={onProfile} />
+          <AwardCard tipo="bagre" list={m.bagre} players={m.players} onProfile={onProfile} />
         </div>
       )}
 
       {temTimes && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <TeamRoster m={m} side="A" />
-          <TeamRoster m={m} side="B" />
+          <TeamRoster m={m} side="A" onProfile={onProfile} />
+          <TeamRoster m={m} side="B" onProfile={onProfile} />
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <StatLine icon="⚽" label="Gols" list={scorers(m)} emptyText="sem gols" />
-        <StatLine icon="🅰️" label="Assistências" list={assisters(m)} emptyText="sem assistências" />
+        <StatLine icon="⚽" label="Gols" list={scorers(m)} emptyText="sem gols" onProfile={onProfile} />
+        <StatLine
+          icon="🅰️"
+          label="Assistências"
+          list={assisters(m)}
+          emptyText="sem assistências"
+          onProfile={onProfile}
+        />
       </div>
 
       {full && (m.has_location_photo || m.location_photo) && (

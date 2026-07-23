@@ -5,7 +5,7 @@ import { RoundBody } from './RoundParts'
 import { colors, styles } from '../theme'
 
 // Detalhe completo de uma rodada (com fotos), aberto a partir do histórico.
-export default function RoundDetail({ matchId, onBack }) {
+export default function RoundDetail({ matchId, onBack, onProfile }) {
   const [m, setM] = useState(null)
   const [error, setError] = useState('')
 
@@ -57,7 +57,7 @@ export default function RoundDetail({ matchId, onBack }) {
           <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 12 }}>
             {formatDia(m.played_at)}
           </p>
-          <RoundBody m={m} full />
+          <RoundBody m={m} full onProfile={onProfile} />
         </div>
       )}
     </div>
