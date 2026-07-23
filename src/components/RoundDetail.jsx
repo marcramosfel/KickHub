@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getMatch } from '../api'
 import { formatDia } from '../lib/format'
-import { RoundBody } from './RoundParts'
+import { RoundBody, ShareRound } from './RoundParts'
 import { colors, styles } from '../theme'
 
 // Detalhe completo de uma rodada (com fotos), aberto a partir do histórico.
@@ -58,6 +58,7 @@ export default function RoundDetail({ matchId, onBack, onProfile }) {
             {formatDia(m.played_at)}
           </p>
           <RoundBody m={m} full onProfile={onProfile} />
+          <ShareRound m={m} />
         </div>
       )}
     </div>

@@ -8,7 +8,7 @@ const SCALE = 2 // exporta a 2x para ficar nítido
 // "Overall" no estilo FIFA: a média 0–5 vira 0–100.
 export const overallDe = (avg) => (avg == null ? null : Math.round(Number(avg) * 20))
 
-function roundRect(ctx, x, y, w, h, r) {
+export function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
   ctx.arcTo(x + w, y, x + w, y + h, r)
@@ -18,7 +18,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath()
 }
 
-function carregarImagem(src) {
+export function carregarImagem(src) {
   return new Promise((resolve) => {
     if (!src) return resolve(null)
     const img = new Image()

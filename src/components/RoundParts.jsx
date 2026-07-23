@@ -1,6 +1,14 @@
+import { useState } from 'react'
 import Avatar from './Avatar'
 import { assisters, matchWinner, scorers, teamPlayers } from '../lib/format'
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
+import {
+  copiarTexto,
+  partilharImagem,
+  partilharTexto,
+  renderRoundCard,
+  resumoRodada,
+} from '../lib/share'
 import { colors, fonts, styles } from '../theme'
 
 // Nome que abre o perfil (se houver onProfile); senão, texto normal.
@@ -188,6 +196,79 @@ export function AwardCard({ tipo, list, players, onProfile }) {
             />
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// Botões para mandar a rodada para o grupo: texto pronto a colar ou imagem.
+export function ShareRound({ m }) {
+  const [aviso, setAviso] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (!m) return null
+
+  const dizer = (texto) => {
+    setAviso(texto)
+    setTimeout(() => setAviso(''), 2500)
+  }
+
+  const AVISOS = {
+    partilhado: 'Partilhado ✓',
+    whatsapp: 'Abri o WhatsApp com o resumo ✓',
+    copiado: 'Resumo copiado — cola no grupo ✓',
+    manual: '',
+    cancelado: '',
+    descarregado: 'Imagem guardada ✓',
+  }
+
+  const partilhar = async () => {
+    setBusy(true)
+    try {
+      dizer(AVISOS[await partilharTexto(resumoRodada(m))] ?? '')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copiar = async () => {
+    dizer(AVISOS[await copiarTexto(resumoRodada(m))] ?? '')
+  }
+
+  const imagem = async () => {
+    setBusy(true)
+    try {
+      const url = await renderRoundCard(m)
+      dizer(AVISOS[await partilharImagem(url, m)] ?? '')
+    } catch {
+      dizer('Não consegui gerar a imagem.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const botaoPequeno = {
+    ...styles.buttonGhost,
+    fontSize: 13,
+    padding: '10px 8px',
+  }
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <button onClick={partilhar} disabled={busy} style={{ ...styles.button, fontSize: 15 }}>
+        📲 Partilhar no grupo
+      </button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button onClick={imagem} disabled={busy} style={botaoPequeno}>
+          🖼️ Como imagem
+        </button>
+        <button onClick={copiar} disabled={busy} style={botaoPequeno}>
+          📋 Copiar texto
+        </button>
+      </div>
+      {aviso && (
+        <p style={{ color: colors.grass, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+          {aviso}
+        </p>
       )}
     </div>
   )

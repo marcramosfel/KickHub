@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  changePin,
   getLatestMatch,
   getMatches,
   getMyAwardVotes,
@@ -31,7 +32,15 @@ function formatDate(iso) {
   }
 }
 
-export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats, onProfile }) {
+export default function HomeScreen({
+  session,
+  onLogout,
+  onRate,
+  onAdmin,
+  onStats,
+  onProfile,
+  onPinChanged,
+}) {
   const [players, setPlayers] = useState(null)
   const [draw, setDraw] = useState(null)
   const [latestMatch, setLatestMatch] = useState(undefined) // undefined = a carregar, null = sem rodadas
@@ -43,6 +52,15 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
   const fileRef = useRef(null)
   const [savingPhoto, setSavingPhoto] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
+
+  // mudar o próprio PIN
+  const [pinAberto, setPinAberto] = useState(false)
+  const [pinAtual, setPinAtual] = useState('')
+  const [pinNovo, setPinNovo] = useState('')
+  const [pinConf, setPinConf] = useState('')
+  const [pinBusy, setPinBusy] = useState(false)
+  const [pinErr, setPinErr] = useState('')
+  const [pinOk, setPinOk] = useState(false)
 
   const load = () =>
     Promise.all([
@@ -90,6 +108,40 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
       setPhotoErr(err.message)
     } finally {
       setSavingPhoto(false)
+    }
+  }
+
+  const fecharPin = () => {
+    setPinAberto(false)
+    setPinAtual('')
+    setPinNovo('')
+    setPinConf('')
+    setPinErr('')
+  }
+
+  const guardarPin = async (e) => {
+    e.preventDefault()
+    setPinErr('')
+    if (!/^\d{4}$/.test(pinNovo)) {
+      setPinErr('O PIN novo tem de ter exatamente 4 dígitos.')
+      return
+    }
+    if (pinNovo !== pinConf) {
+      setPinErr('A confirmação não coincide com o PIN novo.')
+      return
+    }
+    setPinBusy(true)
+    try {
+      await changePin(session.id, pinAtual, pinNovo)
+      // a sessão guarda o PIN para as outras RPCs — tem de acompanhar
+      onPinChanged?.(pinNovo)
+      fecharPin()
+      setPinOk(true)
+      setTimeout(() => setPinOk(false), 3000)
+    } catch (err) {
+      setPinErr(err.message)
+    } finally {
+      setPinBusy(false)
     }
   }
 
@@ -220,7 +272,7 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
           >
             {avaliouTudo ? 'Avaliação feita ✓' : 'Avaliação pendente'}
           </div>
-          <div style={{ marginTop: 6 }}>
+          <div style={{ marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => !savingPhoto && fileRef.current?.click()}
@@ -236,12 +288,86 @@ export default function HomeScreen({ session, onLogout, onRate, onAdmin, onStats
             >
               {savingPhoto ? 'A guardar foto…' : '📷 Trocar foto'}
             </button>
+            <button
+              type="button"
+              onClick={() => (pinAberto ? fecharPin() : setPinAberto(true))}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: colors.muted,
+                fontSize: 13,
+                textDecoration: 'underline',
+                padding: 0,
+              }}
+            >
+              🔑 {pinAberto ? 'Cancelar' : 'Mudar PIN'}
+            </button>
             {photoErr && (
-              <p style={{ ...styles.errorText, fontSize: 13, marginTop: 4 }}>{photoErr}</p>
+              <p style={{ ...styles.errorText, fontSize: 13, marginTop: 4, width: '100%' }}>
+                {photoErr}
+              </p>
             )}
           </div>
         </div>
       </div>
+
+      {pinOk && (
+        <p style={{ color: colors.grass, fontSize: 13, marginTop: 8 }}>
+          PIN alterado ✓ — usa o novo da próxima vez que entrares.
+        </p>
+      )}
+
+      {/* mudar o próprio PIN */}
+      {pinAberto && (
+        <form onSubmit={guardarPin} style={{ ...styles.panel, marginTop: 12, padding: 14 }}>
+          <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 4 }}>
+            🔑 Mudar o meu PIN
+          </div>
+          <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+            Esqueceste-te do atual? Pede ao {ADMIN_NAME} para te definir um novo.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="PIN atual"
+              value={pinAtual}
+              onChange={(e) => setPinAtual(e.target.value.replace(/\D/g, ''))}
+              style={styles.input}
+              autoComplete="current-password"
+            />
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="PIN novo (4 dígitos)"
+              value={pinNovo}
+              onChange={(e) => setPinNovo(e.target.value.replace(/\D/g, ''))}
+              style={styles.input}
+              autoComplete="new-password"
+            />
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="Repetir o PIN novo"
+              value={pinConf}
+              onChange={(e) => setPinConf(e.target.value.replace(/\D/g, ''))}
+              style={styles.input}
+              autoComplete="new-password"
+            />
+          </div>
+          {pinErr && <ErrorBox>{pinErr}</ErrorBox>}
+          <button
+            type="submit"
+            disabled={pinBusy || !pinAtual || !pinNovo || !pinConf}
+            style={{ ...styles.button, marginTop: 10 }}
+          >
+            {pinBusy ? 'A guardar…' : 'Guardar PIN novo'}
+          </button>
+        </form>
+      )}
 
       {/* votação de craque/bagre pendente */}
       {pendingVotes > 0 && (

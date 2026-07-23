@@ -23,6 +23,7 @@ const ERROS = {
   AMBIGUO: 'Encontrámos mais de um jogador com esse nome. Entra com o teu ID de utilizador.',
   IDVAZIO: 'Esse ID fica vazio depois de limpo — usa letras ou números.',
   IDEXISTE: 'Esse ID já está a ser usado por outro jogador.',
+  SEMJOGADOR: 'Esse jogador já não existe.',
 }
 
 export class ApiError extends Error {
@@ -68,6 +69,10 @@ export const getPendingRatings = (raterId, pin) =>
 
 export const updatePhoto = (id, pin, photo) =>
   rpc('update_photo', { p_id: id, p_pin: pin, p_photo: photo })
+
+// O jogador muda o próprio PIN (tem de provar o atual)
+export const changePin = (id, pin, novo) =>
+  rpc('change_pin', { p_id: id, p_pin: pin, p_new: novo })
 
 export const getPublishedDraw = () => rpc('get_published_draw')
 
@@ -126,6 +131,10 @@ export const adminRegenUserId = (pw, id) =>
 
 export const adminSetUserId = (pw, id, newId) =>
   rpc('admin_set_user_id', { p_pw: pw, p_id: id, p_new: newId })
+
+// Define um PIN novo para quem se esqueceu do seu (não precisa do antigo)
+export const adminSetPin = (pw, id, novo) =>
+  rpc('admin_set_pin', { p_pw: pw, p_id: id, p_new: novo })
 
 export const publishDraw = (pw, teamA, teamB) =>
   rpc('publish_draw', { p_pw: pw, p_a: teamA, p_b: teamB })

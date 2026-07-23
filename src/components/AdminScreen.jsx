@@ -12,6 +12,7 @@ import {
   adminSaveMatch,
   adminUsers,
   adminRegenUserId,
+  adminSetPin,
   adminSetUserId,
   getMatch,
   getMatches,
@@ -23,7 +24,7 @@ import {
 import { drawTeams } from '../lib/draw'
 import { fileToDataURL } from '../lib/image'
 import { awardWinners, formatDia, hojeLocal, matchWinner } from '../lib/format'
-import { ADMIN_NAME } from '../config'
+import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
 import { PhotoFrame } from './RoundParts'
@@ -121,6 +122,8 @@ export default function AdminScreen({ onExit }) {
   const [usersErr, setUsersErr] = useState('')
   const [copiedId, setCopiedId] = useState(null) // user_id copiado (feedback)
   const [copiedList, setCopiedList] = useState(false)
+  const [novoPin, setNovoPin] = useState(null) // { id, name, userId, pin } acabado de definir
+  const [copiedAcesso, setCopiedAcesso] = useState(false)
 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -284,6 +287,41 @@ export default function AdminScreen({ onExit }) {
       return
     acao(() => adminRegenUserId(pw, u.id))
   }
+  // define um PIN novo para quem se esqueceu do seu (o antigo não é preciso)
+  const definirPin = (u) => {
+    const sugestao = String(1000 + Math.floor(Math.random() * 9000))
+    const novo = window.prompt(
+      `Novo PIN de 4 dígitos para ${u.name} (sugestão gerada; podes escrever outro):`,
+      sugestao
+    )
+    if (novo == null) return
+    const limpo = novo.trim()
+    if (!/^\d{4}$/.test(limpo)) {
+      setError('O PIN tem de ter exatamente 4 dígitos.')
+      return
+    }
+    if (!window.confirm(`Definir o PIN de ${u.name} como ${limpo}? O PIN antigo deixa de servir.`))
+      return
+    setNovoPin(null)
+    acao(async () => {
+      await adminSetPin(pw, u.id, limpo)
+      setNovoPin({ id: u.id, name: u.name, userId: u.user_id, pin: limpo })
+    })
+  }
+  // mensagem pronta a mandar à pessoa
+  const copiarAcesso = () => {
+    if (!novoPin) return
+    copiarTexto(
+      `Olá ${novoPin.name}! Acesso à ${APP_NAME.main} ${APP_NAME.accent}:\n` +
+        `ID: ${novoPin.userId || novoPin.name}\nPIN: ${novoPin.pin}\n` +
+        `Podes trocá-lo por um teu na tua página (🔑 Mudar PIN).`,
+      () => {
+        setCopiedAcesso(true)
+        setTimeout(() => setCopiedAcesso(false), 1800)
+      }
+    )
+  }
+
   const editarId = (u) => {
     const novo = window.prompt(
       `Novo ID para ${u.name} (letras e números; será normalizado):`,
@@ -1372,7 +1410,7 @@ export default function AdminScreen({ onExit }) {
                     </div>
 
                     {/* ações */}
-                    <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
+                    <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
                       <button
                         onClick={() => editarId(u)}
                         disabled={busy}
@@ -1387,14 +1425,79 @@ export default function AdminScreen({ onExit }) {
                       >
                         ↻ Regenerar
                       </button>
+                      <button
+                        onClick={() => definirPin(u)}
+                        disabled={busy}
+                        style={{ ...linkStyle, color: colors.grass }}
+                      >
+                        🔑 Definir novo PIN
+                      </button>
                     </div>
+
+                    {/* PIN acabado de definir para este jogador */}
+                    {novoPin?.id === u.id && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          border: `1px solid ${colors.grass}`,
+                          borderRadius: 10,
+                          padding: 10,
+                          background: 'rgba(52,208,88,0.07)',
+                        }}
+                      >
+                        <div style={{ fontSize: 13, marginBottom: 6 }}>
+                          PIN novo de {novoPin.name}:{' '}
+                          <strong
+                            style={{
+                              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                              fontSize: 18,
+                              color: colors.grass,
+                              letterSpacing: 2,
+                            }}
+                          >
+                            {novoPin.pin}
+                          </strong>
+                        </div>
+                        <p style={{ ...styles.mutedText, fontSize: 11, marginBottom: 8 }}>
+                          Passa-lho em privado — depois de saíres desta página não o consegues ver
+                          outra vez (fica só o hash na base de dados).
+                        </p>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            onClick={copiarAcesso}
+                            style={{
+                              ...styles.buttonGhost,
+                              width: 'auto',
+                              padding: '8px 12px',
+                              fontSize: 13,
+                              color: copiedAcesso ? colors.grass : colors.text,
+                              borderColor: copiedAcesso ? colors.grass : colors.line,
+                            }}
+                          >
+                            {copiedAcesso ? 'Mensagem copiada ✓' : '📋 Copiar mensagem'}
+                          </button>
+                          <button
+                            onClick={() => setNovoPin(null)}
+                            style={{
+                              ...styles.buttonGhost,
+                              width: 'auto',
+                              padding: '8px 12px',
+                              fontSize: 13,
+                            }}
+                          >
+                            Esconder
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
               <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 12 }}>
                 O ID serve para o jogador entrar (além do nome). Editar/regenerar muda como ele
-                faz login — usa só quando preciso.
+                faz login — usa só quando preciso. "Definir novo PIN" é para quem se esqueceu do
+                seu: defines um, passas-lho, e ele troca-o depois na página dele.
               </p>
             </>
           )}

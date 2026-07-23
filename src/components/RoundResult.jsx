@@ -1,5 +1,5 @@
 import { formatDia } from '../lib/format'
-import { RoundBody } from './RoundParts'
+import { RoundBody, ShareRound } from './RoundParts'
 import { colors, fonts, styles } from '../theme'
 
 // Destaque da rodada mais recente — "Campeões da semana".
@@ -43,6 +43,8 @@ export default function RoundResult({ match, onHistory, onProfile }) {
       </div>
 
       <RoundBody m={match} full onProfile={onProfile} />
+
+      <ShareRound m={match} />
 
       <button style={{ ...styles.buttonGhost, marginTop: 16 }} onClick={onHistory}>
         Ver rodadas anteriores →

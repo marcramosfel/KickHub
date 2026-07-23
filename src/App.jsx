@@ -82,6 +82,8 @@ export default function App() {
         setView('stats')
       }}
       onProfile={abrirPerfil('home')}
+      // o PIN da sessão é usado por todas as RPCs — tem de refletir a troca
+      onPinChanged={(novo) => setSession((s) => ({ ...s, pin: novo }))}
     />
   )
 }
