@@ -1,6 +1,6 @@
 import { formatDia } from '../lib/format'
 import { RoundBody, ShareRound } from './RoundParts'
-import { colors, fonts, styles } from '../theme'
+import { colors, styles } from '../theme'
 
 // Destaque da rodada mais recente — "Campeões da semana".
 // `match` vem de getLatestMatch() (com fotos). onHistory abre o histórico.

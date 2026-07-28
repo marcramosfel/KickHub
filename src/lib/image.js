@@ -17,7 +17,7 @@ export function fileToDataURL(file, maxSize = 480, quality = 0.82) {
           canvas.height = h
           canvas.getContext('2d').drawImage(img, 0, 0, w, h)
           resolve(canvas.toDataURL('image/jpeg', quality))
-        } catch (e) {
+        } catch {
           reject(new Error('Não foi possível processar a foto.'))
         }
       }
