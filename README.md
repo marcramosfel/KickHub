@@ -9,10 +9,15 @@ Webapp mobile-first para a pelada do **Browns** sortear equipas de futebol **equ
 1. **Registo** — nome, data de nascimento, foto e PIN de 4 dígitos (tudo obrigatório). A conta fica *pendente*.
 2. **Aprovação** — o admin (área com senha própria) aprova ou rejeita cada pedido.
 3. **Avaliação** — ao entrar pela primeira vez, o jogador dá nota de 0 a 5 a todos os outros aprovados. Só se faz uma vez.
-4. **Sorteio** — quando todos avaliaram, o admin marca as presenças e sorteia. O motor agrupa por faixas de nota, embaralha e distribui pelo time com menor soma — nunca sai um time "empilhado". Dá para re-sortear e trocar jogadores manualmente antes de publicar.
-5. **Publicação** — o sorteio publicado aparece na Home de todos.
-6. **Rodadas e estatísticas** — depois de cada jogo, o admin regista quem jogou, os gols ⚽ e as assistências 🅰️ (separador *Jogos*). A página *Estatísticas* mostra os totais de todos (jogos, gols, assistências, craques e bagres) e o histórico das rodadas.
-7. **Craque & bagre da rodada** — cada rodada registada abre uma votação: quem jogou elege o 👑 craque e o 🐟 bagre (uma vez por rodada, sem votar em si próprio). Empates no topo contam para todos os empatados.
+4. **Posição** — à primeira entrada, cada jogador escolhe onde joga (formação 2-3-1: goleiro, dois defesas, três do meio, um atacante), com uma secundária opcional. Escolhe-se **uma vez**; a partir daí só um administrador altera, e o servidor recusa qualquer tentativa do próprio.
+5. **Marcar o jogo** — o admin usa o assistente de 7 passos (*Próximo jogo*): data/hora/local → escolher os 2 goleiros → confirmar os 12 jogadores de campo → verificar posições → sortear → rever o equilíbrio → publicar.
+6. **Sorteio** — o motor testa todas as divisões possíveis das duas equipas e escolhe a que junta forças parecidas com o menor número de jogadores fora da posição. Dá para trocar jogadores à mão, mudar lugares e voltar a sortear antes de publicar.
+7. **Publicação** — o jogo publicado aparece na Home de todos, com o campo, as equipas e a contagem regressiva.
+8. **Rodadas e estatísticas** — depois de cada jogo, o admin regista quem jogou, os gols ⚽ e as assistências 🅰️ e, para quem esteve na baliza, as 🧤 defesas e os 🥅 gols sofridos (separador *Jogos*).
+9. **Craque & bagre da rodada** — cada rodada registada abre uma votação: quem jogou elege o 👑 craque e o 🐟 bagre (uma vez por rodada, sem votar em si próprio). Empates no topo contam para todos os empatados.
+10. **Ranking e títulos** — o *Ranking* ordena pelo **overall** (o mesmo número que equilibra o sorteio), com separadores para jogadores de campo, goleiros, artilheiros, assistências, craques e vitórias. Quem lidera uma categoria ganha moldura e badge automáticos (Rei da Pelada, Paredão, Artilheiro, …).
+
+Os goleiros têm ranking e overall próprios — não se comparam por gols e assistências. A fórmula está em `src/lib/overall.js` e é explicada dentro da app, no separador *Goleiros*.
 
 Toda a lógica sensível vive no Postgres em funções `SECURITY DEFINER` (PINs com hash bcrypt, senha de admin validada no servidor). As tabelas estão fechadas por RLS — o browser só chama RPC.
 
@@ -51,6 +56,12 @@ O schema está em `supabase/migrations/`, por ordem:
 - [`0011_quem_falta.sql`](supabase/migrations/0011_quem_falta.sql) — painel "Faltas" no admin: quem ainda não votou no craque/bagre da última rodada e quem tem notas por dar (`admin_pending_votes`, só leitura).
 - [`0012_perfil_export.sql`](supabase/migrations/0012_perfil_export.sql) — perfil do jogador com histórico rodada a rodada (`get_player_profile`) e exportação de dados para backup (`admin_export`). Ambas só de leitura.
 - [`0013_temporadas_quimica.sql`](supabase/migrations/0013_temporadas_quimica.sql) — rankings por período/temporada (`get_player_stats_range`) e curiosidades de "química" entre jogadores (`get_player_chemistry`). Ambas só de leitura.
+- [`0014_pin.sql`](supabase/migrations/0014_pin.sql) — o jogador muda o próprio PIN (`change_pin`) e o admin define um novo a quem se esqueceu (`admin_set_pin`).
+- [`0015_posicoes.sql`](supabase/migrations/0015_posicoes.sql) — **posições dos jogadores** (formação 2-3-1), escolhidas uma vez pelo jogador e depois só alteráveis pelo admin, com histórico de auditoria. Estende `login` e `get_players`.
+- [`0016_jogos_agendados.sql`](supabase/migrations/0016_jogos_agendados.sql) — **próximo jogo e escalação**: `matches` ganha data/hora, local, estado e forças das equipas; nova tabela `match_lineup` com o overall no momento do sorteio.
+- [`0017_goleiros.sql`](supabase/migrations/0017_goleiros.sql) — **estatísticas de goleiro** (defesas e gols sofridos por rodada), base do ranking e do overall próprios da baliza.
+
+> As três últimas ainda não estão aplicadas — ver [`supabase/APLICAR.md`](supabase/APLICAR.md) para o passo a passo e para o que muda em cada uma.
 
 Duas formas de aplicar:
 
@@ -61,7 +72,15 @@ supabase link --project-ref gfowkkchpqoirubumnau
 supabase db push
 ```
 
-**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → … → 0012 → 0013) → *Run*.
+**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → … → 0016 → 0017) → *Run*.
+
+## Qualidade
+
+```bash
+npm run lint   # eslint 9 (flat config)
+npm test       # vitest — motor de sorteio, overall, rankings, conquistas, contagem regressiva
+npm run build
+```
 
 A migração cria as tabelas (`players`, `ratings`, `draws`, `app_config`), ativa RLS sem políticas (tabelas fechadas) e cria as funções RPC que a app usa.
 

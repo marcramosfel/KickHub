@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  adminAddMatch,
   adminDeleteMatch,
+  adminSaveGkStats,
+  getGoalkeeperStats,
+  getMatchGkStats,
+  getPlayerStats,
   adminPending,
   adminApprove,
   adminReject,
@@ -24,9 +27,12 @@ import {
 import { drawTeams } from '../lib/draw'
 import { fileToDataURL } from '../lib/image'
 import { awardWinners, formatDia, hojeLocal, matchWinner } from '../lib/format'
+import { juntarEstatisticas } from '../lib/ranking'
 import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
+import MatchWizard from './admin/MatchWizard'
+import PositionsAdmin from './admin/PositionsAdmin'
 import { PhotoFrame } from './RoundParts'
 import { colors, fonts, styles, disabled } from '../theme'
 
@@ -87,6 +93,11 @@ export default function AdminScreen({ onExit }) {
   const [pending, setPending] = useState([])
   const [players, setPlayers] = useState([])
   const [stats, setStats] = useState(null) // { approved, voters }
+  // números de campo e de baliza — o assistente do jogo precisa do overall
+  const [playerStats, setPlayerStats] = useState([])
+  const [gkStats, setGkStats] = useState(null)
+  // defesas/gols sofridos da rodada a registar: { [id]: { saves, conceded } }
+  const [gkForm, setGkForm] = useState({})
 
   const [present, setPresent] = useState({}) // { [id]: bool }
   const [force, setForce] = useState(false)
@@ -131,16 +142,21 @@ export default function AdminScreen({ onExit }) {
   const refresh = async (senha = pw) => {
     // o sorteio publicado vem no mesmo lote para o efeito que semeia as
     // presenças do jogo já o ter disponível na primeira execução
-    const [pend, pls, st, ld] = await Promise.all([
+    const [pend, pls, st, ld, ps, gk] = await Promise.all([
       adminPending(senha),
       getPlayers(),
       getStats(),
       getPublishedDraw().catch(() => null),
+      // não-fatais: sem as migrações 0002/0017 o resto do admin funciona na mesma
+      getPlayerStats().catch(() => []),
+      getGoalkeeperStats().catch(() => null),
     ])
     setPending(pend || [])
     setPlayers(pls || [])
     setStats(st)
     setLastDraw(ld)
+    setPlayerStats(ps || [])
+    setGkStats(gk)
     // presenças: mantém escolhas anteriores, novos aprovados entram marcados
     setPresent((prev) => {
       const next = {}
@@ -333,6 +349,19 @@ export default function AdminScreen({ onExit }) {
     acao(() => adminSetUserId(pw, u.id, novo))
   }
 
+  // Jogadores já com overall (de campo ou de baliza) e posições — é isto que
+  // o assistente do jogo usa para equilibrar as equipas.
+  const jogadores = useMemo(
+    () =>
+      juntarEstatisticas({
+        players,
+        playerStats,
+        goalkeeperStats: gkStats,
+        resultados: matches,
+      }),
+    [players, playerStats, gkStats, matches]
+  )
+
   // ---------- sorteio ----------
   const presentes = players.filter((p) => present[p.id])
   const allVoted = stats != null && stats.approved > 1 && stats.voters >= stats.approved
@@ -378,6 +407,17 @@ export default function AdminScreen({ onExit }) {
   // ---------- jogos / rodadas ----------
   const jogadoresDoJogo = players.filter((p) => jogou[p.id])
 
+  // Presenças por defeito: quem estava no último sorteio publicado; sem
+  // sorteio publicado, toda a gente.
+  const presencasPorDefeito = () => {
+    const ids = lastDraw
+      ? new Set([...(lastDraw.team_a || []), ...(lastDraw.team_b || [])].map((p) => p.id))
+      : null
+    const next = {}
+    for (const p of players) next[p.id] = ids ? ids.has(p.id) : true
+    return next
+  }
+
   const limparFormJogo = () => {
     setEditingId(null)
     setJogoDate(hojeLocal())
@@ -391,12 +431,32 @@ export default function AdminScreen({ onExit }) {
     setWinnerPhoto('')
     setLocationPhoto('')
     setNotes('')
-    // volta as presenças ao default (último sorteio / todos)
-    setJogou(() => {
-      const next = {}
-      for (const p of players) next[p.id] = true
-      return next
-    })
+    setGkForm({})
+    // Volta as presenças ao default. Marcar toda a gente (era o que acontecia)
+    // fazia com que a segunda rodada da sessão começasse com o plantel
+    // inteiro: quem não reparasse gravava 30 jogadores num jogo de 14.
+    setJogou(presencasPorDefeito())
+  }
+
+  // O formulário de registo/edição só existe em memória: abrir outra rodada ou
+  // cancelar a edição deita fora o que lá estiver. Só vale a pena perguntar
+  // quando há mesmo alguma coisa escrita.
+  const formTemDados = () =>
+    !!editingId ||
+    !!notes ||
+    !!winnerPhoto ||
+    !!locationPhoto ||
+    Number(scoreA) > 0 ||
+    Number(scoreB) > 0 ||
+    Object.keys(team).length > 0 ||
+    Object.keys(gkForm).length > 0 ||
+    Object.values(gols).some((v) => Number(v) > 0) ||
+    Object.values(assists).some((v) => Number(v) > 0)
+
+  const cancelarEdicao = () => {
+    if (!window.confirm('Descartar as alterações a esta rodada? O que está gravado não muda.'))
+      return
+    limparFormJogo()
   }
 
   const escolherFoto = (setter) => async (e) => {
@@ -424,7 +484,7 @@ export default function AdminScreen({ onExit }) {
     if (stats.length < 3) return setError('Marca pelo menos 3 jogadores que jogaram.')
     setBusy(true)
     try {
-      await adminSaveMatch(pw, editingId, {
+      const matchId = await adminSaveMatch(pw, editingId, {
         playedAt: jogoDate,
         teamAName,
         teamBName,
@@ -435,6 +495,23 @@ export default function AdminScreen({ onExit }) {
         notes,
         stats,
       })
+      // Defesas e gols sofridos ficam numa tabela à parte (só quem tem números
+      // é gravado). Não-fatal: sem a migração 0017 a rodada guarda na mesma.
+      const gkLinhas = jogadoresDoJogo
+        .filter((p) => gkForm[p.id])
+        .map((p) => ({
+          goalkeeper_id: p.id,
+          team: team[p.id] || null,
+          saves: Number(gkForm[p.id]?.saves) || 0,
+          goals_conceded: Number(gkForm[p.id]?.conceded) || 0,
+        }))
+      try {
+        await adminSaveGkStats(pw, matchId || editingId, gkLinhas)
+      } catch (gkErr) {
+        setError(
+          `Rodada guardada, mas as estatísticas de goleiro não (${gkErr.message}). Falta aplicar a migração 0017_goleiros.sql?`
+        )
+      }
       setJogoOk(true)
       limparFormJogo()
       await refresh()
@@ -446,6 +523,14 @@ export default function AdminScreen({ onExit }) {
   }
 
   const editarJogo = async (m) => {
+    // Carregar uma rodada por cima do formulário apaga o que lá estava — 14
+    // jogadores, gols, fotos — e antes disto acontecia sem avisar.
+    if (editingId !== m.id && formTemDados()) {
+      const pergunta = editingId
+        ? 'Estás a editar outra rodada. As alterações por gravar perdem-se. Continuar?'
+        : 'Tens dados por gravar no registo de jogo. Abrir esta rodada apaga-os. Continuar?'
+      if (!window.confirm(pergunta)) return
+    }
     setError('')
     setJogoOk(false)
     setBusy(true)
@@ -476,6 +561,16 @@ export default function AdminScreen({ onExit }) {
       setWinnerPhoto(full.winner_photo || '')
       setLocationPhoto(full.location_photo || '')
       setNotes(full.notes || '')
+      // defesas/gols sofridos já registados (não-fatal sem a 0017)
+      const gks = await getMatchGkStats(m.id).catch(() => [])
+      setGkForm(
+        Object.fromEntries(
+          (gks || []).map((g) => [
+            g.goalkeeper_id,
+            { saves: g.saves ?? 0, conceded: g.goals_conceded ?? 0 },
+          ])
+        )
+      )
       setTab('jogos')
       if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
@@ -532,6 +627,8 @@ export default function AdminScreen({ onExit }) {
   const awardPend = faltas?.award_pending || []
   const ratingsPend = faltas?.ratings_pending || []
   const faltasTotal = awardPend.length + ratingsPend.length
+  // jogadores ainda sem posição: o sorteio posicional não os coloca bem
+  const semPosicao = jogadores.filter((j) => !j.primaryPosition).length
 
   // ---------- tabs ----------
   const tabBtn = (id, label, badge) => (
@@ -606,8 +703,10 @@ export default function AdminScreen({ onExit }) {
         }}
       >
         {tabBtn('pedidos', 'Pedidos', pending.length)}
+        {tabBtn('proximo', 'Próximo jogo', 0)}
+        {tabBtn('posicoes', 'Posições', semPosicao)}
         {tabBtn('plantel', 'Plantel', 0)}
-        {tabBtn('sorteio', 'Sorteio', 0)}
+        {tabBtn('sorteio', 'Sorteio simples', 0)}
         {tabBtn('jogos', 'Jogos', 0)}
         {tabBtn('faltas', 'Faltas', faltasTotal)}
         {tabBtn('utilizadores', 'IDs', 0)}
@@ -660,6 +759,14 @@ export default function AdminScreen({ onExit }) {
           ))}
         </div>
       )}
+
+      {/* ---------- PRÓXIMO JOGO (assistente) ---------- */}
+      {tab === 'proximo' && (
+        <MatchWizard pw={pw} jogadores={jogadores} onDadosAlterados={refresh} />
+      )}
+
+      {/* ---------- POSIÇÕES DOS JOGADORES ---------- */}
+      {tab === 'posicoes' && <PositionsAdmin pw={pw} />}
 
       {/* ---------- PLANTEL ---------- */}
       {tab === 'plantel' && (
@@ -720,7 +827,7 @@ export default function AdminScreen({ onExit }) {
                 🔄 Reiniciar avaliações de todos
               </button>
               <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
-                Todo o grupo terá de avaliar toda a gente outra vez. Usa "Reavaliar" num jogador
+                Todo o grupo terá de avaliar toda a gente outra vez. Usa “Reavaliar” num jogador
                 para reiniciar só as notas dele.
               </p>
             </div>
@@ -731,6 +838,14 @@ export default function AdminScreen({ onExit }) {
       {/* ---------- SORTEIO ---------- */}
       {tab === 'sorteio' && (
         <div>
+          <div style={{ ...styles.panel, marginBottom: 12, padding: 12 }}>
+            <p style={{ ...styles.mutedText, fontSize: 13 }}>
+              Sorteio rápido pela média do grupo, sem posições nem campo — o que existia antes.
+              Fica aqui para quando aparecerem 9 ou 15 pessoas e for preciso dividir à pressa. Para
+              o jogo a sério (2 goleiros + 12 de campo, formação 2-3-1, equilíbrio por overall),
+              usa a aba <strong style={{ color: colors.grass }}>Próximo jogo</strong>.
+            </p>
+          </div>
           {/* progresso das avaliações */}
           <div style={{ ...styles.panel, marginBottom: 12 }}>
             <div
@@ -868,7 +983,7 @@ export default function AdminScreen({ onExit }) {
                 {editingId ? '✎ Editar rodada' : 'Registar jogo'}
               </span>
               {editingId && (
-                <button onClick={limparFormJogo} style={linkStyle}>
+                <button onClick={cancelarEdicao} style={linkStyle}>
                   cancelar edição
                 </button>
               )}
@@ -928,7 +1043,8 @@ export default function AdminScreen({ onExit }) {
             </div>
 
             <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 4 }}>
-              Marca quem jogou, o time (A/B) e os gols ⚽ e assistências 🅰️ de cada um.
+              Marca quem jogou, o time (A/B) e os gols ⚽ e assistências 🅰️ de cada um. Quem esteve
+              na baliza leva 🧤 defesas e 🥅 gols sofridos — é o que alimenta o ranking de goleiros.
             </p>
             {players.map((p) => (
               <div
@@ -982,7 +1098,7 @@ export default function AdminScreen({ onExit }) {
                     })}
                 </div>
                 {jogou[p.id] && (
-                  <div style={{ display: 'flex', gap: 14, marginTop: 8, paddingLeft: 34 }}>
+                  <div style={{ display: 'flex', gap: 14, marginTop: 8, paddingLeft: 34, flexWrap: 'wrap' }}>
                     <Stepper
                       icon="⚽"
                       value={gols[p.id] || 0}
@@ -993,6 +1109,50 @@ export default function AdminScreen({ onExit }) {
                       value={assists[p.id] || 0}
                       onChange={(v) => setAssists({ ...assists, [p.id]: v })}
                     />
+                    {/* Um goleiro não se mede por gols e assistências — daí os
+                        números próprios, só para quem esteve na baliza. */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setGkForm((f) => {
+                          const next = { ...f }
+                          if (next[p.id]) delete next[p.id]
+                          else next[p.id] = { saves: 0, conceded: 0 }
+                          return next
+                        })
+                      }
+                      aria-pressed={!!gkForm[p.id]}
+                      title="Foi goleiro nesta rodada"
+                      style={{
+                        ...linkStyle,
+                        color: gkForm[p.id] ? colors.teamB : colors.muted,
+                        textDecoration: 'none',
+                        border: `1px solid ${gkForm[p.id] ? colors.teamB : colors.line}`,
+                        borderRadius: 8,
+                        padding: '3px 9px',
+                        fontSize: 12,
+                      }}
+                    >
+                      🧤 {gkForm[p.id] ? 'Goleiro' : 'foi goleiro?'}
+                    </button>
+                    {gkForm[p.id] && (
+                      <>
+                        <Stepper
+                          icon="🧤"
+                          value={gkForm[p.id].saves || 0}
+                          onChange={(v) =>
+                            setGkForm((f) => ({ ...f, [p.id]: { ...f[p.id], saves: v } }))
+                          }
+                        />
+                        <Stepper
+                          icon="🥅"
+                          value={gkForm[p.id].conceded || 0}
+                          onChange={(v) =>
+                            setGkForm((f) => ({ ...f, [p.id]: { ...f[p.id], conceded: v } }))
+                          }
+                        />
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -1056,7 +1216,7 @@ export default function AdminScreen({ onExit }) {
             </button>
             {jogoOk && (
               <p style={{ color: colors.grass, fontSize: 13, marginTop: 8 }}>
-                Rodada guardada ✓ — aparece em "Campeões da semana" e no histórico.
+                Rodada guardada ✓ — aparece em “Campeões da semana” e no histórico.
               </p>
             )}
           </div>
@@ -1496,7 +1656,7 @@ export default function AdminScreen({ onExit }) {
 
               <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 12 }}>
                 O ID serve para o jogador entrar (além do nome). Editar/regenerar muda como ele
-                faz login — usa só quando preciso. "Definir novo PIN" é para quem se esqueceu do
+                faz login — usa só quando preciso. “Definir novo PIN” é para quem se esqueceu do
                 seu: defines um, passas-lho, e ele troca-o depois na página dele.
               </p>
             </>
@@ -1528,7 +1688,7 @@ export default function AdminScreen({ onExit }) {
               </button>
             </div>
             <p style={{ ...styles.mutedText, fontSize: 11, marginTop: 8 }}>
-              O "leve" não inclui fotos (ficheiro pequeno). Por segurança, os PINs nunca são
+              O “leve” não inclui fotos (ficheiro pequeno). Por segurança, os PINs nunca são
               exportados.
             </p>
           </div>

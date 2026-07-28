@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Avatar from './Avatar'
 import { teamAvg } from '../lib/draw'
 import { colors, fonts, styles } from '../theme'
@@ -108,10 +108,14 @@ function TeamPanel({ nome, cor, team, selectedId, onPick }) {
 export default function DrawView({ A, B, onSwap }) {
   const [sel, setSel] = useState({ A: null, B: null })
 
-  // Um re-sorteio substitui as equipas — a seleção de troca a meio não pode sobreviver
-  useEffect(() => {
+  // Um re-sorteio substitui as equipas — a seleção de troca a meio não pode
+  // sobreviver. Ajustar durante o render (em vez de num efeito) evita o
+  // fotograma intermédio em que a seleção antiga aparecia sobre as equipas novas.
+  const [equipas, setEquipas] = useState({ A, B })
+  if (equipas.A !== A || equipas.B !== B) {
+    setEquipas({ A, B })
     setSel({ A: null, B: null })
-  }, [A, B])
+  }
 
   const pick = (team) => (id) => {
     const next = { ...sel, [team]: sel[team] === id ? null : id }
@@ -131,7 +135,9 @@ export default function DrawView({ A, B, onSwap }) {
           Para trocar, toca num jogador de cada time.
         </p>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {/* Duas colunas quando há espaço, empilhadas no telemóvel. Um
+          `1fr 1fr` fixo obrigava a deslizar de lado num ecrã de 320px. */}
+      <div className="pb-cards" style={{ gap: 10 }}>
         <TeamPanel
           nome={TEAM_A.nome}
           cor={TEAM_A.cor}

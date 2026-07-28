@@ -1,0 +1,738 @@
+/* =============================================================================
+   layout.css — camada responsiva da app.
+   Os estilos inline (theme.js) nao conseguem fazer media queries; e por isso
+   que tudo o que depende do tamanho do ecra vive aqui.
+   Todas as classes usam o prefixo `pb-` para nunca colidirem com o index.css
+   nem com classes de terceiros.
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   1. Variaveis
+   Espelham as cores de src/theme.js para que o CSS e os estilos inline falem
+   exatamente a mesma lingua (mudar a cor num sitio deixa de dessincronizar).
+   -------------------------------------------------------------------------- */
+:root {
+  /* cores do tema */
+  --pb-bg: #0a1512;
+  --pb-panel: #10201a;
+  --pb-line: #1e3a2e;
+  --pb-text: #eaf2ec;
+  --pb-muted: #7fa090;
+  --pb-grass: #34d058;
+  --pb-gold: #ffc531;
+  --pb-blue: #35a7ff;
+  --pb-error: #ff5a5a;
+
+  /* derivadas — usadas em fundos translucidos e realces */
+  --pb-grass-soft: rgba(52, 208, 88, 0.14);
+  --pb-grass-line: rgba(52, 208, 88, 0.35);
+  --pb-panel-blur: rgba(16, 32, 26, 0.82);
+  --pb-hover: rgba(127, 160, 144, 0.1);
+  --pb-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  --pb-shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55);
+
+  /* espacamentos */
+  --pb-gap: 16px;
+  --pb-gap-xs: 6px;
+  --pb-gap-sm: 10px;
+  --pb-gap-lg: 24px;
+  --pb-gap-xl: 32px;
+
+  /* medidas de layout */
+  --pb-radius: 16px;
+  --pb-radius-sm: 10px;
+  --pb-max: 1400px; /* entre 1360 e 1440: respira sem se espalhar */
+  --pb-pad-x: 16px;
+  --pb-header-h: 60px;
+  --pb-bottomnav-h: 56px;
+  --pb-safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* -----------------------------------------------------------------------------
+   2. Scroll horizontal: nunca, em ecra nenhum.
+   `clip` em vez de `hidden` porque `hidden` cria um contexto de scroll e parte
+   o `position: sticky` do header.
+   -------------------------------------------------------------------------- */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Itens de flex/grid tem min-width:auto por omissao: um nome comprido ou uma
+   tabela empurram a coluna e criam scroll na pagina. Isto neutraliza-o. */
+.pb-nowrap-guard *,
+.pb-grid > *,
+.pb-cards > *,
+.pb-cards-sm > * {
+  min-width: 0;
+}
+
+/* Nome comprido numa linha so — corta com reticencias. */
+.pb-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nome comprido que pode partir — parte em qualquer sitio antes de transbordar. */
+.pb-break {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Ultimo recurso: quando algo (uma tabela larga) tem mesmo de deslizar, desliza
+   DENTRO deste bloco — a pagina em si continua sem scroll lateral. */
+.pb-scroll-x {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* -----------------------------------------------------------------------------
+   3. Contentor e grelha de 12 colunas
+   -------------------------------------------------------------------------- */
+.pb-container {
+  width: 100%;
+  max-width: var(--pb-max);
+  margin: 0 auto;
+  padding: 0 var(--pb-pad-x);
+}
+
+.pb-grid {
+  display: grid;
+  /* minmax(0,1fr) e obrigatorio: com `1fr` puro o conteudo largo estica a
+     coluna e volta a nascer scroll horizontal. */
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--pb-gap);
+}
+
+/* Mobile-first: abaixo de 768px todas as colunas ocupam a largura toda. */
+.pb-col-1,
+.pb-col-2,
+.pb-col-3,
+.pb-col-4,
+.pb-col-5,
+.pb-col-6,
+.pb-col-7,
+.pb-col-8,
+.pb-col-9,
+.pb-col-10,
+.pb-col-11,
+.pb-col-12,
+.pb-col-md-1,
+.pb-col-md-2,
+.pb-col-md-3,
+.pb-col-md-4,
+.pb-col-md-5,
+.pb-col-md-6,
+.pb-col-md-7,
+.pb-col-md-8,
+.pb-col-md-9,
+.pb-col-md-10,
+.pb-col-md-11,
+.pb-col-md-12 {
+  grid-column: span 12;
+}
+
+/* Tablet (768–1023px): grelha intermedia. Um .pb-col-4 pode virar
+   .pb-col-md-6 sem deixar de ser .pb-col-4 no desktop. */
+@media (min-width: 768px) {
+  .pb-col-md-1 {
+    grid-column: span 1;
+  }
+  .pb-col-md-2 {
+    grid-column: span 2;
+  }
+  .pb-col-md-3 {
+    grid-column: span 3;
+  }
+  .pb-col-md-4 {
+    grid-column: span 4;
+  }
+  .pb-col-md-5 {
+    grid-column: span 5;
+  }
+  .pb-col-md-6 {
+    grid-column: span 6;
+  }
+  .pb-col-md-7 {
+    grid-column: span 7;
+  }
+  .pb-col-md-8 {
+    grid-column: span 8;
+  }
+  .pb-col-md-9 {
+    grid-column: span 9;
+  }
+  .pb-col-md-10 {
+    grid-column: span 10;
+  }
+  .pb-col-md-11 {
+    grid-column: span 11;
+  }
+  .pb-col-md-12 {
+    grid-column: span 12;
+  }
+}
+
+/* Desktop (>=1024px): valem os .pb-col-* completos. Este bloco vem depois do
+   bloco md, por isso ganha a cascata com a mesma especificidade. */
+@media (min-width: 1024px) {
+  .pb-col-1 {
+    grid-column: span 1;
+  }
+  .pb-col-2 {
+    grid-column: span 2;
+  }
+  .pb-col-3 {
+    grid-column: span 3;
+  }
+  .pb-col-4 {
+    grid-column: span 4;
+  }
+  .pb-col-5 {
+    grid-column: span 5;
+  }
+  .pb-col-6 {
+    grid-column: span 6;
+  }
+  .pb-col-7 {
+    grid-column: span 7;
+  }
+  .pb-col-8 {
+    grid-column: span 8;
+  }
+  .pb-col-9 {
+    grid-column: span 9;
+  }
+  .pb-col-10 {
+    grid-column: span 10;
+  }
+  .pb-col-11 {
+    grid-column: span 11;
+  }
+  .pb-col-12 {
+    grid-column: span 12;
+  }
+}
+
+/* Fila de cards que se distribui sozinha: lado a lado no desktop, empilhada no
+   telemovel. O min(220px,100%) evita transbordar num ecra de 320px. */
+.pb-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--pb-gap);
+}
+
+/* Variante mais estreita, para chips/estatisticas pequenas. */
+.pb-cards-sm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: var(--pb-gap-sm);
+}
+
+/* Cards de uma mesma fila com a mesma altura, independentemente do texto. */
+.pb-row-align {
+  align-items: stretch;
+}
+.pb-row-align > *,
+.pb-row-align .pb-card {
+  height: 100%;
+}
+
+/* -----------------------------------------------------------------------------
+   4. Cards, paineis e espacamento vertical
+   -------------------------------------------------------------------------- */
+.pb-card {
+  background: var(--pb-panel);
+  border: 1px solid var(--pb-line);
+  border-radius: var(--pb-radius);
+  padding: var(--pb-gap);
+  box-shadow: var(--pb-shadow);
+  min-width: 0; /* mesma razao do nowrap-guard */
+}
+
+/* Realce ao passar o rato: so a borda acende. Nada de translate/scale — mexer
+   no layout de uma fila de cards da a sensacao de "salto". */
+.pb-card-hover {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.pb-card-hover:hover {
+  border-color: var(--pb-grass-line);
+  box-shadow: 0 2px 14px rgba(52, 208, 88, 0.08);
+}
+
+.pb-section-gap {
+  margin-top: var(--pb-gap-lg);
+}
+
+.pb-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-gap);
+}
+.pb-stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pb-gap-sm);
+}
+
+@media (min-width: 1024px) {
+  .pb-card {
+    padding: 20px;
+  }
+  .pb-section-gap {
+    margin-top: var(--pb-gap-xl);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   5. Navegacao — header no desktop, barra inferior no telemovel
+   -------------------------------------------------------------------------- */
+.pb-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--pb-panel-blur);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--pb-line);
+}
+
+/* Abaixo de 768px a navegacao vive na barra inferior. */
+@media (max-width: 767px) {
+  .pb-header {
+    display: none;
+  }
+}
+
+.pb-header-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--pb-gap-sm);
+  min-height: var(--pb-header-h);
+  flex-wrap: wrap;
+}
+
+.pb-header-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--pb-gap-xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* Separador elastico para empurrar o que vem a seguir para a direita. */
+.pb-header-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pb-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  min-height: 44px; /* area de toque/clique confortavel */
+  border: none;
+  border-radius: var(--pb-radius-sm);
+  background: transparent;
+  color: var(--pb-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.pb-tab:hover {
+  background: var(--pb-hover);
+  color: var(--pb-text);
+}
+
+.pb-tab.is-active {
+  background: var(--pb-grass-soft);
+  color: var(--pb-text);
+}
+
+/* Barrinha de 2px por baixo do separador ativo. */
+.pb-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pb-grass);
+}
+
+/* Coerente com o padrao global do index.css. */
+.pb-tab:focus-visible {
+  outline: 2px solid var(--pb-grass);
+  outline-offset: 2px;
+}
+
+/* --- barra de topo do AppShell ---
+   Ao contrario do `.pb-header` (que desaparece no telemovel), a `.pb-topbar`
+   existe em todos os tamanhos: no telemovel ainda guarda o logotipo e o botao
+   "Mais", que dao acesso as paginas que nao cabem na barra de baixo. Esconde-la
+   deixaria essas paginas inalcancaveis. */
+.pb-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--pb-panel-blur);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--pb-line);
+}
+
+.pb-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--pb-gap-sm);
+  min-height: var(--pb-header-h);
+  min-width: 0;
+}
+
+/* Os separadores completos so aparecem a partir do tablet; no telemovel a
+   navegacao e a barra de baixo. */
+.pb-nav-desktop {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .pb-nav-desktop {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--pb-gap-xs);
+    /* com muitos separadores prefere-se passar a duas linhas a criar scroll
+       lateral na pagina */
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+}
+
+.pb-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--pb-gap-xs);
+  margin-left: auto; /* cola-se a direita mesmo sem a nav no meio */
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* Linha de um menu (menu do utilizador, folha "Mais"). */
+.pb-menuitem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  padding: 11px 12px;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--pb-radius-sm);
+  background: transparent;
+  color: var(--pb-text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.pb-menuitem:hover {
+  background: var(--pb-hover);
+}
+
+.pb-menuitem:focus-visible {
+  outline: 2px solid var(--pb-grass);
+  outline-offset: -2px;
+}
+
+/* --- barra inferior (so telemovel) --- */
+.pb-bottomnav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .pb-bottomnav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: flex;
+    align-items: stretch;
+    background: var(--pb-panel);
+    border-top: 1px solid var(--pb-line);
+    /* safe area do iOS: a barra sobe acima do indicador de "home" */
+    padding-bottom: var(--pb-safe-b);
+    /* `min-height` e nao `height`: com box-sizing:border-box uma altura fixa
+       descontava a padding da safe area e a borda, e os itens (min-height 56px)
+       transbordavam a barra. */
+    min-height: calc(var(--pb-bottomnav-h) + var(--pb-safe-b));
+  }
+}
+
+.pb-bottomnav-item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: var(--pb-bottomnav-h);
+  padding: 6px 2px;
+  border: none;
+  background: transparent;
+  color: var(--pb-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.pb-bottomnav-item .pb-bottomnav-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Label curta: nunca deixa a barra crescer nem transbordar. Vale para o
+   `.pb-bottomnav-label` e para qualquer texto solto dentro do item — num ecra
+   de 320px sao 5 destinos a dividir 64px cada. */
+.pb-bottomnav-item .pb-bottomnav-label,
+.pb-bottomnav-item > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-bottomnav-item.is-active {
+  color: var(--pb-grass);
+}
+
+.pb-bottomnav-item:focus-visible {
+  outline: 2px solid var(--pb-grass);
+  outline-offset: -2px;
+}
+
+/* Aplicar ao conteudo da pagina: a barra fixa nunca tapa o que esta por baixo
+   (inclui o ultimo botao de um formulario). */
+.pb-with-bottomnav {
+  padding-bottom: calc(72px + var(--pb-safe-b));
+}
+
+@media (min-width: 768px) {
+  .pb-with-bottomnav {
+    padding-bottom: 0;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   6. Campo de futebol
+   -------------------------------------------------------------------------- */
+.pb-pitch-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+/* -----------------------------------------------------------------------------
+   7. Modais — tem de caber num ecra de 320px
+   -------------------------------------------------------------------------- */
+/* `.pb-overlay` e o nome curto usado pelos componentes; fica como sinonimo
+   para nao haver dois comportamentos de modal na mesma app. */
+.pb-modal-overlay,
+.pb-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(3, 9, 7, 0.72);
+}
+
+/* O `.pb-sheet` herda a mesma base: e usado sozinho (sem `.pb-modal`) e sem
+   isto ficava um bloco sem fundo, sem borda e sem scroll. */
+.pb-modal,
+.pb-sheet {
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(85vh, calc(100vh - 48px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: var(--pb-panel);
+  border: 1px solid var(--pb-line);
+  border-radius: var(--pb-radius);
+  box-shadow: var(--pb-shadow-lg);
+  padding: 20px;
+}
+
+/* Variante bottom-sheet: colada em baixo, so no telemovel. */
+@media (max-width: 767px) {
+  .pb-modal-overlay:has(> .pb-sheet),
+  .pb-overlay:has(> .pb-sheet) {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .pb-sheet {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    border-radius: var(--pb-radius) var(--pb-radius) 0 0;
+    border-bottom: none;
+    /* respeita a safe area para o conteudo nao ficar debaixo do indicador */
+    padding-bottom: calc(20px + var(--pb-safe-b));
+  }
+}
+
+/* Pega visual do sheet (a barrinha cinzenta do topo). */
+.pb-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--pb-line);
+  margin: 0 auto 12px;
+}
+
+@media (min-width: 768px) {
+  .pb-sheet-handle {
+    display: none;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   8. Fundo de futebol subtil
+   Linhas de campo desenhadas so com gradientes (sem imagens), a 3–5% de
+   opacidade. E ambiente, nao ruido: nao pode competir com o conteudo nem
+   baixar o contraste do texto.
+   -------------------------------------------------------------------------- */
+.pb-pitch-bg {
+  position: relative;
+  /* `isolation` cria um contexto de empilhamento proprio, o que deixa o
+     ::before viver em z-index negativo (atras de TODO o conteudo) sem precisar
+     de tocar nos filhos. Sem isto era preciso forcar `position: relative` nos
+     filhos — e isso destruia o `sticky` da barra de cima e o `fixed` da barra
+     de baixo, que sao filhos diretos deste wrapper. */
+  isolation: isolate;
+  background-color: var(--pb-bg);
+}
+
+.pb-pitch-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  /* -1: fica por baixo de todo o conteudo, mas ainda por cima do
+     background-color do proprio wrapper (que e pintado antes). */
+  z-index: -1;
+  pointer-events: none;
+  background-color: transparent;
+  background-image:
+    /* circulo central */
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 0 118px,
+      rgba(234, 242, 236, 0.05) 118px 120px,
+      transparent 121px
+    ),
+    /* ponto central */
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(234, 242, 236, 0.05) 0 3px,
+      transparent 4px
+    ),
+    /* linha de meio-campo */
+    linear-gradient(
+      to bottom,
+      transparent calc(50% - 1px),
+      rgba(234, 242, 236, 0.04) calc(50% - 1px) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    /* linhas laterais */
+    linear-gradient(
+      to right,
+      transparent 0 22px,
+      rgba(234, 242, 236, 0.035) 22px 23px,
+      transparent 23px calc(100% - 23px),
+      rgba(234, 242, 236, 0.035) calc(100% - 23px) calc(100% - 22px),
+      transparent calc(100% - 22px)
+    ),
+    /* faixas de corte da relva — muito esbatidas */
+    repeating-linear-gradient(
+      to bottom,
+      rgba(52, 208, 88, 0.022) 0 64px,
+      transparent 64px 128px
+    ),
+    /* halo de holofote no topo, para dar profundidade */
+    radial-gradient(
+      ellipse 120% 60% at 50% -10%,
+      rgba(52, 208, 88, 0.05),
+      transparent 70%
+    );
+  background-repeat: no-repeat;
+}
+
+/* -----------------------------------------------------------------------------
+   9. Utilitarios curtos
+   -------------------------------------------------------------------------- */
+/* Esconder so dentro da media query certa, em vez de esconder por omissao e
+   depois repor com `display: revert`: o `revert` deitava fora TODAS as regras
+   de autor, portanto um elemento com `.pb-center` (flex) voltava a `block`.
+   Assim, fora da media query nao existe regra nenhuma e o display natural do
+   elemento mantem-se. O `!important` e preciso porque nesta app quase tudo tem
+   `display` em estilo inline, e o inline ganharia a uma classe normal. */
+@media (max-width: 767px) {
+  .pb-hide-mobile {
+    display: none !important;
+  }
+}
+@media (min-width: 768px) {
+  .pb-only-mobile {
+    display: none !important;
+  }
+}
+
+.pb-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* -----------------------------------------------------------------------------
+   10. Motion — desliga tudo o que se mexe para quem pediu menos movimento
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .pb-card,
+  .pb-card-hover,
+  .pb-tab,
+  .pb-menuitem,
+  .pb-bottomnav-item,
+  .pb-modal-overlay,
+  .pb-overlay,
+  .pb-modal,
+  .pb-sheet,
+  .pb-scroll-x {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -59,3 +59,94 @@ export function calcularOverall(perfil) {
     provisorio: false,
   }
 }
+
+// Nome único e centralizado para a fórmula de campo. É um alias de propósito:
+// duplicar a lógica seria a forma mais rápida de os dois números divergirem.
+export const calculateFieldPlayerOverall = calcularOverall
+
+// ---------- Overall de goleiro ----------
+//
+// O goleiro não cabe na fórmula de campo: não marca, não assiste, e a média do
+// grupo sozinha castiga quem passa a rodada a apanhar bolas. Por isso tem uma
+// escala própria, construída só com o que ele faz na baliza.
+//
+// As defesas pesam 60% porque são a única parte quase inteiramente dele: gols
+// sofridos, jogos sem sofrer e vitórias dependem também da linha à frente. O
+// peso maior fica onde o mérito é mais individual — quem defende muito num
+// time que sofre muito continua a ser bem avaliado.
+//
+// O fator de confiança existe para impedir que uma rodada de sorte (ou de
+// azar) mande alguém para o topo ou para o fundo do ranking: até às 5 rodadas
+// o overall é puxado para 50 e só a partir daí vale por inteiro. Sem isto, um
+// goleiro com um único jogo perfeito ficava eternamente em primeiro.
+export const PESO_DEFESAS = 0.6
+export const PESO_GOLS_SOFRIDOS = 0.2
+export const PESO_JOGOS_SEM_SOFRER = 0.1
+export const PESO_VITORIAS_GK = 0.1
+export const RODADAS_CONFIANCA = 5 // a partir daqui o overall vale a 100%
+export const RODADAS_PROVISORIO = 3 // abaixo disto mostra-se como "Provisório"
+
+const entre = (n, min, max) => Math.max(min, Math.min(max, n))
+const num = (v) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+// `gk` aceita tanto camelCase como as colunas cruas de get_goalkeeper_stats.
+// `leagueAvgConceded` é a média de gols sofridos por jogo de todos os goleiros;
+// sem ela usamos a média do próprio, o que dá uma pontuação neutra (50) em vez
+// de inventar uma referência.
+export function calculateGoalkeeperOverall(gk, leagueAvgConceded) {
+  const matches = num(gk?.matches)
+  const saves = num(gk?.saves)
+  const goalsConceded = num(gk?.goalsConceded ?? gk?.goals_conceded ?? gk?.conceded)
+  const cleanSheets = num(gk?.cleanSheets ?? gk?.clean_sheets)
+  const wins = num(gk?.wins)
+
+  const shotsOnTarget = saves + goalsConceded
+  // As taxas são presas entre 0 e 1 porque as fontes podem discordar: as
+  // vitórias vêm do histórico e as rodadas da tabela de baliza, e uma vitória
+  // a mais do que rodadas dava winRate > 1 e um overall acima de 100.
+  const saveRate = shotsOnTarget > 0 ? entre(saves / shotsOnTarget, 0, 1) : 0
+  const goalsConcededPerMatch = matches > 0 ? Math.max(goalsConceded / matches, 0) : 0
+  const cleanSheetRate = matches > 0 ? entre(cleanSheets / matches, 0, 1) : 0
+  const winRate = matches > 0 ? entre(wins / matches, 0, 1) : 0
+
+  // `== null` explícito: Number(null) é 0 e isso fingia uma pelada onde
+  // ninguém sofre gols, castigando todos os goleiros de uma vez.
+  const media = leagueAvgConceded == null ? NaN : Number(leagueAvgConceded)
+  const referencia = Number.isFinite(media) ? media : goalsConcededPerMatch
+  // sofrer menos do que a média da pelada sobe a pontuação, sofrer mais desce
+  const concededScore = entre(50 + 15 * (referencia - goalsConcededPerMatch), 0, 100)
+
+  const raw =
+    saveRate * 100 * PESO_DEFESAS +
+    concededScore * PESO_GOLS_SOFRIDOS +
+    cleanSheetRate * 100 * PESO_JOGOS_SEM_SOFRER +
+    winRate * 100 * PESO_VITORIAS_GK
+
+  const confidence = Math.min(matches / RODADAS_CONFIANCA, 1)
+
+  const partes = {
+    raw,
+    saveRate,
+    savePct: Math.round(saveRate * 1000) / 10,
+    shotsOnTarget,
+    goalsConcededPerMatch,
+    cleanSheetRate,
+    winRate,
+    concededScore,
+    confidence,
+  }
+
+  // sem rodadas não há nada para calcular — mostrar 50 seria fingir dados
+  if (matches === 0) return { ...partes, overall: null, provisorio: true }
+
+  return {
+    ...partes,
+    // o `entre` é cinto e suspensórios: com as taxas já presas o raw nunca
+    // sai de 0–100, mas um overall fora da escala partia a barra da UI
+    overall: Math.round(entre(50 + (raw - 50) * confidence, 0, 100)),
+    provisorio: matches < RODADAS_PROVISORIO,
+  }
+}

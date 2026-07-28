@@ -134,8 +134,10 @@ export function AwardCard({ tipo, list, players, onProfile }) {
           src={gif}
           alt={label}
           style={{
-            width: 132,
-            height: 132,
+            // Fluido: a 132px fixos, num ecrã de 320px sobrava tão pouco que o
+            // nome do vencedor ficava com 29px de largura — ilegível.
+            width: 'clamp(76px, 26vw, 132px)',
+            height: 'clamp(76px, 26vw, 132px)',
             objectFit: 'contain', // mostra o GIF inteiro (rosto todo do Ronaldinho)
             borderRadius: 10,
             background: '#06130D',
@@ -145,7 +147,7 @@ export function AwardCard({ tipo, list, players, onProfile }) {
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
           {winners.map((w) => (
             <div key={w.player_id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Avatar name={w.name} photo={photoOf(w.player_id)} size={46} />
+              <Avatar name={w.name} photo={photoOf(w.player_id)} size={38} />
               <div style={{ minWidth: 0 }}>
                 <div
                   style={{
@@ -480,7 +482,8 @@ export function RoundBody({ m, full = false, onProfile }) {
       )}
 
       {temTimes && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        // pb-cards empilha no telemóvel em vez de espremer duas colunas
+        <div className="pb-cards" style={{ gap: 10 }}>
           <TeamRoster m={m} side="A" onProfile={onProfile} />
           <TeamRoster m={m} side="B" onProfile={onProfile} />
         </div>

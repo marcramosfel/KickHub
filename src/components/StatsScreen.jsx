@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getMatches, getMyAwardVotes, getPlayerStats, getPlayerStatsRange, voteAward } from '../api'
 import {
   assisters as getAssisters,
@@ -236,8 +236,33 @@ function MatchPanel({ match, onDetail, onProfile }) {
   )
 }
 
-export default function StatsScreen({ session, onBack, initialTab = 'geral', onProfile }) {
+export default function StatsScreen({
+  session,
+  onBack,
+  initialTab = 'geral',
+  onProfile,
+  embutido = false,
+  // muda a cada toque na navegação, mesmo para o mesmo destino
+  navToken = 0,
+}) {
+  // Dentro da casca de navegação o contentor já vem de fora: um segundo
+  // styles.page daria margens a dobrar e limitaria a largura a 480px.
+  const pageStyle = embutido ? undefined : styles.page
   const [tab, setTab] = useState(initialTab) // geral | rodadas
+
+  // Estatísticas e Histórico são a mesma página em separadores diferentes.
+  // Sem isto, clicar em "Histórico" já dentro de "Estatísticas" não fazia
+  // nada — o componente não desmonta, e o initialTab só valia no primeiro
+  // render. Ajustar durante o render evita remontar (e recarregar) tudo.
+  //
+  // O `navToken` entra na comparação para cobrir o caso em que o separador foi
+  // mudado à mão: aí o `initialTab` não muda, mas o toque na navegação tem de
+  // voltar a mandar.
+  const [navPedido, setNavPedido] = useState({ tab: initialTab, token: navToken })
+  if (navPedido.tab !== initialTab || navPedido.token !== navToken) {
+    setNavPedido({ tab: initialTab, token: navToken })
+    setTab(initialTab)
+  }
   const [stats, setStats] = useState(null)
   const [matches, setMatches] = useState(null)
   const [myVotes, setMyVotes] = useState([])
@@ -246,12 +271,22 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
   const [error, setError] = useState('')
 
   // totais do período escolhido (cai para o get_player_stats se a 0013
-  // ainda não estiver aplicada)
+  // ainda não estiver aplicada).
+  //
+  // `pedido` descarta respostas fora de ordem: trocar de período depressa
+  // deixava a tabela com os números de um período e o chip aceso noutro,
+  // conforme a ordem por que as respostas chegassem.
+  const pedido = useRef(0)
   const carregarStats = (p) => {
+    const meu = ++pedido.current
     const { de, ate } = intervaloDe(p)
     return getPlayerStatsRange(de, ate)
       .catch(() => getPlayerStats())
-      .then((s) => setStats(s || []))
+      .then((s) => {
+        if (meu !== pedido.current) return
+        setStats(s || [])
+        setError('')
+      })
   }
 
   const load = () =>
@@ -267,13 +302,20 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
       })
       .catch((err) => setError(err.message))
 
+  // O primeiro carregamento traz tudo; a partir daí, mudar de período só
+  // recarrega os totais. `jaCarregou` distingue os dois casos sem precisar de
+  // ler o `stats` (que é exatamente o que este efeito escreve).
+  const jaCarregou = useRef(false)
   useEffect(() => {
-    load()
-  }, [])
-
-  // ao trocar de período, recarrega só os totais
-  useEffect(() => {
-    if (stats !== null) carregarStats(periodo).catch(() => {})
+    if (!jaCarregou.current) {
+      jaCarregou.current = true
+      load()
+      return
+    }
+    // sem isto, falhar a mudança de período não dizia nada: o chip acendia e a
+    // tabela ficava com os números do período anterior
+    carregarStats(periodo).catch((err) => setError(err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo])
 
   // detalhe de uma rodada (com fotos) sobrepõe-se ao resto
@@ -310,7 +352,7 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
 
   if (stats === null || matches === null) {
     return (
-      <div style={styles.page}>
+      <div style={pageStyle}>
         <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 16 }}>Estatísticas 📊</h1>
         {error ? (
           <>
@@ -339,7 +381,7 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
   )
 
   return (
-    <div style={styles.page}>
+    <div style={pageStyle}>
       <div
         style={{
           display: 'flex',
@@ -349,7 +391,8 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
         }}
       >
         <h1 style={{ ...styles.title, fontSize: 22 }}>
-          Estatísticas <span style={{ color: colors.grass }}>📊</span>
+          {tab === 'rodadas' ? 'Histórico' : 'Estatísticas'}{' '}
+          <span style={{ color: colors.grass }}>{tab === 'rodadas' ? '📜' : '📊'}</span>
         </h1>
         <button
           onClick={onBack}
@@ -441,7 +484,12 @@ export default function StatsScreen({ session, onBack, initialTab = 'geral', onP
                   onClick={() => onProfile?.(p.id, matches.length)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && onProfile?.(p.id, matches.length)}
+                  onKeyDown={(e) => {
+                    // role="button" tem de responder ao espaço, não só ao Enter
+                    if (e.key !== 'Enter' && e.key !== ' ') return
+                    e.preventDefault()
+                    onProfile?.(p.id, matches.length)
+                  }}
                   title={`Ver perfil de ${p.name}`}
                   style={{
                     display: 'flex',

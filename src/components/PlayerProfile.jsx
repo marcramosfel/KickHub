@@ -12,6 +12,9 @@ import {
   calcularOverall,
 } from '../lib/overall'
 import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '../lib/trophies'
+import { badgesDoJogador } from '../lib/achievements'
+import { ETIQUETA_STATUS, nomeDaPosicao, nomeDoTipo, POSITION_STATUS } from '../lib/positions'
+import AchievementBadge from './AchievementBadge'
 import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
 
@@ -217,7 +220,19 @@ function QuimicaRow({ x, cor }) {
   )
 }
 
-export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
+export default function PlayerProfile({
+  playerId,
+  totalRodadas = 0,
+  onBack,
+  liderancas,
+  // linha já fundida de `juntarEstatisticas` (posições, tipo, overall). Vem de
+  // fora porque o get_player_profile não devolve posições — e não vale uma
+  // migração só para isso quando a app já tem os dados carregados.
+  jogador,
+  embutido = false,
+}) {
+  // Dentro da casca de navegação o contentor já vem de fora.
+  const pageStyle = embutido ? undefined : styles.page
   const [p, setP] = useState(null)
   const [error, setError] = useState('')
   const [cardUrl, setCardUrl] = useState('')
@@ -267,7 +282,7 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
 
   if (error) {
     return (
-      <div style={styles.page}>
+      <div style={pageStyle}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>{voltar}</div>
         <ErrorBox>{error}</ErrorBox>
       </div>
@@ -276,7 +291,7 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
 
   if (!p) {
     return (
-      <div style={styles.page}>
+      <div style={pageStyle}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>{voltar}</div>
         <SkeletonCard lines={4} />
       </div>
@@ -287,6 +302,14 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
   const bal = balanco(p)
   const { desbloqueadas, bloqueadas } = calcularConquistas(p, totalRodadas)
   const ovr = calcularOverall(p)
+  // títulos que este jogador lidera (rei da pelada, artilheiro, paredão…)
+  const badges = liderancas ? badgesDoJogador(playerId, liderancas) : []
+  // `jogador` pode ainda não ter chegado (perfil aberto durante o carregamento
+  // da lista): nesse caso não se afirma nada sobre posição ou tipo.
+  const etiquetaPosicao =
+    jogador && jogador.positionStatus && jogador.positionStatus !== POSITION_STATUS.NOT_SELECTED
+      ? ETIQUETA_STATUS[jogador.positionStatus]
+      : null
 
   const partilhar = async () => {
     if (!cardUrl) return
@@ -296,7 +319,7 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
   }
 
   return (
-    <div style={styles.page}>
+    <div style={pageStyle}>
       <div
         style={{
           display: 'flex',
@@ -307,6 +330,45 @@ export default function PlayerProfile({ playerId, totalRodadas = 0, onBack }) {
       >
         <h1 style={{ ...styles.title, fontSize: 20 }}>Perfil</h1>
         {voltar}
+      </div>
+
+      {/* posição e títulos — o que este jogador é dentro da pelada */}
+      <div className="pb-card" style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Avatar name={p.name} photo={p.photo} size={48} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="pb-truncate" style={{ fontSize: 17, fontWeight: 700 }}>
+              {p.name}
+            </div>
+            {jogador && (
+              <div style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
+                {jogador.primaryPosition
+                  ? nomeDaPosicao(jogador.primaryPosition)
+                  : 'Sem posição definida'}
+                {jogador.secondaryPosition
+                  ? ` · 2.ª ${nomeDaPosicao(jogador.secondaryPosition)}`
+                  : ''}
+                {' · '}
+                {nomeDoTipo(jogador.playerType)}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* este perfil também se abre para outros jogadores — o texto não pode
+            tratar por "tu" nem falar da posição como se fosse a de quem vê */}
+        {etiquetaPosicao && (
+          <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
+            Posição {etiquetaPosicao.icone} {etiquetaPosicao.texto.toLowerCase()} — só um
+            administrador a pode alterar.
+          </p>
+        )}
+        {badges.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            {badges.map((t) => (
+              <AchievementBadge key={t.id} titulo={t} tamanho="md" />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* card partilhável */}

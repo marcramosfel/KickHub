@@ -17,16 +17,21 @@ export default function RateScreen({ session, onDone, onSkip }) {
   const [busy, setBusy] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
 
+  const { id: meuId, pin: meuPin } = session
   useEffect(() => {
-    getPendingRatings(session.id, session.pin)
-      .then(setOthers)
+    let vivo = true
+    getPendingRatings(meuId, meuPin)
+      .then((l) => vivo && setOthers(l))
       .catch(() =>
         // fallback se a migração 0005 ainda não estiver aplicada: avalia todos os outros
         getPlayers()
-          .then((pls) => setOthers(pls.filter((p) => p.id !== session.id)))
-          .catch((err) => setError(err.message))
+          .then((pls) => vivo && setOthers(pls.filter((p) => p.id !== meuId)))
+          .catch((err) => vivo && setError(err.message))
       )
-  }, [])
+    return () => {
+      vivo = false
+    }
+  }, [meuId, meuPin])
 
   if (others === null) {
     return (

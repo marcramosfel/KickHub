@@ -1,64 +1,140 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  changePin,
-  getLatestMatch,
-  getMatches,
-  getMyAwardVotes,
-  getPendingRatings,
-  getPlayers,
-  getPlayerStats,
-  getPublishedDraw,
-  updatePhoto,
-} from '../api'
-import { calcularOverall } from '../lib/overall'
+import { useMemo, useRef, useState } from 'react'
+import { changePin, updatePhoto } from '../api'
 import { fileToDataURL } from '../lib/image'
-import { ADMIN_NAME, APP_NAME } from '../config'
+import { ordenarJogadoresDeCampo } from '../lib/ranking'
+import { PLAYER_TYPE } from '../lib/positions'
+import { TITULOS_POR_ID } from '../lib/achievements'
+import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
+import AchievementBadge from './AchievementBadge'
 import DrawView from './DrawView'
+import NextMatch from './NextMatch'
+import PlayerCard from './PlayerCard'
 import RoundResult from './RoundResult'
 import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
-import { colors, fonts, styles } from '../theme'
+import { colors, fonts, styles, chip } from '../theme'
 
-const MEDALS = ['🥇', '🥈', '🥉']
+// Página inicial.
+//
+// No computador o conteúdo distribui-se pela grelha de 12 colunas: o campo do
+// próximo jogo ao lado da contagem regressiva, depois uma fila de destaques e
+// outra com o que aconteceu. No telemóvel tudo empilha, pela mesma ordem.
 
+// Uma data inválida não rebenta o `toLocaleDateString` — devolve a string
+// "Invalid Date", que o `catch` nunca chega a ver. Daí o teste explícito.
 function formatDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString('pt-PT', {
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return ''
-  }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('pt-PT', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+// Cartão de um líder de categoria (artilheiro, craque, etc.).
+function CartaoDestaque({ tituloId, liderancas, jogadores, onProfile }) {
+  const t = TITULOS_POR_ID[tituloId]
+  const lider = liderancas?.[tituloId]
+  if (!t) return null
+
+  const vencedores = (lider?.playerIds || [])
+    .map((id) => jogadores.find((j) => j.id === id))
+    .filter(Boolean)
+
+  return (
+    <div className="pb-card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span aria-hidden style={{ fontSize: 18 }}>
+          {t.icon}
+        </span>
+        <span
+          style={{
+            fontFamily: fonts.title,
+            fontSize: 12,
+            letterSpacing: 1,
+            color: t.moldura?.cor || colors.muted,
+            textTransform: 'uppercase',
+          }}
+        >
+          {t.titulo}
+        </span>
+      </div>
+
+      {vencedores.length === 0 ? (
+        <p style={{ ...styles.mutedText, fontSize: 13, margin: 'auto 0' }}>
+          Ainda sem dados para este título.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {vencedores.map((j) => (
+            <button
+              key={j.id}
+              type="button"
+              onClick={() => onProfile?.(j.id)}
+              aria-label={`Ver perfil de ${j.name}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                font: 'inherit',
+                color: 'inherit',
+                textAlign: 'left',
+                width: '100%',
+              }}
+            >
+              <Avatar name={j.name} photo={j.photo} size={38} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="pb-truncate" style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>
+                  {j.name}
+                </span>
+                <span style={{ fontSize: 12, color: colors.muted }}>
+                  {lider.valor}{' '}
+                  {tituloId === 'artilheiro'
+                    ? 'gols'
+                    : tituloId === 'rei-assistencias'
+                      ? 'assistências'
+                      : tituloId === 'rei-craques'
+                        ? 'vezes craque'
+                        : tituloId === 'rei-vitorias'
+                          ? 'vitórias'
+                          : 'de overall'}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function HomeScreen({
   session,
-  onLogout,
+  jogadores,
+  liderancas,
+  proximoJogo,
+  draw,
+  latestMatch,
+  totalRodadas,
+  pendingVotes,
+  faltamAvaliar,
+  loading,
+  error,
   onRate,
-  onAdmin,
-  onStats,
   onProfile,
+  onNavigate,
   onPinChanged,
+  onRecarregar,
 }) {
-  const [players, setPlayers] = useState(null)
-  const [draw, setDraw] = useState(null)
-  const [latestMatch, setLatestMatch] = useState(undefined) // undefined = a carregar, null = sem rodadas
-  const [totalRodadas, setTotalRodadas] = useState(0)
-  const [pendingVotes, setPendingVotes] = useState(0)
-  const [pendingRatings, setPendingRatings] = useState(null) // null = RPC indisponível
-  // gols/assistências/craques por jogador — o get_players só traz a média,
-  // e o overall precisa dos dois lados
-  const [statsPorId, setStatsPorId] = useState({})
-  const [error, setError] = useState('')
-
   const fileRef = useRef(null)
   const [savingPhoto, setSavingPhoto] = useState(false)
   const [photoErr, setPhotoErr] = useState('')
 
-  // mudar o próprio PIN
   const [pinAberto, setPinAberto] = useState(false)
   const [pinAtual, setPinAtual] = useState('')
   const [pinNovo, setPinNovo] = useState('')
@@ -67,50 +143,33 @@ export default function HomeScreen({
   const [pinErr, setPinErr] = useState('')
   const [pinOk, setPinOk] = useState(false)
 
-  const load = () =>
-    Promise.all([
-      getPlayers(),
-      getPublishedDraw(),
-      // não-fatais: se as migrações 0002/0005/0010 ainda não estiverem aplicadas, a Home continua a funcionar
-      getMatches().catch(() => []),
-      getMyAwardVotes(session.id, session.pin).catch(() => []),
-      getPendingRatings(session.id, session.pin).catch(() => null),
-      getLatestMatch().catch(() => undefined),
-      getPlayerStats().catch(() => []),
-    ])
-      .then(([pls, d, ms, mv, pr, lm, ps]) => {
-        setPlayers(pls || [])
-        setDraw(d)
-        setPendingRatings(pr)
-        setLatestMatch(lm)
-        setStatsPorId(Object.fromEntries((ps || []).map((s) => [s.id, s])))
-        setTotalRodadas((ms || []).length)
-        const votados = mv || []
-        setPendingVotes(
-          (ms || []).filter(
-            (m) =>
-              m.players.length >= 3 &&
-              m.players.some((p) => p.player_id === session.id) &&
-              !votados.includes(m.id)
-          ).length
-        )
-      })
-      .catch((err) => setError(err.message))
-
-  useEffect(() => {
-    load()
-  }, [])
+  const me = useMemo(() => jogadores.find((p) => p.id === session.id), [jogadores, session.id])
+  const top5 = useMemo(
+    () =>
+      ordenarJogadoresDeCampo(
+        jogadores.filter((j) => j.playerType !== PLAYER_TYPE.GOALKEEPER)
+      ).slice(0, 5),
+    [jogadores]
+  )
+  const meusBadges = useMemo(() => {
+    if (!liderancas || !me) return []
+    return Object.entries(liderancas)
+      .filter(([, v]) => v?.playerIds?.includes(me.id))
+      .map(([k]) => TITULOS_POR_ID[k])
+      .filter(Boolean)
+      .sort((a, b) => a.prioridade - b.prioridade)
+  }, [liderancas, me])
 
   const handlePhoto = async (e) => {
     const file = e.target.files?.[0]
-    e.target.value = '' // permite voltar a escolher o mesmo ficheiro
+    e.target.value = ''
     if (!file) return
     setPhotoErr('')
     setSavingPhoto(true)
     try {
       const dataUrl = await fileToDataURL(file)
       await updatePhoto(session.id, session.pin, dataUrl)
-      await load()
+      await onRecarregar?.()
     } catch (err) {
       setPhotoErr(err.message)
     } finally {
@@ -129,18 +188,11 @@ export default function HomeScreen({
   const guardarPin = async (e) => {
     e.preventDefault()
     setPinErr('')
-    if (!/^\d{4}$/.test(pinNovo)) {
-      setPinErr('O PIN novo tem de ter exatamente 4 dígitos.')
-      return
-    }
-    if (pinNovo !== pinConf) {
-      setPinErr('A confirmação não coincide com o PIN novo.')
-      return
-    }
+    if (!/^\d{4}$/.test(pinNovo)) return setPinErr('O PIN novo tem de ter exatamente 4 dígitos.')
+    if (pinNovo !== pinConf) return setPinErr('A confirmação não coincide com o PIN novo.')
     setPinBusy(true)
     try {
       await changePin(session.id, pinAtual, pinNovo)
-      // a sessão guarda o PIN para as outras RPCs — tem de acompanhar
       onPinChanged?.(pinNovo)
       fecharPin()
       setPinOk(true)
@@ -152,438 +204,376 @@ export default function HomeScreen({
     }
   }
 
-  if (players === null) {
+  if (loading) {
     return (
-      <div style={styles.page}>
-        <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 18 }}>
-          {APP_NAME.main} <span style={{ color: colors.grass }}>{APP_NAME.accent}</span>
-        </h1>
-        {error ? (
-          <ErrorBox>{error}</ErrorBox>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <SkeletonCard lines={2} />
-            <SkeletonCard lines={3} />
-          </div>
-        )}
+      <div className="pb-grid">
+        <div className="pb-col-8 pb-col-md-12">
+          <SkeletonCard lines={5} />
+        </div>
+        <div className="pb-col-4 pb-col-md-12">
+          <SkeletonCard lines={3} />
+        </div>
+        <div className="pb-col-12">
+          <SkeletonCard lines={4} />
+        </div>
       </div>
     )
   }
 
-  const me = players.find((p) => p.id === session.id)
-  const others = players.filter((p) => p.id !== session.id)
-
-  // o overall junta a média (get_players) com os números de campo
-  // (get_player_stats); sem a segunda RPC fica só a média a contar
-  const ovrDe = (p) => calcularOverall({ ...(statsPorId[p.id] || {}), avg: p.avg }).overall
-  const meuOvr = me ? ovrDe(me) : null
-
-  // Se a migração 0005 já expõe get_pending_ratings, usa as lacunas reais;
-  // senão cai para o comportamento antigo (session.voted).
-  const faltamAvaliar =
-    pendingRatings != null ? pendingRatings.length : session.voted ? 0 : others.length
-  const avaliouTudo = faltamAvaliar === 0
+  if (error) return <ErrorBox>{error}</ErrorBox>
 
   return (
-    <div style={styles.page}>
-      {/* topo */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 18,
-        }}
-      >
-        <h1 style={{ ...styles.title, fontSize: 22 }}>
-          {APP_NAME.main} <span style={{ color: colors.grass }}>{APP_NAME.accent}</span>
-        </h1>
-        <button
-          onClick={onLogout}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: colors.muted,
-            fontSize: 13,
-            textDecoration: 'underline',
-          }}
-        >
-          Sair
-        </button>
-      </div>
+    <div className="pb-stack" style={{ gap: 22 }}>
+      {/* O título da página existe para leitores de ecrã e para a estrutura de
+          cabeçalhos fazer sentido; visualmente a Home já se identifica sozinha. */}
+      <h1 style={{ ...styles.title, fontSize: 22, margin: 0 }}>
+        Olá, <span style={{ color: colors.grass }}>{session.name.split(' ')[0]}</span> 👋
+      </h1>
 
-      {/* cartão do próprio */}
-      <div style={{ ...styles.panel, display: 'flex', alignItems: 'center', gap: 14 }}>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          onChange={handlePhoto}
-          style={{ display: 'none' }}
-        />
-        <button
-          type="button"
-          onClick={() => !savingPhoto && fileRef.current?.click()}
-          title="Trocar foto"
-          style={{
-            position: 'relative',
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: savingPhoto ? 'wait' : 'pointer',
-            lineHeight: 0,
-            flexShrink: 0,
-          }}
-        >
-          <Avatar name={session.name} photo={me?.photo_url} size={64} />
-          <span
-            style={{
-              position: 'absolute',
-              right: -2,
-              bottom: -2,
-              width: 24,
-              height: 24,
-              borderRadius: '50%',
-              background: colors.grass,
-              border: `2px solid ${colors.panel}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-            }}
-          >
-            {savingPhoto ? '…' : '📷'}
-          </span>
-        </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>{session.name}</div>
-          <div style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
-            {me?.avg != null ? (
-              <>
-                Média do grupo:{' '}
-                <span style={{ color: colors.grass, fontWeight: 700 }}>
-                  {Number(me.avg).toFixed(2)}
-                </span>{' '}
-                ({me.votes} {Number(me.votes) === 1 ? 'voto' : 'votos'})
-              </>
-            ) : (
-              'Ainda sem votos'
-            )}
-            {meuOvr != null && (
-              <>
-                {' · '}
-                <span style={{ color: colors.teamA, fontWeight: 700 }}>Overall {meuOvr}</span>
-              </>
-            )}
-          </div>
-          <div
-            style={{
-              display: 'inline-block',
-              marginTop: 6,
-              padding: '3px 10px',
-              borderRadius: 999,
-              fontSize: 12,
-              fontWeight: 600,
-              background: avaliouTudo ? 'rgba(52,208,88,0.12)' : 'rgba(255,197,49,0.12)',
-              color: avaliouTudo ? colors.grass : colors.teamA,
-            }}
-          >
-            {avaliouTudo ? 'Avaliação feita ✓' : 'Avaliação pendente'}
-          </div>
-          <div style={{ marginTop: 6, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => !savingPhoto && fileRef.current?.click()}
-              disabled={savingPhoto}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: colors.muted,
-                fontSize: 13,
-                textDecoration: 'underline',
-                padding: 0,
-              }}
-            >
-              {savingPhoto ? 'A guardar foto…' : '📷 Trocar foto'}
-            </button>
-            <button
-              type="button"
-              onClick={() => (pinAberto ? fecharPin() : setPinAberto(true))}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: colors.muted,
-                fontSize: 13,
-                textDecoration: 'underline',
-                padding: 0,
-              }}
-            >
-              🔑 {pinAberto ? 'Cancelar' : 'Mudar PIN'}
-            </button>
-            {photoErr && (
-              <p style={{ ...styles.errorText, fontSize: 13, marginTop: 4, width: '100%' }}>
-                {photoErr}
+      {/* ---------- 1.ª linha: próximo jogo + contagem ---------- */}
+      <section aria-label="Próximo jogo">
+        <NextMatch jogo={proximoJogo} onPlayerClick={(j) => onProfile?.(j.id)} />
+      </section>
+
+      {/* ---------- avisos pessoais ---------- */}
+      {(pendingVotes > 0 || faltamAvaliar > 0) && (
+        <section className="pb-cards">
+          {pendingVotes > 0 && (
+            <div className="pb-card" style={{ borderColor: colors.teamA }}>
+              <p style={{ fontSize: 14, marginBottom: 10 }}>
+                👑🐟 A votação do craque e do bagre está aberta — falta o teu voto!
               </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {pinOk && (
-        <p style={{ color: colors.grass, fontSize: 13, marginTop: 8 }}>
-          PIN alterado ✓ — usa o novo da próxima vez que entrares.
-        </p>
+              <button style={styles.button} onClick={() => onNavigate?.('history')}>
+                Votar agora
+              </button>
+            </div>
+          )}
+          {faltamAvaliar > 0 && (
+            <div className="pb-card" style={{ borderColor: colors.teamA }}>
+              <p style={{ fontSize: 14, marginBottom: 10 }}>
+                Falta avaliares {faltamAvaliar} {faltamAvaliar === 1 ? 'jogador' : 'jogadores'} — pode
+                ser gente nova no grupo.
+              </p>
+              <button style={styles.button} onClick={onRate}>
+                Avaliar agora
+              </button>
+            </div>
+          )}
+        </section>
       )}
 
-      {/* mudar o próprio PIN */}
-      {pinAberto && (
-        <form onSubmit={guardarPin} style={{ ...styles.panel, marginTop: 12, padding: 14 }}>
-          <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 4 }}>
-            🔑 Mudar o meu PIN
-          </div>
-          <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
-            Esqueceste-te do atual? Pede ao {ADMIN_NAME} para te definir um novo.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="PIN atual"
-              value={pinAtual}
-              onChange={(e) => setPinAtual(e.target.value.replace(/\D/g, ''))}
-              style={styles.input}
-              autoComplete="current-password"
-            />
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="PIN novo (4 dígitos)"
-              value={pinNovo}
-              onChange={(e) => setPinNovo(e.target.value.replace(/\D/g, ''))}
-              style={styles.input}
-              autoComplete="new-password"
-            />
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="Repetir o PIN novo"
-              value={pinConf}
-              onChange={(e) => setPinConf(e.target.value.replace(/\D/g, ''))}
-              style={styles.input}
-              autoComplete="new-password"
-            />
-          </div>
-          {pinErr && <ErrorBox>{pinErr}</ErrorBox>}
-          <button
-            type="submit"
-            disabled={pinBusy || !pinAtual || !pinNovo || !pinConf}
-            style={{ ...styles.button, marginTop: 10 }}
-          >
-            {pinBusy ? 'A guardar…' : 'Guardar PIN novo'}
-          </button>
-        </form>
-      )}
-
-      {/* votação de craque/bagre pendente */}
-      {pendingVotes > 0 && (
-        <div style={{ ...styles.panel, marginTop: 12, border: `1px solid ${colors.teamA}` }}>
-          <p style={{ fontSize: 14, marginBottom: 10 }}>
-            👑🐟 A votação do craque e do bagre da rodada está aberta — falta o teu voto!
-          </p>
-          <button style={styles.button} onClick={() => onStats('rodadas')}>
-            Votar agora
-          </button>
-        </div>
-      )}
-
-      {/* estatísticas */}
-      <button
-        style={{ ...styles.buttonGhost, marginTop: 12 }}
-        onClick={() => onStats('geral')}
-      >
-        📊 Estatísticas da pelada
-      </button>
-
-      {/* aviso de avaliação pendente */}
-      {faltamAvaliar > 0 && (
-        <div style={{ ...styles.panel, marginTop: 12, borderColor: colors.teamA }}>
-          <p style={{ fontSize: 14, marginBottom: 10 }}>
-            {pendingRatings != null
-              ? `Falta avaliares ${faltamAvaliar} ${
-                  faltamAvaliar === 1 ? 'jogador' : 'jogadores'
-                } — pode ser gente nova no grupo.`
-              : 'Falta dares as tuas notas ao grupo — é rápido.'}
-          </p>
-          <button style={styles.button} onClick={onRate}>
-            Avaliar agora
-          </button>
-        </div>
-      )}
-
-      {/* campeões da semana (rodada mais recente) — só se a 0010 estiver aplicada */}
-      {latestMatch !== undefined && (
-        <div style={{ marginTop: 20 }}>
-          <RoundResult
-            match={latestMatch}
-            onHistory={() => onStats('rodadas')}
-            onProfile={(id) => onProfile?.(id, totalRodadas)}
-          />
-        </div>
-      )}
-
-      {/* último sorteio */}
-      <SectionTitle>Último sorteio</SectionTitle>
-      {draw ? (
-        <div>
-          <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 10 }}>
-            Publicado a {formatDate(draw.created_at)}
-          </p>
-          <DrawView A={draw.team_a} B={draw.team_b} />
-        </div>
-      ) : (
-        <div style={{ ...styles.panel, textAlign: 'center', padding: 22 }}>
-          <p style={styles.mutedText}>Ainda não há sorteio publicado.</p>
-        </div>
-      )}
-
-      {/* classificação */}
-      <SectionTitle>Classificação do grupo</SectionTitle>
-      <div style={{ ...styles.panel, padding: 8 }}>
-        {/* cabeçalho das colunas — sem isto os três números eram adivinha */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '0 8px 6px',
-            fontSize: 10,
-            letterSpacing: 1,
-            color: colors.muted,
-            textTransform: 'uppercase',
-          }}
-        >
-          <span style={{ width: 22 }} />
-          <span style={{ width: 32 }} />
-          <span style={{ flex: 1, minWidth: 0 }} />
-          <span style={{ width: 40, textAlign: 'right' }}>Média</span>
-          <span style={{ width: 38, textAlign: 'center', color: colors.teamA }}>Ovr</span>
-        </div>
-        {players.map((p, i) => (
-          <div
-            key={p.id}
-            onClick={() => onProfile?.(p.id, totalRodadas)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && onProfile?.(p.id, totalRodadas)}
-            title={`Ver perfil de ${p.name}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '8px 8px',
-              borderBottom: i < players.length - 1 ? `1px solid ${colors.line}` : 'none',
-              background: p.id === session.id ? 'rgba(52,208,88,0.06)' : 'transparent',
-              borderRadius: 8,
-              cursor: 'pointer',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: fonts.title,
-                color: colors.muted,
-                width: 22,
-                textAlign: 'center',
-                fontSize: i < 3 ? 17 : 14,
-              }}
-            >
-              {i < 3 ? MEDALS[i] : i + 1}
-            </span>
-            <Avatar name={p.name} photo={p.photo_url} size={32} />
-            <span
-              style={{
-                flex: 1,
-                minWidth: 0,
-                fontSize: 15,
-                fontWeight: p.id === session.id ? 700 : 400,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {p.name}
-            </span>
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-end',
-                gap: 1,
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span
-                  style={{
-                    fontWeight: 700,
-                    fontSize: 15,
-                    width: 40,
-                    textAlign: 'right',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {p.avg != null ? Number(p.avg).toFixed(2) : '—'}
-                </span>
-                <span
-                  style={{
-                    width: 38,
-                    textAlign: 'center',
-                    fontFamily: fonts.title,
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: colors.teamA,
-                    border: '1px solid rgba(255,197,49,0.35)',
-                    borderRadius: 8,
-                    padding: '1px 0',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {ovrDe(p) ?? '—'}
-                </span>
+      {/* ---------- 2.ª linha: top 5 + líderes de categoria ---------- */}
+      <section>
+        <SectionTitle>Destaques do grupo</SectionTitle>
+        <div className="pb-grid">
+          <div className="pb-col-4 pb-col-md-12">
+            <div className="pb-card" style={{ height: '100%' }}>
+              <div
+                style={{
+                  fontFamily: fonts.title,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                  color: colors.grass,
+                  textTransform: 'uppercase',
+                  marginBottom: 10,
+                }}
+              >
+                🏅 Top 5 do ranking
               </div>
-              <span style={{ fontSize: 11, color: colors.muted }}>
-                {p.votes} {Number(p.votes) === 1 ? 'voto' : 'votos'}
-              </span>
+              {top5.length === 0 ? (
+                <p style={{ ...styles.mutedText, fontSize: 13 }}>
+                  Ainda não existem estatísticas suficientes.
+                </p>
+              ) : (
+                <div className="pb-stack" style={{ gap: 6 }}>
+                  {top5.map((j, i) => (
+                    <PlayerCard
+                      key={j.id}
+                      jogador={j}
+                      liderancas={liderancas}
+                      rank={i + 1}
+                      variante="linha"
+                      destacado={j.id === session.id}
+                      onClick={() => onProfile?.(j.id)}
+                    />
+                  ))}
+                </div>
+              )}
+              <button
+                style={{ ...styles.buttonGhost, marginTop: 12, fontSize: 13 }}
+                onClick={() => onNavigate?.('ranking')}
+              >
+                Ver ranking completo →
+              </button>
             </div>
           </div>
-        ))}
-        {players.length === 0 && (
-          <p style={{ ...styles.mutedText, textAlign: 'center', padding: 14 }}>
-            Ainda não há jogadores aprovados.
-          </p>
-        )}
-      </div>
 
-      {session.is_admin && (
-        <div style={{ textAlign: 'center', marginTop: 24 }}>
-          <button
-            onClick={onAdmin}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: colors.muted,
-              fontSize: 13,
-              textDecoration: 'underline',
-            }}
-          >
-            Área do admin
-          </button>
+          <div className="pb-col-8 pb-col-md-12">
+            <div className="pb-cards pb-row-align">
+              <CartaoDestaque
+                tituloId="rei-da-pelada"
+                liderancas={liderancas}
+                jogadores={jogadores}
+                onProfile={onProfile}
+              />
+              <CartaoDestaque
+                tituloId="artilheiro"
+                liderancas={liderancas}
+                jogadores={jogadores}
+                onProfile={onProfile}
+              />
+              <CartaoDestaque
+                tituloId="rei-assistencias"
+                liderancas={liderancas}
+                jogadores={jogadores}
+                onProfile={onProfile}
+              />
+              <CartaoDestaque
+                tituloId="rei-craques"
+                liderancas={liderancas}
+                jogadores={jogadores}
+                onProfile={onProfile}
+              />
+              <CartaoDestaque
+                tituloId="paredao"
+                liderancas={liderancas}
+                jogadores={jogadores}
+                onProfile={onProfile}
+              />
+            </div>
+          </div>
         </div>
-      )}
+      </section>
 
-      <p style={{ ...styles.mutedText, textAlign: 'center', fontSize: 12, marginTop: 24 }}>
+      {/* ---------- 3.ª linha: último resultado + último sorteio ---------- */}
+      <section>
+        <SectionTitle>O que aconteceu</SectionTitle>
+        <div className="pb-grid">
+          <div className="pb-col-7 pb-col-md-12">
+            {latestMatch !== undefined && (
+              <RoundResult
+                match={latestMatch}
+                onHistory={() => onNavigate?.('history')}
+                onProfile={(id) => onProfile?.(id, totalRodadas)}
+              />
+            )}
+          </div>
+
+          <div className="pb-col-5 pb-col-md-12">
+            <div className="pb-card" style={{ height: '100%' }}>
+              <div
+                style={{
+                  fontFamily: fonts.title,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                  color: colors.grass,
+                  textTransform: 'uppercase',
+                  marginBottom: 10,
+                }}
+              >
+                🎲 Último sorteio
+              </div>
+              {draw ? (
+                <>
+                  {formatDate(draw.created_at) && (
+                    <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+                      Publicado a {formatDate(draw.created_at)}
+                    </p>
+                  )}
+                  <DrawView A={draw.team_a} B={draw.team_b} />
+                </>
+              ) : (
+                <p style={{ ...styles.mutedText, fontSize: 13 }}>Ainda não há sorteio publicado.</p>
+              )}
+              <button
+                style={{ ...styles.buttonGhost, marginTop: 12, fontSize: 13 }}
+                onClick={() => onNavigate?.('draws')}
+              >
+                Ver sorteios →
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- 4.ª linha: o meu cartão ---------- */}
+      <section>
+        <SectionTitle>A minha conta</SectionTitle>
+        <div className="pb-grid">
+          <div className="pb-col-6 pb-col-md-12">
+            <div className="pb-card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhoto}
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => !savingPhoto && fileRef.current?.click()}
+                title="Trocar foto"
+                aria-label="Trocar a minha foto"
+                style={{
+                  position: 'relative',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: savingPhoto ? 'wait' : 'pointer',
+                  lineHeight: 0,
+                  flexShrink: 0,
+                }}
+              >
+                <Avatar name={session.name} photo={me?.photo} size={64} />
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    right: -2,
+                    bottom: -2,
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    background: colors.grass,
+                    border: `2px solid ${colors.panel}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                  }}
+                >
+                  {savingPhoto ? '…' : '📷'}
+                </span>
+              </button>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="pb-truncate" style={{ fontWeight: 700, fontSize: 18 }}>
+                  {session.name}
+                </div>
+                <div style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
+                  {me?.avg != null ? (
+                    <>
+                      Média do grupo:{' '}
+                      <span style={{ color: colors.grass, fontWeight: 700 }}>
+                        {Number(me.avg).toFixed(2)}
+                      </span>
+                    </>
+                  ) : (
+                    'Ainda sem votos'
+                  )}
+                  {me?.overall != null && (
+                    <>
+                      {' · '}
+                      <span style={{ color: colors.teamA, fontWeight: 700 }}>
+                        Overall {me.overall}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {meusBadges.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    {meusBadges.map((t) => (
+                      <AchievementBadge key={t.id} titulo={t} tamanho="sm" />
+                    ))}
+                  </div>
+                )}
+                <div style={{ marginTop: 8 }}>
+                  <span
+                    style={chip(
+                      faltamAvaliar === 0 ? colors.grass : colors.teamA,
+                      faltamAvaliar === 0 ? 'rgba(52,208,88,0.12)' : 'rgba(255,197,49,0.12)'
+                    )}
+                  >
+                    {faltamAvaliar === 0 ? 'Avaliação feita ✓' : 'Avaliação pendente'}
+                  </span>
+                </div>
+                <div style={{ marginTop: 8, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => !savingPhoto && fileRef.current?.click()}
+                    disabled={savingPhoto}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: colors.muted,
+                      fontSize: 13,
+                      textDecoration: 'underline',
+                      padding: 0,
+                    }}
+                  >
+                    {savingPhoto ? 'A guardar foto…' : '📷 Trocar foto'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (pinAberto ? fecharPin() : setPinAberto(true))}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: colors.muted,
+                      fontSize: 13,
+                      textDecoration: 'underline',
+                      padding: 0,
+                    }}
+                  >
+                    🔑 {pinAberto ? 'Cancelar' : 'Mudar PIN'}
+                  </button>
+                </div>
+                {photoErr && <ErrorBox style={{ marginTop: 8 }}>{photoErr}</ErrorBox>}
+                {pinOk && (
+                  <p style={{ color: colors.grass, fontSize: 13, marginTop: 8 }} role="status">
+                    PIN alterado ✓ — usa o novo da próxima vez que entrares.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {pinAberto && (
+            <div className="pb-col-6 pb-col-md-12">
+              <form onSubmit={guardarPin} className="pb-card">
+                <div
+                  style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 4 }}
+                >
+                  🔑 Mudar o meu PIN
+                </div>
+                <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+                  Esqueceste-te do atual? Pede ao {ADMIN_NAME} para te definir um novo.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    ['PIN atual', pinAtual, setPinAtual, 'current-password'],
+                    ['PIN novo (4 dígitos)', pinNovo, setPinNovo, 'new-password'],
+                    ['Repetir o PIN novo', pinConf, setPinConf, 'new-password'],
+                  ].map(([ph, val, set, ac]) => (
+                    <input
+                      key={ph}
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder={ph}
+                      aria-label={ph}
+                      value={val}
+                      onChange={(e) => set(e.target.value.replace(/\D/g, ''))}
+                      style={styles.input}
+                      autoComplete={ac}
+                    />
+                  ))}
+                </div>
+                {pinErr && <ErrorBox style={{ marginTop: 10 }}>{pinErr}</ErrorBox>}
+                <button
+                  type="submit"
+                  disabled={pinBusy || !pinAtual || !pinNovo || !pinConf}
+                  style={{ ...styles.button, marginTop: 10 }}
+                >
+                  {pinBusy ? 'A guardar…' : 'Guardar PIN novo'}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <p style={{ ...styles.mutedText, textAlign: 'center', fontSize: 12, padding: '8px 0 4px' }}>
         ⚽ Organizado por {ADMIN_NAME}
       </p>
     </div>
