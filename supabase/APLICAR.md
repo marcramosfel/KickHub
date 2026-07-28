@@ -1,0 +1,101 @@
+# Como aplicar as migrações novas (0015 → 0017)
+
+A base de dados tem dados reais. Estas três migrações são **aditivas**: só acrescentam colunas,
+tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
+rebentar (são idempotentes).
+
+Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
+(`gfowkkchpqoirubumnau` → SQL Editor → colar → Run):
+
+1. `0015_posicoes.sql`
+2. `0016_jogos_agendados.sql`
+3. `0017_goleiros.sql`
+
+A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
+um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
+funciona a partir da 0015** — e sem posições não há sorteio novo.
+
+---
+
+## 0015 — Posições dos jogadores
+
+**Colunas novas em `players`** (todos os jogadores existentes ficam com os valores por omissão,
+nada muda para eles até escolherem):
+
+| coluna | omissão | para quê |
+|---|---|---|
+| `player_type` | `'FIELD'` | jogador de campo ou `'GOALKEEPER'` |
+| `primary_position` | `null` | `GK`, `DEF-L`, `DEF-R`, `MID-L`, `MID-C`, `MID-R`, `ST` |
+| `secondary_position` | `null` | opcional |
+| `accepts_other_positions` | `true` | aceita jogar noutras posições |
+| `position_status` | `'NOT_SELECTED'` | `NOT_SELECTED` → `PENDING_REVIEW` → `APPROVED` / `ADJUSTED_BY_ADMIN` |
+| `position_updated_at` / `position_updated_by` | `null` | quando e por quem |
+| `position_notice` / `position_notice_at` | `null` | aviso por ler, quando o admin muda a posição |
+
+**Tabela nova:** `player_position_history` — histórico de auditoria, só de leitura, com o antes e
+o depois de cada alteração, quem a fez e o motivo.
+
+**Funções novas:** `set_my_positions` (o jogador grava **uma vez**; a segunda tentativa é recusada
+pelo servidor com `POSFIXA`), `admin_set_positions`, `admin_approve_positions`,
+`ack_position_notice`, `admin_positions_overview`, `admin_position_history`.
+
+**Funções alteradas:** `login` (passa a devolver também as posições e o aviso pendente) e
+`get_players` (passa a devolver as colunas de posição). O `get_players` leva `drop` + `create`
+porque muda o `returns table` — é a única forma no Postgres.
+
+> **Depois de aplicar:** todos os ~30 jogadores ficam com `NOT_SELECTED` e, à próxima entrada,
+> vão para o ecrã de escolha da posição antes de chegarem à Home. Foi a opção escolhida.
+
+## 0016 — Jogos agendados e escalações
+
+**Colunas novas em `matches`:** `kickoff_at`, `location`, `map_url`, `status`, `published_at`,
+`team_a_overall`, `team_b_overall`, `balance_pct`, `created_by`, `draw_seed`.
+
+O `status` tem omissão `'COMPLETED'`, por isso **as rodadas que já lá estão continuam a contar
+como rodadas jogadas** e aparecem no histórico e nas estatísticas exatamente como antes.
+
+**Tabela nova:** `match_lineup` — quem joga onde, em que equipa, e o **overall no momento do
+sorteio** (`overall_at_draw`). É isto que faz o histórico não mudar quando as estatísticas forem
+recalculadas. Tem um índice único `(match_id, team, assigned_position)`: é impossível haver dois
+jogadores no mesmo lugar da mesma equipa.
+
+**Funções novas:** `admin_save_schedule`, `admin_save_lineup`, `admin_publish_match`,
+`get_next_match`, `match_public_json`, `admin_matches_upcoming`, `admin_set_match_status`,
+`admin_delete_schedule`.
+
+**Funções alteradas:** `get_matches`, `get_latest_match` e `admin_pending_votes` passam a filtrar
+`status = 'COMPLETED'` — sem isto, um jogo agendado para a semana que vem aparecia no histórico e
+em "Campeões da semana". `admin_save_match` (registo do resultado) passa a fechar o jogo com
+`status = 'COMPLETED'`.
+
+**Proteções:** `admin_delete_schedule` só apaga jogos em `DRAFT` ou `CANCELLED` — nunca uma rodada
+já jogada. `admin_publish_match` recusa publicar duas vezes (`JAPUBLICADO`) e recusa publicar sem
+escalação (`SEMESCALACAO`). `admin_save_lineup` só aceita jogos em `DRAFT`: um sorteio publicado
+não se recalcula.
+
+## 0017 — Estatísticas de goleiro
+
+**Tabela nova:** `goalkeeper_match_stats` (`match_id`, `goalkeeper_id`, `team`, `saves`,
+`goals_conceded`). As finalizações enfrentadas e os jogos sem sofrer gol **não** são guardados —
+são derivados (`saves + goals_conceded` e `goals_conceded = 0`), para não haver duas versões da
+verdade.
+
+**Funções novas:** `admin_save_gk_stats`, `get_goalkeeper_stats` (devolve os números crus mais a
+média de gols sofridos de toda a pelada), `get_match_gk_stats`.
+
+O **overall de goleiro é calculado no frontend** (`src/lib/overall.js`), ao lado do overall de
+campo — um só sítio, testado, e explicado ao utilizador num painel "Como é calculado o overall do
+goleiro?".
+
+---
+
+## Depois de aplicar
+
+1. **Faz um backup antes** — Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)".
+2. Aplica as três migrações por ordem.
+3. Entra na app: deves ir parar ao ecrã de escolha de posição.
+4. Admin → **Posições** → confirma que vês os ~30 jogadores como "Sem posição".
+5. Admin → **Próximo jogo** → o assistente de 7 passos precisa de 2 goleiros + 12 jogadores de
+   campo com posição definida. Define-os tu em "Posições" se ninguém tiver escolhido ainda.
+6. Faz o **deploy do frontend**. As migrações sozinhas não chegam: o código novo só chega ao grupo
+   depois do rebuild.
