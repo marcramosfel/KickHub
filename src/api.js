@@ -34,6 +34,11 @@ const ERROS = {
   SEMESCALACAO: 'Sorteia as equipas antes de publicar.',
   POSDUPLICADA: 'Há dois jogadores no mesmo lugar da mesma equipa.',
   JOGADORDUP: 'O mesmo jogador aparece duas vezes na escalação.',
+  // desistências
+  SEMLINEUP: 'Esse jogador não está na escalação deste jogo.',
+  JAESCALADO: 'Esse jogador já está escalado neste jogo.',
+  MESMOJOGADOR: 'Quem sai e quem entra não podem ser o mesmo jogador.',
+  SUBTROCADA: 'Já houve outra troca neste lugar — desfaz primeiro a mais recente.',
 }
 
 export class ApiError extends Error {
@@ -259,6 +264,25 @@ export const adminSetMatchStatus = (pw, matchId, status) =>
 // Só apaga jogos em rascunho/cancelados — rodadas já jogadas ficam protegidas
 export const adminDeleteSchedule = (pw, matchId) =>
   rpc('admin_delete_schedule', { p_pw: pw, p_match: matchId })
+
+// ---------- Desistências / substituições (migração 0018) ----------
+// Troca quem desistiu por outro jogador, no mesmo lugar e na mesma equipa.
+// `inOverall` é o overall de quem entra, calculado no frontend como o do
+// sorteio (a fórmula vive em src/lib/overall.js) e congelado na escalação.
+// Devolve o jogo já com as forças e o equilíbrio recalculados.
+export const adminSubstitutePlayer = (pw, matchId, outId, inId, inOverall, reason) =>
+  rpc('admin_substitute_player', {
+    p_pw: pw,
+    p_match: matchId,
+    p_out: outId,
+    p_in: inId,
+    p_in_overall: inOverall ?? null,
+    p_reason: reason || null,
+  })
+
+// Desfaz uma troca (só se quem entrou ainda estiver no mesmo lugar).
+export const adminUndoSubstitution = (pw, subId) =>
+  rpc('admin_undo_substitution', { p_pw: pw, p_sub: subId })
 
 // ---------- Goleiros (migração 0017) ----------
 // Números crus dos goleiros + a média da pelada; o overall é calculado

@@ -2,8 +2,10 @@ import { useMemo } from 'react'
 import { estadoDoJogo, formatarDataDoJogo } from '../lib/countdown'
 import { avaliarEquilibrio } from '../lib/drawEngine'
 import { nomeDaPosicao } from '../lib/positions'
+import { vantagem } from '../lib/substitutions'
 import Countdown from './Countdown'
 import FootballPitch from './FootballPitch'
+import AvisoDeDesistencias, { VantagemAtual } from './Substitutions'
 import { colors, fonts, styles, chip } from '../theme'
 
 // O próximo jogo: quando, onde, quem joga com quem.
@@ -137,6 +139,10 @@ export function ForcaDasEquipas({ jogo }) {
     texto: equilibrio.balanceLabel,
     cor: COR_DO_EQUILIBRIO[equilibrio.balanceLevel] || colors.muted,
   }
+  // Quem está mais forte tem de se ler sem fazer a subtração de cabeça —
+  // sobretudo depois de uma desistência, em que a diferença deixa de ser
+  // um acaso do sorteio e passa a ser uma consequência da troca.
+  const quemManda = vantagem(a, b)
 
   const col = (nome, cor, valor) => (
     <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
@@ -163,10 +169,20 @@ export function ForcaDasEquipas({ jogo }) {
         <span style={{ fontSize: 12, color: colors.muted }}>vs</span>
         {col(TIME_B.nome, TIME_B.cor, b)}
       </div>
-      <div style={{ textAlign: 'center', marginTop: 8 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: 6,
+          marginTop: 8,
+        }}
+      >
         <span style={chip(nivel.cor, `${nivel.cor}1A`)}>
           ⚖️ Equilíbrio: {nivel.texto} · {pct.toFixed(1)}% · Δ {diff}
         </span>
+        {/* o Δ e a percentagem já estão na etiqueta ao lado */}
+        {quemManda.lado && <VantagemAtual vantagem={quemManda} comNumeros={false} />}
       </div>
     </div>
   )
@@ -212,6 +228,9 @@ export default function NextMatch({ jogo, onPlayerClick, compacto = false }) {
           <InfoDoJogo jogo={jogo}>
             <ForcaDasEquipas jogo={jogo} />
           </InfoDoJogo>
+
+          {/* logo a seguir às forças: é a explicação delas */}
+          <AvisoDeDesistencias jogo={jogo} />
 
           {temEscalacao && (
             <div className="pb-card">
@@ -268,6 +287,14 @@ export default function NextMatch({ jogo, onPlayerClick, compacto = false }) {
                             </span>
                             <span className="pb-truncate" style={{ flex: 1 }}>
                               {l.name}
+                              {l.substitute_for && (
+                                <span
+                                  style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
+                                  title={`Entrou no lugar de ${l.substitute_for} (desistência)`}
+                                >
+                                  🔄
+                                </span>
+                              )}
                             </span>
                             {l.overall_at_draw != null && (
                               <span
@@ -291,6 +318,7 @@ export default function NextMatch({ jogo, onPlayerClick, compacto = false }) {
               <p style={{ ...styles.mutedText, fontSize: 11, marginTop: 10 }}>
                 O overall mostrado é o do momento do sorteio — não muda quando as estatísticas
                 forem recalculadas.
+                {jogo.lineup.some((l) => l.substitute_for) && ' 🔄 = entrou por desistência.'}
               </p>
             </div>
           )}

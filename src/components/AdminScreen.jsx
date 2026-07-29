@@ -33,6 +33,7 @@ import Avatar from './Avatar'
 import DrawView from './DrawView'
 import MatchWizard from './admin/MatchWizard'
 import PositionsAdmin from './admin/PositionsAdmin'
+import SubstitutionsPanel from './admin/SubstitutionsPanel'
 import { PhotoFrame } from './RoundParts'
 import { colors, fonts, styles, disabled } from '../theme'
 
@@ -704,6 +705,7 @@ export default function AdminScreen({ onExit }) {
       >
         {tabBtn('pedidos', 'Pedidos', pending.length)}
         {tabBtn('proximo', 'Próximo jogo', 0)}
+        {tabBtn('desistencias', 'Desistências', 0)}
         {tabBtn('posicoes', 'Posições', semPosicao)}
         {tabBtn('plantel', 'Plantel', 0)}
         {tabBtn('sorteio', 'Sorteio simples', 0)}
@@ -763,6 +765,11 @@ export default function AdminScreen({ onExit }) {
       {/* ---------- PRÓXIMO JOGO (assistente) ---------- */}
       {tab === 'proximo' && (
         <MatchWizard pw={pw} jogadores={jogadores} onDadosAlterados={refresh} />
+      )}
+
+      {/* ---------- DESISTÊNCIAS (jogo já publicado) ---------- */}
+      {tab === 'desistencias' && (
+        <SubstitutionsPanel pw={pw} jogadores={jogadores} onDadosAlterados={refresh} />
       )}
 
       {/* ---------- POSIÇÕES DOS JOGADORES ---------- */}

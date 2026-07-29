@@ -124,6 +124,9 @@ function normalizarJogador(fonte, slot) {
     photo: fonte.photo ?? fonte.photo_url ?? null,
     overall: numero(fonte.overall ?? fonte.overall_at_draw),
     fora,
+    // nome de quem desistiu e lhe deixou o lugar (só existe depois de uma
+    // substituição gravada, migração 0018)
+    substitui: fonte.substitute_for ?? fonte.substituiu ?? null,
   }
 }
 
@@ -439,6 +442,33 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
           </span>
         )}
 
+        {jogador?.substitui && (
+          <span
+            aria-hidden
+            title={`${jogador.name} entrou no lugar de ${jogador.substitui} (desistência)`}
+            style={{
+              position: 'absolute',
+              top: -3,
+              right: -3,
+              width: T.icone,
+              height: T.icone,
+              borderRadius: '50%',
+              background: colors.teamA,
+              color: '#06130D',
+              border: `1px solid ${colors.teamA}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: T.iconeTexto,
+              fontWeight: 700,
+              lineHeight: 1,
+              pointerEvents: 'auto',
+            }}
+          >
+            🔄
+          </span>
+        )}
+
         {jogador && showOverall && overall != null && (
           <span
             aria-hidden
@@ -520,6 +550,7 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
           {jogador.name} · {nomePos}
           {overall == null ? '' : ` · ${overall}`}
           {jogador.fora ? ' · fora de posição' : ''}
+          {jogador.substitui ? ` · entrou por ${jogador.substitui} (desistência)` : ''}
         </span>
       )}
     </>
@@ -536,7 +567,7 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
   if (interactive && jogador) {
     const aria = `${jogador.name}, ${nomePos}${overall == null ? '' : `, overall ${overall}`}${
       jogador.fora ? ', fora da posição principal' : ''
-    }`
+    }${jogador.substitui ? `, entrou por desistência de ${jogador.substitui}` : ''}`
     return (
       <button
         type="button"
@@ -621,7 +652,7 @@ function descrever(equipas) {
           (j) =>
             `${j.name} ${nomeDaPosicao(j.slot).toLowerCase()}${
               j.fora ? ' (fora da posição principal)' : ''
-            }`,
+            }${j.substitui ? ` (entrou por desistência de ${j.substitui})` : ''}`,
         )
         .join(', ')
       return `${e.nome}: ${linha || 'sem jogadores'}`

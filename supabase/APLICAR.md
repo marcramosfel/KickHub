@@ -1,6 +1,6 @@
-# Como aplicar as migrações novas (0015 → 0017)
+# Como aplicar as migrações novas (0015 → 0018)
 
-A base de dados tem dados reais. Estas três migrações são **aditivas**: só acrescentam colunas,
+A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
 rebentar (são idempotentes).
 
@@ -10,6 +10,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 1. `0015_posicoes.sql`
 2. `0016_jogos_agendados.sql`
 3. `0017_goleiros.sql`
+4. `0018_desistencias.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -86,6 +87,28 @@ média de gols sofridos de toda a pelada), `get_match_gk_stats`.
 O **overall de goleiro é calculado no frontend** (`src/lib/overall.js`), ao lado do overall de
 campo — um só sítio, testado, e explicado ao utilizador num painel "Como é calculado o overall do
 goleiro?".
+
+## 0018 — Desistências de última hora
+
+**Tabela nova:** `match_substitutions` — uma linha por desistência, com quem saiu, quem entrou, a
+equipa, o lugar e os dois overalls. A equipa e o lugar são **copiados** no momento da troca: quem
+entrou pode ele próprio desistir depois, e o histórico não pode mudar por isso.
+
+**Funções novas:** `admin_substitute_player` (troca quem desistiu por outro jogador, no mesmo
+lugar, e recalcula as forças e o equilíbrio), `admin_undo_substitution` (desfaz a última troca de
+um lugar) e a interna `recalcular_forcas_do_jogo`.
+
+**Função alterada:** `match_public_json` passa a devolver `substitutions` e, em cada linha da
+escalação, `substitute_for` — é o que faz aparecer o 🔄 no campo e o aviso na página inicial.
+
+**Proteções:** só de `PUBLISHED`/`IN_PROGRESS` (num rascunho volta-se a sortear, num jogo fechado
+seria reescrever história); o mesmo jogador não pode ficar duas vezes em campo (`JAESCALADO`);
+desfazer é recusado se já houve outra troca por cima (`SUBTROCADA`). `recalcular_forcas_do_jogo`
+leva `revoke` do PUBLIC — não pede senha e não pode ser chamada de fora.
+
+> **Nota de desenho:** substituir **não** reequilibra as equipas, de propósito. A troca serve para
+> os times ficarem completos; o desequilíbrio que dela vier fica registado e aparece a todos, com
+> a indicação de qual a equipa que ficou mais forte e porquê.
 
 ---
 

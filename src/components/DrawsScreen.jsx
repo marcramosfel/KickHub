@@ -1,6 +1,8 @@
 import { formatarDataDoJogo } from '../lib/countdown'
+import { vantagem } from '../lib/substitutions'
 import DrawView from './DrawView'
 import FootballPitch from './FootballPitch'
+import AvisoDeDesistencias, { VantagemAtual } from './Substitutions'
 import { SectionTitle } from './Ui'
 import { colors, fonts, styles } from '../theme'
 
@@ -28,6 +30,7 @@ export default function DrawsScreen({ proximoJogo, draw, onProfile }) {
   // `kickoff_at` mostrava " · " no lugar do "—".
   const d = formatarDataDoJogo(proximoJogo?.kickoff_at)
   const publicadoEm = draw ? formatDate(draw.created_at) : ''
+  const quemManda = vantagem(proximoJogo?.team_a_overall, proximoJogo?.team_b_overall)
 
   return (
     <div>
@@ -81,8 +84,23 @@ export default function DrawsScreen({ proximoJogo, draw, onProfile }) {
                   valor={proximoJogo.published_at ? formatDate(proximoJogo.published_at) : '—'}
                 />
               </dl>
+              {quemManda.lado && (
+                <div style={{ marginTop: 10 }}>
+                  {/* sem os números: o equilíbrio e os dois overalls estão
+                      na lista mesmo por cima */}
+                  <VantagemAtual vantagem={quemManda} comNumeros={false} />
+                </div>
+              )}
             </div>
           </div>
+
+          {/* a coluna só existe se houver aviso: uma div vazia deixava um
+              buraco do tamanho do `gap` da grelha */}
+          {proximoJogo.substitutions?.length > 0 && (
+            <div className="pb-col-12">
+              <AvisoDeDesistencias jogo={proximoJogo} />
+            </div>
+          )}
         </div>
       ) : (
         <div className="pb-card" style={{ textAlign: 'center', padding: 26 }}>
