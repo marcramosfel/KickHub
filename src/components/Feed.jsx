@@ -176,11 +176,26 @@ function Conteudo({ post, jogadores, onProfile }) {
     )
   }
   if (post.type === 'SUBSTITUICAO') {
+    // dois formatos: troca de equipas (swap, a⇄b) ou substituição (sai→entra)
+    if (p.swap) {
+      return (
+        <p style={{ fontSize: 14, margin: '4px 0' }}>
+          <strong>{p.a_name}</strong>{' '}
+          <span style={{ color: colors.muted, fontSize: 12 }}>({nomeDaEquipa(p.a_team)})</span>{' '}
+          <span aria-hidden>⇄</span> <strong>{p.b_name}</strong>{' '}
+          <span style={{ color: colors.muted, fontSize: 12 }}>({nomeDaEquipa(p.b_team)})</span>
+          <span style={{ color: colors.muted, fontSize: 12 }}> — trocaram de time</span>
+        </p>
+      )
+    }
     return (
       <p style={{ fontSize: 14, margin: '4px 0' }}>
         <span style={{ color: colors.muted, textDecoration: 'line-through' }}>{p.out_name}</span>{' '}
         → <strong>{p.in_name}</strong>{' '}
-        <span style={{ color: colors.muted, fontSize: 12 }}>({nomeDaEquipa(p.team)})</span>
+        <span style={{ color: colors.muted, fontSize: 12 }}>
+          ({nomeDaEquipa(p.team)}
+          {p.kind === 'TROCA' ? ' · troca' : ' · desistência'})
+        </span>
       </p>
     )
   }

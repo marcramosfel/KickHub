@@ -330,18 +330,31 @@ export const adminDeleteMedia = (pw, mediaId) =>
 export const adminMatchActivity = (pw, matchId) =>
   rpc('admin_match_activity', { p_pw: pw, p_match: matchId })
 
-// ---------- Desistências / substituições (migração 0018) ----------
-// Troca quem desistiu por outro jogador, no mesmo lugar e na mesma equipa.
-// `inOverall` é o overall de quem entra, calculado no frontend como o do
-// sorteio (a fórmula vive em src/lib/overall.js) e congelado na escalação.
-// Devolve o jogo já com as forças e o equilíbrio recalculados.
-export const adminSubstitutePlayer = (pw, matchId, outId, inId, inOverall, reason) =>
+// ---------- Desistências / substituições (migrações 0018 e 0021) ----------
+// Troca quem sai por outro jogador, no mesmo lugar e na mesma equipa.
+// `kind` distingue a história: 'DESISTENCIA' (não podia ir) ou 'TROCA'
+// (opção do admin). `inOverall` é o overall de quem entra, calculado no
+// frontend (src/lib/overall.js) e congelado na escalação.
+export const adminSubstitutePlayer = (pw, matchId, outId, inId, inOverall, reason, kind = 'DESISTENCIA') =>
   rpc('admin_substitute_player', {
     p_pw: pw,
     p_match: matchId,
     p_out: outId,
     p_in: inId,
     p_in_overall: inOverall ?? null,
+    p_reason: reason || null,
+    p_kind: kind,
+  })
+
+// Troca dois jogadores de equipa (um de cada lado, cada um herda o lugar
+// do outro). Livre e sem justificação obrigatória — mas fica na auditoria
+// e no feed. Goleiro só troca com goleiro.
+export const adminSwapPlayers = (pw, matchId, idA, idB, reason) =>
+  rpc('admin_swap_players', {
+    p_pw: pw,
+    p_match: matchId,
+    p_a: idA,
+    p_b: idB,
     p_reason: reason || null,
   })
 

@@ -21,19 +21,16 @@ import {
   getMatches,
   getPlayers,
   getPublishedDraw,
-  getStats,
-  publishDraw,
 } from '../api'
-import { drawTeams } from '../lib/draw'
 import { fileToDataURL } from '../lib/image'
 import { awardWinners, formatDia, hojeLocal, matchWinner } from '../lib/format'
 import { juntarEstatisticas } from '../lib/ranking'
 import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
-import DrawView from './DrawView'
 import GamesPanel from './admin/GamesPanel'
 import MatchWizard from './admin/MatchWizard'
 import PositionsAdmin from './admin/PositionsAdmin'
+import QuickDraw from './admin/QuickDraw'
 import SubstitutionsPanel from './admin/SubstitutionsPanel'
 import { adminMatchesUpcoming } from '../api'
 import { jogosComResultadoPendente } from '../lib/lifecycle'
@@ -94,19 +91,18 @@ export default function AdminScreen({ onExit }) {
   const [authed, setAuthed] = useState(false)
   const [tab, setTab] = useState('pedidos') // pedidos | plantel | sorteio
 
+  // aba "Novo sorteio": qual dos dois modos está à vista, e a pré-seleção
+  // de jogadores quando um rachão de 14 sobe a jogo oficial
+  const [modoSorteio, setModoSorteio] = useState('completo')
+  const [preSelecao, setPreSelecao] = useState(null)
+
   const [pending, setPending] = useState([])
   const [players, setPlayers] = useState([])
-  const [stats, setStats] = useState(null) // { approved, voters }
   // números de campo e de baliza — o assistente do jogo precisa do overall
   const [playerStats, setPlayerStats] = useState([])
   const [gkStats, setGkStats] = useState(null)
   // defesas/gols sofridos da rodada a registar: { [id]: { saves, conceded } }
   const [gkForm, setGkForm] = useState({})
-
-  const [present, setPresent] = useState({}) // { [id]: bool }
-  const [force, setForce] = useState(false)
-  const [result, setResult] = useState(null) // { A, B }
-  const [published, setPublished] = useState(false)
 
   // rodadas / estatísticas
   const [matches, setMatches] = useState([])
@@ -148,10 +144,9 @@ export default function AdminScreen({ onExit }) {
   const refresh = async (senha = pw) => {
     // o sorteio publicado vem no mesmo lote para o efeito que semeia as
     // presenças do jogo já o ter disponível na primeira execução
-    const [pend, pls, st, ld, ps, gk] = await Promise.all([
+    const [pend, pls, ld, ps, gk] = await Promise.all([
       adminPending(senha),
       getPlayers(),
-      getStats(),
       getPublishedDraw().catch(() => null),
       // não-fatais: sem as migrações 0002/0017 o resto do admin funciona na mesma
       getPlayerStats().catch(() => []),
@@ -159,16 +154,9 @@ export default function AdminScreen({ onExit }) {
     ])
     setPending(pend || [])
     setPlayers(pls || [])
-    setStats(st)
     setLastDraw(ld)
     setPlayerStats(ps || [])
     setGkStats(gk)
-    // presenças: mantém escolhas anteriores, novos aprovados entram marcados
-    setPresent((prev) => {
-      const next = {}
-      for (const p of pls || []) next[p.id] = prev[p.id] ?? true
-      return next
-    })
     // rodadas (não-fatal: sem a migração 0002 o resto do admin continua a funcionar)
     getMatches()
       .then((m) => {
@@ -372,48 +360,6 @@ export default function AdminScreen({ onExit }) {
       }),
     [players, playerStats, gkStats, matches]
   )
-
-  // ---------- sorteio ----------
-  const presentes = players.filter((p) => present[p.id])
-  const allVoted = stats != null && stats.approved > 1 && stats.voters >= stats.approved
-  const podeSortear = presentes.length >= 2 && (allVoted || force)
-
-  const sortear = () => {
-    const lista = presentes.map((p) => ({
-      id: p.id,
-      name: p.name,
-      photo: p.photo_url,
-      avg: p.avg == null ? 2.5 : Number(p.avg), // sem notas → 2.5 neutro
-    }))
-    setResult(drawTeams(lista))
-    setPublished(false)
-  }
-
-  const trocar = (idA, idB) => {
-    setResult((r) => {
-      const pa = r.A.find((p) => p.id === idA)
-      const pb = r.B.find((p) => p.id === idB)
-      if (!pa || !pb) return r
-      return {
-        A: r.A.map((p) => (p.id === idA ? pb : p)),
-        B: r.B.map((p) => (p.id === idB ? pa : p)),
-      }
-    })
-    setPublished(false)
-  }
-
-  const publicar = async () => {
-    setError('')
-    setBusy(true)
-    try {
-      await publishDraw(pw, result.A, result.B)
-      setPublished(true)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   // ---------- jogos / rodadas ----------
   const jogadoresDoJogo = players.filter((p) => jogou[p.id])
@@ -716,12 +662,11 @@ export default function AdminScreen({ onExit }) {
         }}
       >
         {tabBtn('jogos-ciclo', 'Jogos', resultadosPendentes)}
-        {tabBtn('proximo', 'Marcar jogo', 0)}
+        {tabBtn('novo', 'Novo sorteio', 0)}
         {tabBtn('pedidos', 'Pedidos', pending.length)}
-        {tabBtn('desistencias', 'Desistências', 0)}
+        {tabBtn('desistencias', 'Trocas', 0)}
         {tabBtn('posicoes', 'Posições', semPosicao)}
         {tabBtn('plantel', 'Plantel', 0)}
-        {tabBtn('sorteio', 'Sorteio simples', 0)}
         {tabBtn('jogos', 'Rodadas antigas', 0)}
         {tabBtn('faltas', 'Faltas', faltasTotal)}
         {tabBtn('utilizadores', 'IDs', 0)}
@@ -781,14 +726,77 @@ export default function AdminScreen({ onExit }) {
           pw={pw}
           jogadores={jogadores}
           matches={matches}
-          onAbrirAssistente={() => setTab('proximo')}
+          onAbrirAssistente={() => {
+            setModoSorteio('completo')
+            setTab('novo')
+          }}
           onAbrirDesistencias={() => setTab('desistencias')}
         />
       )}
 
-      {/* ---------- MARCAR JOGO (assistente de criação/sorteio) ---------- */}
-      {tab === 'proximo' && (
-        <MatchWizard pw={pw} jogadores={jogadores} matches={matches} onDadosAlterados={refresh} />
+      {/* ---------- NOVO SORTEIO (completo = jogo oficial · rápido = rachão) ---------- */}
+      {tab === 'novo' && (
+        <div>
+          <div className="pb-cards" style={{ gap: 10, marginBottom: 14 }}>
+            {[
+              {
+                id: 'completo',
+                titulo: '⚽ Sorteio completo',
+                texto: 'O jogo oficial: data e local, 2 goleiros + 12 de campo, posições 2-3-1, equilíbrio por overall, publicação com resenha.',
+              },
+              {
+                id: 'rapido',
+                titulo: '🎲 Sorteio rápido',
+                texto: 'O rachão: qualquer número de jogadores, 2 a 4 equipas, aleatório ou equilibrado, sem agendamento.',
+              },
+            ].map((m) => {
+              const ativo = modoSorteio === m.id
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setModoSorteio(m.id)}
+                  aria-pressed={ativo}
+                  className="pb-card"
+                  style={{
+                    textAlign: 'left',
+                    font: 'inherit',
+                    color: colors.text,
+                    cursor: 'pointer',
+                    borderColor: ativo ? colors.grass : colors.line,
+                    background: ativo ? 'rgba(52,208,88,0.07)' : undefined,
+                  }}
+                >
+                  <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 4 }}>
+                    {m.titulo} {ativo && <span style={{ color: colors.grass }}>●</span>}
+                  </div>
+                  <p style={{ ...styles.mutedText, fontSize: 12, margin: 0 }}>{m.texto}</p>
+                </button>
+              )
+            })}
+          </div>
+
+          {modoSorteio === 'completo' ? (
+            <MatchWizard
+              pw={pw}
+              jogadores={jogadores}
+              matches={matches}
+              preSelecao={preSelecao}
+              onDadosAlterados={refresh}
+            />
+          ) : (
+            <QuickDraw
+              pw={pw}
+              jogadores={jogadores}
+              onOficializar={(ids) => {
+                // o rachão de 14 vira jogo oficial: os mesmos jogadores já
+                // entram marcados nos passos 2 e 3 do assistente
+                setPreSelecao(ids)
+                setModoSorteio('completo')
+              }}
+            />
+          )}
+        </div>
       )}
 
       {/* ---------- DESISTÊNCIAS (jogo já publicado) ---------- */}
@@ -861,128 +869,6 @@ export default function AdminScreen({ onExit }) {
                 Todo o grupo terá de avaliar toda a gente outra vez. Usa “Reavaliar” num jogador
                 para reiniciar só as notas dele.
               </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ---------- SORTEIO ---------- */}
-      {tab === 'sorteio' && (
-        <div>
-          <div style={{ ...styles.panel, marginBottom: 12, padding: 12 }}>
-            <p style={{ ...styles.mutedText, fontSize: 13 }}>
-              Sorteio rápido pela média do grupo, sem posições nem campo — o que existia antes.
-              Fica aqui para quando aparecerem 9 ou 15 pessoas e for preciso dividir à pressa. Para
-              o jogo a sério (2 goleiros + 12 de campo, formação 2-3-1, equilíbrio por overall),
-              usa a aba <strong style={{ color: colors.grass }}>Próximo jogo</strong>.
-            </p>
-          </div>
-          {/* progresso das avaliações */}
-          <div style={{ ...styles.panel, marginBottom: 12 }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'baseline',
-                marginBottom: 8,
-              }}
-            >
-              <span style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15 }}>
-                Avaliações
-              </span>
-              <span style={{ fontSize: 14, color: allVoted ? colors.grass : colors.muted }}>
-                {stats ? `${stats.voters}/${stats.approved} avaliaram` : '…'}
-              </span>
-            </div>
-            <div style={{ height: 8, background: '#0C1915', borderRadius: 999 }}>
-              <div
-                style={{
-                  height: '100%',
-                  width: stats && stats.approved > 0 ? `${Math.min(100, (stats.voters / stats.approved) * 100)}%` : 0,
-                  background: allVoted ? colors.grass : colors.teamA,
-                  borderRadius: 999,
-                  transition: 'width .3s',
-                }}
-              />
-            </div>
-            {!allVoted && !force && (
-              <div style={{ marginTop: 10, textAlign: 'right' }}>
-                <button onClick={() => setForce(true)} style={{ ...linkStyle, fontSize: 12 }}>
-                  forçar mesmo assim
-                </button>
-              </div>
-            )}
-            {force && !allVoted && (
-              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
-                ⚠️ Sorteio forçado: quem não tem notas entra com média neutra 2.5.
-              </p>
-            )}
-          </div>
-
-          {/* presenças */}
-          <div style={{ ...styles.panel, marginBottom: 12, padding: 12 }}>
-            <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 8 }}>
-              Quem joga hoje? ({presentes.length})
-            </div>
-            {players.map((p) => (
-              <label
-                key={p.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '7px 2px',
-                  fontSize: 15,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={!!present[p.id]}
-                  onChange={(e) => setPresent({ ...present, [p.id]: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: colors.grass }}
-                />
-                <Avatar name={p.name} photo={p.photo_url} size={28} />
-                <span style={{ flex: 1 }}>{p.name}</span>
-                <span style={{ fontSize: 12, color: colors.muted }}>
-                  {p.avg != null ? Number(p.avg).toFixed(2) : '2.5*'}
-                </span>
-              </label>
-            ))}
-            {players.length === 0 && <p style={styles.mutedText}>Sem jogadores aprovados.</p>}
-          </div>
-
-          <button
-            onClick={sortear}
-            disabled={!podeSortear || busy}
-            style={!podeSortear || busy ? disabled(styles.button) : styles.button}
-          >
-            {result ? 'Sortear de novo' : 'Sortear equipas'}
-          </button>
-          {!podeSortear && presentes.length < 2 && (
-            <p style={{ ...styles.mutedText, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
-              São precisos pelo menos 2 presentes.
-            </p>
-          )}
-
-          {result && (
-            <div style={{ marginTop: 18 }}>
-              <DrawView A={result.A} B={result.B} onSwap={trocar} />
-              <button
-                onClick={publicar}
-                disabled={busy || published}
-                style={
-                  busy || published
-                    ? disabled({ ...styles.button, marginTop: 14 })
-                    : { ...styles.button, marginTop: 14 }
-                }
-              >
-                {published ? 'Publicado ✓' : busy ? 'A publicar…' : 'Publicar sorteio'}
-              </button>
-              {published && (
-                <p style={{ ...styles.mutedText, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
-                  O sorteio já está visível na Home de todos os jogadores.
-                </p>
-              )}
             </div>
           )}
         </div>

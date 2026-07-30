@@ -75,6 +75,54 @@ export function vantagem(forcaA, forcaB) {
   }
 }
 
+// ---------- prévias: o que uma mexida faz às forças, ANTES de a fazer ----------
+// O admin vê o antes/depois e decide; nada disto escreve seja onde for.
+
+// Troca de dois jogadores entre equipas (cada um herda o lugar do outro).
+export function previewSwap(jogo, idA, idB) {
+  const lineup = Array.isArray(jogo?.lineup) ? jogo.lineup : []
+  const a = lineup.find((l) => l.player_id === idA)
+  const b = lineup.find((l) => l.player_id === idB)
+  if (!a || !b) return null
+  if (a.team === b.team) return { valido: false, motivo: 'Os dois estão na mesma equipa.' }
+  if ((a.is_goalkeeper === true) !== (b.is_goalkeeper === true)) {
+    return { valido: false, motivo: 'Um goleiro só pode trocar com o outro goleiro.' }
+  }
+
+  const antes = forcasDaEscalacao(lineup)
+  const depois = forcasDaEscalacao(
+    lineup.map((l) =>
+      l.player_id === idA ? { ...l, team: b.team } : l.player_id === idB ? { ...l, team: a.team } : l
+    )
+  )
+  return {
+    valido: true,
+    a: { id: idA, nome: a.name, de: a.team, para: b.team, posicao: b.assigned_position },
+    b: { id: idB, nome: b.name, de: b.team, para: a.team, posicao: a.assigned_position },
+    antes: vantagem(antes.A, antes.B),
+    depois: vantagem(depois.A, depois.B),
+  }
+}
+
+// Substituição de um escalado por alguém de fora (a força de quem entra
+// ocupa o lugar da de quem sai, na mesma equipa).
+export function previewReplace(jogo, outId, inOverall) {
+  const lineup = Array.isArray(jogo?.lineup) ? jogo.lineup : []
+  const sai = lineup.find((l) => l.player_id === outId)
+  if (!sai) return null
+  const antes = forcasDaEscalacao(lineup)
+  const depois = forcasDaEscalacao(
+    lineup.map((l) => (l.player_id === outId ? { ...l, overall_at_draw: inOverall } : l))
+  )
+  return {
+    valido: true,
+    lado: ladoDe(sai.team),
+    posicao: sai.assigned_position,
+    antes: vantagem(antes.A, antes.B),
+    depois: vantagem(depois.A, depois.B),
+  }
+}
+
 // Uma troca em linguagem de ecrã. `delta` é o que a equipa ganhou (ou
 // perdeu) com ela; fica `null` quando falta um dos overalls, porque zero
 // aqui significaria "não mudou nada" e seria mentira.
@@ -85,6 +133,9 @@ function normalizarTroca(s) {
   const entrou = numOuNulo(s.in_overall)
   return {
     id: s.id ?? `${s.out_player_id}-${s.in_player_id}`,
+    // DESISTENCIA ("não posso ir") ou TROCA (opção do admin) — a etiqueta
+    // que os jogadores veem depende disto
+    kind: s.kind === 'TROCA' ? 'TROCA' : 'DESISTENCIA',
     lado,
     equipa: lado ? nomeDaEquipa(lado) : '—',
     slot: s.assigned_position ?? null,

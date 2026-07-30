@@ -181,7 +181,10 @@ function LinhaJogador({ j, marcado, onToggle, extra, desativado }) {
   )
 }
 
-export default function MatchWizard({ pw, jogadores, matches, onDadosAlterados }) {
+// `preSelecao` (lista de ids) chega quando um rachão de 14 sobe a jogo
+// oficial: quem parece goleiro vai para a baliza, o resto para o campo, e o
+// admin ajusta nos passos 2 e 3 como sempre.
+export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDadosAlterados }) {
   const [passo, setPasso] = useState(1)
   const [jogo, setJogo] = useState(null) // rascunho guardado no servidor
   const [proximos, setProximos] = useState([])
@@ -197,9 +200,25 @@ export default function MatchWizard({ pw, jogadores, matches, onDadosAlterados }
   const [local, setLocal] = useState('Browns Sports Resort')
   const [mapa, setMapa] = useState('')
 
-  // passos 2/3
-  const [goleiros, setGoleiros] = useState([])
-  const [campo, setCampo] = useState([])
+  // passos 2/3 — com pré-seleção do rachão, os goleiros óbvios (tipo ou
+  // posição GK) vão para a baliza e o resto para o campo, dentro dos limites
+  const [goleiros, setGoleiros] = useState(() => {
+    if (!Array.isArray(preSelecao) || !preSelecao.length) return []
+    const ehGk = (id) => {
+      const j = jogadores.find((x) => x.id === id)
+      return j?.playerType === PLAYER_TYPE.GOALKEEPER || j?.primaryPosition === 'GK'
+    }
+    return preSelecao.filter(ehGk).slice(0, N_GOLEIROS)
+  })
+  const [campo, setCampo] = useState(() => {
+    if (!Array.isArray(preSelecao) || !preSelecao.length) return []
+    const ehGk = (id) => {
+      const j = jogadores.find((x) => x.id === id)
+      return j?.playerType === PLAYER_TYPE.GOALKEEPER || j?.primaryPosition === 'GK'
+    }
+    const naBaliza = new Set(preSelecao.filter(ehGk).slice(0, N_GOLEIROS))
+    return preSelecao.filter((id) => !naBaliza.has(id)).slice(0, N_CAMPO)
+  })
   const [tornarGkPermanente, setTornarGkPermanente] = useState({})
 
   // passos 5/6

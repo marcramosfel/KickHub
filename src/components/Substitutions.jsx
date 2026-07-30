@@ -88,7 +88,9 @@ function Troca({ t }) {
         </span>
         <span style={{ fontSize: 11, color: colors.muted, display: 'block' }}>
           <span style={{ color: cor }}>{t.equipa}</span> ·{' '}
-          {t.ehGoleiro ? 'Goleiro' : nomeDaPosicao(t.slot)}
+          {t.ehGoleiro ? 'Goleiro' : nomeDaPosicao(t.slot)} ·{' '}
+          {/* a etiqueta importa: desistência explica, troca é decisão */}
+          {t.kind === 'TROCA' ? 'troca do admin' : 'desistência'}
           {t.motivo ? ` · ${t.motivo}` : ''}
         </span>
       </span>
@@ -123,8 +125,8 @@ export default function AvisoDeDesistencias({ jogo, titulo = 'Desistências de �
       </div>
 
       <p style={{ ...styles.mutedText, fontSize: 13, margin: '8px 0 4px' }}>
-        Estes jogadores avisaram que não podiam ir e foram substituídos <strong>depois</strong> do
-        sorteio. A troca serve para os times ficarem completos — não para os reequilibrar.
+        Estes jogadores foram substituídos <strong>depois</strong> do sorteio — cada linha diz se
+        foi desistência ou troca do admin. O sorteio em si não foi refeito.
       </p>
 
       <ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0 }}>

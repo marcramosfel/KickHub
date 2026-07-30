@@ -23,7 +23,7 @@
 // mas continua a ser reproduzível a partir do ID do jogo.
 
 import { FIELD_SLOTS, PENALIZACAO, penalizacaoDe } from './positions.js'
-import { criarRandom, escolher } from './seed.js'
+import { baralhar, criarRandom, escolher } from './seed.js'
 
 // Quem ainda não tem overall entra como médio: 0 fazia dele um peso morto que
 // o equilíbrio ia tentar compensar, e isso é pior do que não saber nada.
@@ -461,6 +461,200 @@ export function moverParaSlot(resultado, playerId, team, slot) {
     alvo[onde.slot] = tmp
   }
   return remontar(base, resultado.seed)
+}
+
+// ---------------------------------------------------------------- sorteio rápido
+//
+// O modo "rachão": qualquer número de jogadores, 2+ equipas, sem posições.
+// Não é um segundo motor — reutiliza a normalização, o equilíbrio e a
+// semente do motor posicional; só a distribuição é diferente (não há
+// lugares para atribuir, logo não há algoritmo húngaro).
+//
+// `equilibrado`: serpentina por overall (1º→A, 2º→B, 3º→B, 4º→A, …) seguida
+// de uma subida de encosta — enquanto houver uma troca de par entre equipas
+// que aperte a diferença entre a mais forte e a mais fraca, faz-se a melhor.
+// Com ≤30 jogadores é instantâneo e determinístico para a mesma semente.
+// `aleatorio`: baralha e corta — para quando a graça é essa.
+
+function validarRapido(jogadores, nEquipas) {
+  const lista = Array.isArray(jogadores) ? jogadores.filter(Boolean) : []
+  const n = Number(nEquipas)
+  if (!Number.isInteger(n) || n < 2) {
+    throw erro('EQUIPAS', 'São precisas pelo menos 2 equipas.')
+  }
+  if (lista.length < n) {
+    throw erro('CAMPO', `Com ${n} equipas são precisos pelo menos ${n} jogadores (há ${lista.length}).`)
+  }
+  const vistos = new Set()
+  for (const j of lista) {
+    const id = j?.id
+    if (id == null || id === '') {
+      throw erro('SEMJOGADOR', `"${j?.name || 'Um jogador'}" não tem id — recarrega a lista.`)
+    }
+    if (vistos.has(id)) {
+      throw erro('DUPLICADO', `"${j.name}" aparece mais do que uma vez na lista do sorteio.`, { playerId: id })
+    }
+    vistos.add(id)
+  }
+  return lista
+}
+
+const somaDe = (equipa) => equipa.reduce((s, j) => s + j.overall, 0)
+
+function montarRapido(equipas, seed, modo) {
+  const montadas = equipas.map((jogadores) => {
+    const strength = somaDe(jogadores)
+    return {
+      jogadores,
+      strength,
+      avg: jogadores.length ? strength / jogadores.length : 0,
+    }
+  })
+  // o desequilíbrio mede-se entre a mais forte e a mais fraca — com 2
+  // equipas é exatamente a conta do sorteio oficial
+  const forcas = montadas.map((e) => e.strength)
+  const eq = avaliarEquilibrio(Math.max(...forcas), Math.min(...forcas))
+  return {
+    equipas: montadas,
+    ...eq,
+    semOverall: montadas.flatMap((e, i) =>
+      e.jogadores.filter((j) => j.overallEstimado).map((j) => ({ playerId: j.id, name: j.name, team: i }))
+    ),
+    seed: seed ?? null,
+    modo,
+  }
+}
+
+export function sorteioRapido({ jogadores, nEquipas = 2, modo = 'equilibrado', seed } = {}) {
+  const lista = validarRapido(jogadores, nEquipas).map(normalizar)
+  const n = Number(nEquipas)
+  const random = criarRandom(seed ?? '')
+
+  // tamanhos: o resto distribui-se por equipas sorteadas, não sempre pelas
+  // primeiras — senão a equipa 1 tinha quase sempre mais um jogador
+  const base = Math.floor(lista.length / n)
+  const comExtra = new Set(
+    baralhar(Array.from({ length: n }, (_, i) => i), random).slice(0, lista.length % n)
+  )
+  const capacidade = Array.from({ length: n }, (_, i) => base + (comExtra.has(i) ? 1 : 0))
+
+  let equipas
+  if (modo === 'aleatorio') {
+    const fila = baralhar(lista, random)
+    equipas = capacidade.map((cap) => fila.splice(0, cap))
+  } else {
+    // serpentina + subida de encosta, VÁRIAS vezes: uma subida só de trocas
+    // de par encalha em ótimos locais (viu-se um diff 15 com um perfeito de
+    // ~1 disponível). Cada tentativa parte de uma serpentina baralhada de
+    // maneira diferente e fica-se com a melhor — determinístico na mesma
+    // semente, instantâneo para ≤30 jogadores.
+    const TENTATIVAS = 6
+    let melhorEquipas = null
+    let melhorAmplitude = Infinity
+
+    for (let t = 0; t < TENTATIVAS; t++) {
+      // O baralhar sozinho não diversifica nada: o sort é estável e, com
+      // overalls todos distintos, refaz sempre a mesma ordem — as tentativas
+      // saíam iguais e o reinício era teatro. O ruído na chave (zero na
+      // primeira tentativa, a crescer nas seguintes) dá pontos de partida
+      // realmente diferentes à subida de encosta.
+      const ruido = t === 0 ? 0 : 2 + 3 * t
+      const ordenados = lista
+        .map((j) => ({ j, chave: j.overall + (random() - 0.5) * ruido }))
+        .sort((a, b) => b.chave - a.chave)
+        .map((x) => x.j)
+      const atual = Array.from({ length: n }, () => [])
+      let direcao = 1
+      let alvo = 0
+      for (const j of ordenados) {
+        let voltas = 0
+        while (atual[alvo].length >= capacidade[alvo] && voltas < 2 * n) {
+          alvo += direcao
+          if (alvo === n || alvo === -1) {
+            direcao = -direcao
+            alvo += direcao
+          }
+          voltas++
+        }
+        atual[alvo].push(j)
+        alvo += direcao
+        if (alvo === n || alvo === -1) {
+          direcao = -direcao
+          alvo += direcao
+        }
+      }
+
+      // a melhor troca de par que reduzir a amplitude (máx − mín), até parar
+      let melhorou = true
+      let guarda = 0
+      while (melhorou && guarda < 200) {
+        melhorou = false
+        guarda++
+        const forcas = atual.map(somaDe)
+        const amplitude = Math.max(...forcas) - Math.min(...forcas)
+        let melhor = { ganho: 0 }
+        for (let e1 = 0; e1 < n; e1++) {
+          for (let e2 = e1 + 1; e2 < n; e2++) {
+            for (let i = 0; i < atual[e1].length; i++) {
+              for (let k = 0; k < atual[e2].length; k++) {
+                const delta = atual[e2][k].overall - atual[e1][i].overall
+                const novas = [...forcas]
+                novas[e1] += delta
+                novas[e2] -= delta
+                const novaAmp = Math.max(...novas) - Math.min(...novas)
+                const ganho = amplitude - novaAmp
+                if (ganho > melhor.ganho + EPSILON) melhor = { ganho, e1, e2, i, k }
+              }
+            }
+          }
+        }
+        if (melhor.ganho > 0) {
+          const tmp = atual[melhor.e1][melhor.i]
+          atual[melhor.e1][melhor.i] = atual[melhor.e2][melhor.k]
+          atual[melhor.e2][melhor.k] = tmp
+          melhorou = true
+        }
+      }
+
+      const forcasFinais = atual.map(somaDe)
+      const amp = Math.max(...forcasFinais) - Math.min(...forcasFinais)
+      if (amp < melhorAmplitude - EPSILON) {
+        melhorAmplitude = amp
+        melhorEquipas = atual
+        if (amp === 0) break // não há melhor que perfeito
+      }
+    }
+    equipas = melhorEquipas
+  }
+
+  // dentro de cada equipa a ordem é alfabética — a posição na lista não
+  // pode sugerir hierarquia nenhuma
+  for (const e of equipas) e.sort((a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }))
+
+  return montarRapido(equipas, seed, modo)
+}
+
+// Troca manual entre equipas do sorteio rápido (tocar num de cada lado).
+export function trocarNoRapido(resultado, idA, idB) {
+  const onde = (id) => {
+    for (let e = 0; e < resultado.equipas.length; e++) {
+      const i = resultado.equipas[e].jogadores.findIndex((j) => j.id === id)
+      if (i >= 0) return { e, i }
+    }
+    return null
+  }
+  const a = onde(idA)
+  if (!a) throw erro('SEMJOGADOR', `Não há nenhum jogador com o id "${idA}" neste sorteio.`)
+  const b = onde(idB)
+  if (!b) throw erro('SEMJOGADOR', `Não há nenhum jogador com o id "${idB}" neste sorteio.`)
+  if (a.e === b.e) return resultado // mesma equipa: não há nada para trocar
+
+  const equipas = resultado.equipas.map((eq) => [...eq.jogadores])
+  const tmp = equipas[a.e][a.i]
+  equipas[a.e][a.i] = equipas[b.e][b.i]
+  equipas[b.e][b.i] = tmp
+  for (const e of equipas) e.sort((x, y) => x.name.localeCompare(y.name, 'pt', { sensitivity: 'base' }))
+  return montarRapido(equipas, resultado.seed, resultado.modo)
 }
 
 // Linhas prontas para `admin_save_lineup`. `overall_at_draw` guarda o número

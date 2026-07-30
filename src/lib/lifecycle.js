@@ -119,7 +119,9 @@ export function jogosComResultadoPendente(jogos, agora = new Date()) {
 // Tradução das ações da tabela match_activity para linguagem de ecrã.
 export const ACAO_LEGIVEL = {
   SORTEIO_PUBLICADO: { texto: 'Sorteio publicado', icone: '📢' },
-  JOGADOR_SUBSTITUIDO: { texto: 'Jogador substituído', icone: '🔄' },
+  JOGADOR_SUBSTITUIDO: { texto: 'Jogador substituído (desistência)', icone: '🔄' },
+  JOGADOR_TROCADO: { texto: 'Jogador substituído (troca)', icone: '➡️' },
+  JOGADORES_TROCADOS: { texto: 'Jogadores trocados de equipa', icone: '🔁' },
   RESULTADO_GRAVADO: { texto: 'Resultado guardado em rascunho', icone: '🗒️' },
   RESULTADO_EDITADO: { texto: 'Resultado editado', icone: '✏️' },
   RESULTADO_PUBLICADO: { texto: 'Resultado publicado', icone: '✅' },

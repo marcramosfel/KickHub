@@ -1,23 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { adminMatchesUpcoming, adminSubstitutePlayer, adminUndoSubstitution } from '../../api'
+import {
+  adminMatchesUpcoming,
+  adminSubstitutePlayer,
+  adminSwapPlayers,
+  adminUndoSubstitution,
+} from '../../api'
 import { OVERALL_NEUTRO } from '../../lib/drawEngine'
 import { formatarDataDoJogo } from '../../lib/countdown'
 import { nomeDaPosicao, siglaDaPosicao } from '../../lib/positions'
-import { corDaEquipa, nomeDaEquipa, resumoDeDesistencias } from '../../lib/substitutions'
+import {
+  corDaEquipa,
+  nomeDaEquipa,
+  previewSwap,
+  resumoDeDesistencias,
+} from '../../lib/substitutions'
 import Avatar from '../Avatar'
 import FootballPitch from '../FootballPitch'
 import { VantagemAtual } from '../Substitutions'
 import { ErrorBox } from '../Ui'
 import { colors, fonts, styles, chip, disabled } from '../../theme'
 
-// Desistências de última hora.
-//
-// A regra da 0016 é que um sorteio publicado não se recalcula, e continua
-// de pé: aqui não se re-sorteia nada. Troca-se um jogador por outro no
-// mesmo lugar, fica registado quem saiu e quem entrou, e o desequilíbrio
-// que daí vier aparece aos jogadores em vez de ser disfarçado.
+// Mexidas num sorteio publicado. Continua sem haver re-sorteio: cada ação é
+// cirúrgica, fica na auditoria e aparece no feed. São três, e só três:
+//   🚑 desistência  — "não posso ir": sai um, entra alguém de fora;
+//   🔁 trocar       — um de cada equipa trocam de lado (com prévia);
+//   ➡️ substituir   — sai um, entra alguém de fora, por opção do admin.
+// A desistência explica um desequilíbrio; a troca e a substituição são
+// decisões — por isso os jogadores veem etiquetas diferentes.
 
 const LADOS = ['A', 'B']
+
+const ACOES = [
+  { id: 'desistencia', rotulo: '🚑 Desistência', dica: 'Alguém avisou que não pode ir.' },
+  { id: 'trocar', rotulo: '🔁 Trocar de equipa', dica: 'Um de cada lado trocam entre si.' },
+  { id: 'substituir', rotulo: '➡️ Substituir', dica: 'Sai um, entra outro — sem ser desistência.' },
+]
 
 function Aviso({ tom = 'aviso', children }) {
   const cor = tom === 'erro' ? colors.error : tom === 'ok' ? colors.grass : colors.teamA
@@ -55,9 +72,13 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
   const [aviso, setAviso] = useState('')
   const [busy, setBusy] = useState(false)
   const [faltaMigracao, setFaltaMigracao] = useState(false)
-  const [saiId, setSaiId] = useState(null) // quem desistiu, à espera de substituto
+  const [acao, setAcao] = useState('desistencia')
+  const [saiId, setSaiId] = useState(null) // quem sai, à espera de substituto
   const [motivo, setMotivo] = useState('')
   const [procura, setProcura] = useState('')
+  // troca entre equipas: um escolhido de cada lado
+  const [swapSel, setSwapSel] = useState({ A: null, B: null })
+  const [motivoTroca, setMotivoTroca] = useState('')
 
   const porId = useMemo(() => new Map(jogadores.map((j) => [j.id, j])), [jogadores])
 
@@ -114,17 +135,22 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
     setSaiId(null)
     setMotivo('')
     setProcura('')
+    setSwapSel({ A: null, B: null })
+    setMotivoTroca('')
   }
 
+  // a desistência e a substituição partilham o fluxo — muda a etiqueta que
+  // fica gravada (kind) e o texto de confirmação
   const substituir = async (entra) => {
     if (busy || !jogo || !linhaQueSai) return
+    const kind = acao === 'substituir' ? 'TROCA' : 'DESISTENCIA'
     const sai = porId.get(saiId)
     const nomeSai = sai?.name || linhaQueSai.name
     const lugar = linhaQueSai.is_goalkeeper ? 'a baliza' : nomeDaPosicao(linhaQueSai.assigned_position)
     if (
       !window.confirm(
-        `Trocar ${nomeSai} por ${entra.name} em ${lugar} (${nomeDaEquipa(linhaQueSai.team)})?\n\n` +
-          'As equipas deixam de estar equilibradas e a troca fica visível para todos.'
+        `${kind === 'DESISTENCIA' ? 'Registar a desistência de' : 'Substituir'} ${nomeSai} e pôr ${entra.name} em ${lugar} (${nomeDaEquipa(linhaQueSai.team)})?\n\n` +
+          'A mudança fica visível para todos, com o efeito nas forças à vista.'
       )
     )
       return
@@ -138,11 +164,42 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
         saiId,
         entra.id,
         overallDe(entra),
-        motivo
+        motivo,
+        kind
       )
       aplicar(jogoNovo)
       cancelar()
       setAviso(`${entra.name} entrou no lugar de ${nomeSai}.`)
+      setTimeout(() => setAviso(''), 3000)
+      await onDadosAlterados?.()
+    } catch (e) {
+      setErro(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // troca entre equipas, com prévia calculada antes de confirmar
+  const previa = useMemo(
+    () => (swapSel.A && swapSel.B ? previewSwap(jogo, swapSel.A, swapSel.B) : null),
+    [jogo, swapSel]
+  )
+
+  const confirmarTroca = async () => {
+    if (busy || !jogo || !previa?.valido) return
+    if (
+      !window.confirm(
+        `Trocar ${previa.a.nome} (${nomeDaEquipa(previa.a.de)}) com ${previa.b.nome} (${nomeDaEquipa(previa.b.de)})?\n\n` +
+          'Cada um assume o lugar do outro. A troca fica visível para todos.'
+      )
+    )
+      return
+    setBusy(true)
+    setErro('')
+    try {
+      aplicar(await adminSwapPlayers(pw, jogo.id, swapSel.A, swapSel.B, motivoTroca))
+      cancelar()
+      setAviso('Troca feita — forças e equilíbrio recalculados.')
       setTimeout(() => setAviso(''), 3000)
       await onDadosAlterados?.()
     } catch (e) {
@@ -193,10 +250,41 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
 
       <div className="pb-card">
         <p style={{ fontSize: 14, marginBottom: 10 }}>
-          Alguém avisou que não pode ir? Troca-o aqui por outro jogador. O sorteio{' '}
-          <strong>não</strong> é refeito: quem entra fica no lugar de quem sai, e o desequilíbrio
-          que isso causar aparece na página inicial de todos.
+          Mexidas num sorteio já publicado — o sorteio <strong>não</strong> é refeito, e cada
+          mudança fica visível para todos, com o efeito nas forças à vista.
         </p>
+
+        <div role="radiogroup" aria-label="O que aconteceu?" className="pb-cards-sm" style={{ marginBottom: 12 }}>
+          {ACOES.map((a) => {
+            const ativa = acao === a.id
+            return (
+              <button
+                key={a.id}
+                type="button"
+                role="radio"
+                aria-checked={ativa}
+                onClick={() => {
+                  setAcao(a.id)
+                  cancelar()
+                  setErro('')
+                }}
+                style={{
+                  ...styles.panel,
+                  padding: 10,
+                  textAlign: 'left',
+                  font: 'inherit',
+                  color: colors.text,
+                  cursor: 'pointer',
+                  borderColor: ativa ? colors.grass : colors.line,
+                  background: ativa ? 'rgba(52,208,88,0.07)' : styles.panel.background,
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{a.rotulo}</div>
+                <div style={{ fontSize: 11, color: colors.muted }}>{a.dica}</div>
+              </button>
+            )
+          })}
+        </div>
 
         <label style={styles.label} htmlFor="jogo-desistencia">
           Jogo publicado
@@ -407,10 +495,18 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
               <div
                 style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 14, marginBottom: 4 }}
               >
-                Quem desistiu?
+                {acao === 'trocar'
+                  ? 'Quem troca com quem?'
+                  : acao === 'substituir'
+                    ? 'Quem sai?'
+                    : 'Quem desistiu?'}
               </div>
               <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 8 }}>
-                Toca no jogador que já não pode ir.
+                {acao === 'trocar'
+                  ? 'Toca num jogador de cada equipa — vês o efeito antes de confirmar.'
+                  : acao === 'substituir'
+                    ? 'Toca no jogador que vai dar o lugar a alguém de fora.'
+                    : 'Toca no jogador que já não pode ir.'}
               </p>
               <div className="pb-cards" style={{ gap: 12 }}>
                 {LADOS.map((lado) => {
@@ -429,69 +525,161 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
                       >
                         {nomeDaEquipa(lado)}
                       </div>
-                      {lista.map((l) => (
-                        <button
-                          key={l.player_id}
-                          type="button"
-                          onClick={() => {
-                            setSaiId(l.player_id)
-                            setErro('')
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            width: '100%',
-                            padding: '7px 4px',
-                            background: 'none',
-                            border: 'none',
-                            borderBottom: `1px solid ${colors.line}`,
-                            color: colors.text,
-                            textAlign: 'left',
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: 10,
-                              color: colors.muted,
-                              width: 38,
-                              flexShrink: 0,
-                              letterSpacing: 0.5,
+                      {lista.map((l) => {
+                        const marcadoParaTroca = acao === 'trocar' && swapSel[lado] === l.player_id
+                        return (
+                          <button
+                            key={l.player_id}
+                            type="button"
+                            aria-pressed={acao === 'trocar' ? marcadoParaTroca : undefined}
+                            onClick={() => {
+                              setErro('')
+                              if (acao === 'trocar') {
+                                // um por equipa; tocar outra vez desmarca
+                                setSwapSel((s) => ({
+                                  ...s,
+                                  [lado]: s[lado] === l.player_id ? null : l.player_id,
+                                }))
+                              } else {
+                                setSaiId(l.player_id)
+                              }
                             }}
-                            title={nomeDaPosicao(l.assigned_position)}
-                          >
-                            {siglaDaPosicao(l.assigned_position)}
-                          </span>
-                          <span className="pb-truncate" style={{ flex: 1, fontSize: 14 }}>
-                            {l.name}
-                            {l.substitute_for && (
-                              <span
-                                title={`Já entrou no lugar de ${l.substitute_for}`}
-                                style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
-                              >
-                                🔄
-                              </span>
-                            )}
-                          </span>
-                          <span
                             style={{
-                              fontSize: 12,
-                              color: colors.muted,
-                              flexShrink: 0,
-                              fontVariantNumeric: 'tabular-nums',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              width: '100%',
+                              padding: '7px 4px',
+                              background: marcadoParaTroca ? '#0C1915' : 'none',
+                              border: 'none',
+                              borderRadius: marcadoParaTroca ? 8 : 0,
+                              outline: marcadoParaTroca ? `1px solid ${corDaEquipa(lado)}` : 'none',
+                              borderBottom: `1px solid ${colors.line}`,
+                              color: colors.text,
+                              textAlign: 'left',
                             }}
                           >
-                            {l.overall_at_draw ?? '—'}
-                          </span>
-                          <span style={{ fontSize: 12, color: colors.error, flexShrink: 0 }}>
-                            desistiu
-                          </span>
-                        </button>
-                      ))}
+                            <span
+                              style={{
+                                fontSize: 10,
+                                color: colors.muted,
+                                width: 38,
+                                flexShrink: 0,
+                                letterSpacing: 0.5,
+                              }}
+                              title={nomeDaPosicao(l.assigned_position)}
+                            >
+                              {siglaDaPosicao(l.assigned_position)}
+                            </span>
+                            <span className="pb-truncate" style={{ flex: 1, fontSize: 14 }}>
+                              {l.name}
+                              {l.substitute_for && (
+                                <span
+                                  title={`Já entrou no lugar de ${l.substitute_for}`}
+                                  style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
+                                >
+                                  🔄
+                                </span>
+                              )}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: colors.muted,
+                                flexShrink: 0,
+                                fontVariantNumeric: 'tabular-nums',
+                              }}
+                            >
+                              {l.overall_at_draw ?? '—'}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: acao === 'trocar' ? colors.teamA : colors.error,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {acao === 'trocar' ? (marcadoParaTroca ? '⇄ marcado' : 'trocar') : acao === 'substituir' ? 'sai' : 'desistiu'}
+                            </span>
+                          </button>
+                        )
+                      })}
                     </div>
                   )
                 })}
               </div>
+
+              {/* ---------- prévia da troca entre equipas ---------- */}
+              {acao === 'trocar' && previa && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    borderRadius: 12,
+                    border: `1px solid ${previa.valido ? colors.grass : colors.error}55`,
+                    background: previa.valido ? 'rgba(52,208,88,0.06)' : 'rgba(255,90,90,0.06)',
+                  }}
+                >
+                  {previa.valido ? (
+                    <>
+                      <div style={{ fontSize: 14, marginBottom: 8 }}>
+                        <strong>{previa.a.nome}</strong> vai para {nomeDaEquipa(previa.a.para)} (
+                        {nomeDaPosicao(previa.a.posicao)}) ·{' '}
+                        <strong>{previa.b.nome}</strong> vai para {nomeDaEquipa(previa.b.para)} (
+                        {nomeDaPosicao(previa.b.posicao)})
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: 12, color: colors.muted }}>antes:</span>
+                        <span style={chip(colors.muted)}>
+                          ⚫ {previa.antes.forcaA} vs ⚪ {previa.antes.forcaB}
+                        </span>
+                        <VantagemAtual vantagem={previa.antes} comNumeros={false} />
+                        <span aria-hidden style={{ color: colors.muted }}>→</span>
+                        <span style={{ fontSize: 12, color: colors.muted }}>depois:</span>
+                        <span style={chip(colors.muted)}>
+                          ⚫ {previa.depois.forcaA} vs ⚪ {previa.depois.forcaB}
+                        </span>
+                        <VantagemAtual vantagem={previa.depois} comNumeros={false} />
+                      </div>
+                      {!previa.depois.equilibrado && (
+                        <p style={{ fontSize: 12, color: colors.error, margin: '0 0 10px' }}>
+                          ⚠️ Com esta troca as equipas ficam desequilibradas ({previa.depois.pct.toFixed(1)}%).
+                        </p>
+                      )}
+                      <label style={styles.label} htmlFor="motivo-troca">
+                        Motivo (opcional)
+                      </label>
+                      <input
+                        id="motivo-troca"
+                        style={{ ...styles.input, marginBottom: 10 }}
+                        value={motivoTroca}
+                        onChange={(e) => setMotivoTroca(e.target.value)}
+                        placeholder="Equilibrar, pedido dos jogadores…"
+                        maxLength={80}
+                      />
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={confirmarTroca}
+                          disabled={busy}
+                          style={busy ? disabled({ ...styles.button, flex: '2 1 160px', width: 'auto' }) : { ...styles.button, flex: '2 1 160px', width: 'auto' }}
+                        >
+                          {busy ? 'A trocar…' : '🔁 Confirmar troca'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelar}
+                          style={{ ...styles.buttonGhost, flex: '1 1 110px', width: 'auto' }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ fontSize: 13, color: colors.error, margin: 0 }}>⛔ {previa.motivo}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </>
