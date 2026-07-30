@@ -780,6 +780,7 @@ export default function AdminScreen({ onExit }) {
         <GamesPanel
           pw={pw}
           jogadores={jogadores}
+          matches={matches}
           onAbrirAssistente={() => setTab('proximo')}
           onAbrirDesistencias={() => setTab('desistencias')}
         />
@@ -787,7 +788,7 @@ export default function AdminScreen({ onExit }) {
 
       {/* ---------- MARCAR JOGO (assistente de criação/sorteio) ---------- */}
       {tab === 'proximo' && (
-        <MatchWizard pw={pw} jogadores={jogadores} onDadosAlterados={refresh} />
+        <MatchWizard pw={pw} jogadores={jogadores} matches={matches} onDadosAlterados={refresh} />
       )}
 
       {/* ---------- DESISTÊNCIAS (jogo já publicado) ---------- */}

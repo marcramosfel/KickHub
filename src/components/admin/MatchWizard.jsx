@@ -23,8 +23,12 @@ import {
   siglaDaPosicao,
 } from '../../lib/positions'
 import { formatarDataDoJogo } from '../../lib/countdown'
+import { calcularLiderancas } from '../../lib/achievements'
+import { calcularSequencias } from '../../lib/streaks'
+import { gerarResenhaSorteio } from '../../lib/resenha'
 import Avatar from '../Avatar'
 import FootballPitch from '../FootballPitch'
+import ResenhaEditor from './ResenhaEditor'
 import { ErrorBox } from '../Ui'
 import { colors, fonts, styles, chip, disabled } from '../../theme'
 
@@ -177,7 +181,7 @@ function LinhaJogador({ j, marcado, onToggle, extra, desativado }) {
   )
 }
 
-export default function MatchWizard({ pw, jogadores, onDadosAlterados }) {
+export default function MatchWizard({ pw, jogadores, matches, onDadosAlterados }) {
   const [passo, setPasso] = useState(1)
   const [jogo, setJogo] = useState(null) // rascunho guardado no servidor
   const [proximos, setProximos] = useState([])
@@ -216,6 +220,36 @@ export default function MatchWizard({ pw, jogadores, onDadosAlterados }) {
   const bloqueado = publicado && !acabouDePublicar
 
   const porId = useMemo(() => new Map(jogadores.map((j) => [j.id, j])), [jogadores])
+
+  // ---------- resenha do sorteio (vai no post do feed) ----------
+  const [resenha, setResenha] = useState('')
+  const sequencias = useMemo(() => calcularSequencias(matches), [matches])
+  const liderancas = useMemo(() => calcularLiderancas({ jogadores }), [jogadores])
+  // o "jogo" que o gerador vê, montado a partir do sorteio no ecrã
+  const jogoParaResenha = useMemo(() => {
+    if (!resultado) return null
+    const lineup = []
+    for (const team of ['A', 'B']) {
+      const equipa = team === 'A' ? resultado.teamA : resultado.teamB
+      for (const j of equipa.jogadores) {
+        lineup.push({ player_id: j.id, name: j.name, team, is_goalkeeper: !!j.isGoalkeeper })
+      }
+    }
+    return {
+      id: jogo?.id || 'rascunho',
+      kickoff_at: jogo?.kickoff_at,
+      team_a_overall: Math.round(resultado.teamA.strength),
+      team_b_overall: Math.round(resultado.teamB.strength),
+      lineup,
+    }
+  }, [resultado, jogo])
+  const gerarResenha = useCallback(
+    (tentativa) =>
+      jogoParaResenha
+        ? gerarResenhaSorteio({ jogo: jogoParaResenha, sequencias, liderancas, tentativa })
+        : [],
+    [jogoParaResenha, sequencias, liderancas]
+  )
 
   const carregarProximos = useCallback(
     () =>
@@ -520,7 +554,7 @@ export default function MatchWizard({ pw, jogadores, onDadosAlterados }) {
         }
       }
 
-      await adminPublishMatch(pw, jogo.id)
+      await adminPublishMatch(pw, jogo.id, resenha)
       setPublicado(true)
       setAcabouDePublicar(true)
       if (falhados.length)
@@ -1158,9 +1192,15 @@ export default function MatchWizard({ pw, jogadores, onDadosAlterados }) {
                 <Resumo rotulo="Fora de posição" valor={`${resultado.outOfPosition.length} jogadores`} />
               </div>
 
+              <div style={{ margin: '14px 0', borderTop: `1px solid ${colors.line}`, paddingTop: 14 }}>
+                {/* `inicial` devolve o texto guardado quando o admin volta ao
+                    passo 6 e regressa — o editor desmonta pelo caminho */}
+                <ResenhaEditor gerar={gerarResenha} onChange={setResenha} inicial={resenha} />
+              </div>
+
               <Aviso>
                 Depois de publicado, o sorteio não é recalculado. Para mudar as equipas terás de
-                marcar um jogo novo.
+                marcar um jogo novo. A resenha sai no feed de todos, junto com as equipas.
               </Aviso>
 
               <button

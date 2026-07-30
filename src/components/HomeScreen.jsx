@@ -8,6 +8,7 @@ import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import AchievementBadge from './AchievementBadge'
 import DrawView from './DrawView'
+import Feed from './Feed'
 import NextMatch from './NextMatch'
 import PlayerCard from './PlayerCard'
 import RoundResult from './RoundResult'
@@ -118,6 +119,7 @@ export default function HomeScreen({
   jogadores,
   liderancas,
   proximoJogo,
+  feed,
   draw,
   latestMatch,
   totalRodadas,
@@ -234,6 +236,20 @@ export default function HomeScreen({
       <section aria-label="Próximo jogo">
         <NextMatch jogo={proximoJogo} onPlayerClick={(j) => onProfile?.(j.id)} />
       </section>
+
+      {/* ---------- o feed: o que o admin publicou, mais recente primeiro ---------- */}
+      {feed?.length > 0 && (
+        <section aria-label="Últimas da pelada">
+          <SectionTitle>📰 Últimas da pelada</SectionTitle>
+          <Feed
+            posts={feed}
+            proximoJogo={proximoJogo}
+            jogadores={jogadores}
+            onProfile={onProfile}
+            onNavigate={onNavigate}
+          />
+        </section>
+      )}
 
       {/* ---------- avisos pessoais ---------- */}
       {(pendingVotes > 0 || faltamAvaliar > 0) && (

@@ -3,6 +3,8 @@
 
 import { APP_NAME } from '../config'
 import { carregarImagem, roundRect } from './card'
+import { formatarDataDoJogo } from './countdown'
+import { nomeDaEquipa, vantagem } from './substitutions'
 import { assisters, awardWinners, formatDia, matchWinner, scorers } from './format'
 
 // "Marcos Felipe (2), Wallace" — o número só aparece quando é mais que 1.
@@ -39,6 +41,39 @@ export function resumoRodada(m) {
     linhas.push(`📝 ${m.notes}`)
   }
 
+  return linhas.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+// Escalação do sorteio pronta a colar no WhatsApp. `resenha` (opcional) vai
+// no fim, uma frase por linha.
+export function resumoSorteio(jogo, resenha = '') {
+  if (!jogo) return ''
+  const d = formatarDataDoJogo(jogo.kickoff_at)
+  const lados = { A: [], B: [] }
+  for (const l of jogo.lineup || []) {
+    if (l.team !== 'A' && l.team !== 'B') continue
+    lados[l.team].push(`${l.is_goalkeeper ? '🧤 ' : ''}${l.name}`)
+  }
+  const v = vantagem(jogo.team_a_overall, jogo.team_b_overall)
+
+  const linhas = [
+    `🎲 ${APP_NAME.main} ${APP_NAME.accent} — Sorteio`,
+    d.hora ? `📅 ${d.diaDaSemana}, ${d.data} às ${d.hora}` : '',
+    jogo.location ? `📍 ${jogo.location}` : '',
+    '',
+    `${nomeDaEquipa('A')}${jogo.team_a_overall ? ` (${jogo.team_a_overall})` : ''}`,
+    ...lados.A.map((n) => `• ${n}`),
+    '',
+    `${nomeDaEquipa('B')}${jogo.team_b_overall ? ` (${jogo.team_b_overall})` : ''}`,
+    ...lados.B.map((n) => `• ${n}`),
+    '',
+    v.nivel !== 'desconhecido'
+      ? `⚖️ Equilíbrio: ${v.rotulo} (${v.pct.toFixed(1)}%)${v.lado ? ` · ${v.texto}` : ''}`
+      : '',
+  ]
+  if (resenha) {
+    linhas.push('', resenha)
+  }
   return linhas.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
@@ -139,10 +174,13 @@ export async function renderRoundCard(m) {
     if (!texto) return
     seccoes.push({ label, linhas: quebrar(medir, texto, maxW, F.texto) })
   }
+  // o sufixo de votos só quando há contagem: o feed conhece o vencedor mas
+  // não os votos, e "undefined votos" no card seria pior do que nada
+  const comVotos = (w) => (w.votes != null ? `${w.names} — ${w.votes} votos` : w.names)
   add('⚽ GOLS', gols.length ? listaComContagem(gols, 'goals') : null)
   add('🅰️ ASSISTÊNCIAS', assist.length ? listaComContagem(assist, 'assists') : null)
-  add('👑 CRAQUE DA RODADA', craque ? `${craque.names} — ${craque.votes} votos` : null)
-  add('🐟 BAGRE DA RODADA', bagre ? `${bagre.names} — ${bagre.votes} votos` : null)
+  add('👑 CRAQUE DA RODADA', craque ? comVotos(craque) : null)
+  add('🐟 BAGRE DA RODADA', bagre ? comVotos(bagre) : null)
   const notas = m.notes ? quebrar(medir, `📝 ${m.notes}`, maxW, F.texto) : null
 
   // altura total, somando bloco a bloco
@@ -268,6 +306,156 @@ export async function renderRoundCard(m) {
   }
 
   // rodapé
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#34D058'
+  ctx.font = F.rodape
+  ctx.fillText(`${APP_NAME.main} ${APP_NAME.accent}`.toUpperCase(), W / 2, H - PAD)
+
+  return canvas.toDataURL('image/png')
+}
+
+// Desenha o card do SORTEIO (as duas equipas lado a lado) e devolve um data
+// URL PNG. Mesma família visual do card de rodada, legível no WhatsApp e nos
+// Stories (900px de largura, altura conforme o plantel).
+export async function renderLineupCard(jogo, resenha = '') {
+  try {
+    await document.fonts.ready
+  } catch {
+    /* segue com as fontes por defeito */
+  }
+
+  const maxW = W - PAD * 2
+  const medir = document.createElement('canvas').getContext('2d')
+  const d = formatarDataDoJogo(jogo?.kickoff_at)
+  const lados = { A: [], B: [] }
+  for (const l of jogo?.lineup || []) {
+    if (l.team !== 'A' && l.team !== 'B') continue
+    lados[l.team].push(l)
+  }
+  const v = vantagem(jogo?.team_a_overall, jogo?.team_b_overall)
+  const linhasResenha = resenha ? quebrar(medir, resenha.replace(/\n+/g, '  ·  '), maxW, F.texto) : []
+
+  const alturaLista = Math.max(lados.A.length, lados.B.length) * 40
+  let H = PAD + 52 + 40 // cabeçalho
+  H += 60 // nomes das equipas + overall
+  H += alturaLista + 20
+  H += 46 // equilíbrio
+  if (linhasResenha.length) H += linhasResenha.length * 38 + 24
+  H += 60 + PAD // rodapé
+
+  const canvas = document.createElement('canvas')
+  canvas.width = W * SCALE
+  canvas.height = H * SCALE
+  const ctx = canvas.getContext('2d')
+  ctx.scale(SCALE, SCALE)
+
+  // fundo + moldura, iguais aos outros cards da casa
+  const bg = ctx.createLinearGradient(0, 0, 0, H)
+  bg.addColorStop(0, '#123227')
+  bg.addColorStop(0.5, '#0C1D17')
+  bg.addColorStop(1, '#08130F')
+  ctx.fillStyle = bg
+  roundRect(ctx, 0, 0, W, H, 28)
+  ctx.fill()
+  const frame = ctx.createLinearGradient(0, 0, W, H)
+  frame.addColorStop(0, '#34D058')
+  frame.addColorStop(0.5, '#1E7A3C')
+  frame.addColorStop(1, '#FFC531')
+  ctx.strokeStyle = frame
+  ctx.lineWidth = 5
+  roundRect(ctx, 3, 3, W - 6, H - 6, 26)
+  ctx.stroke()
+
+  let y = PAD + 30
+
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#EAF2EC'
+  ctx.font = F.app
+  ctx.fillText(`${APP_NAME.main} ${APP_NAME.accent} — SORTEIO`.toUpperCase(), W / 2, y)
+  y += 34
+  ctx.fillStyle = '#7FA090'
+  const quando = [d.hora ? `${d.diaDaSemana}, ${d.data} · ${d.hora}` : '', jogo?.location || '']
+    .filter(Boolean)
+    .join('  —  ')
+  if (quando) {
+    // um local comprido encolhe em vez de sair cortado nas duas margens
+    ctx.font = ajustar(ctx, quando, maxW, 24, 400, 'Inter, sans-serif')
+    ctx.fillText(quando, W / 2, y)
+  }
+  y += 40
+
+  // colunas: ⚫ à esquerda, ⚪ à direita
+  const colW = (maxW - 40) / 2
+  const colX = { A: PAD, B: PAD + colW + 40 }
+  const corLado = { A: '#8A96A0', B: '#F2F5F2' }
+
+  for (const lado of ['A', 'B']) {
+    const x = colX[lado]
+    ctx.textAlign = 'left'
+    ctx.fillStyle = corLado[lado]
+    ctx.font = F.time
+    const overall = lado === 'A' ? jogo?.team_a_overall : jogo?.team_b_overall
+    ctx.font = ajustar(ctx, nomeDaEquipa(lado), colW - 90, 34, 600, "Oswald, 'Arial Narrow', sans-serif")
+    ctx.fillText(nomeDaEquipa(lado), x, y + 28)
+    if (overall) {
+      ctx.textAlign = 'right'
+      ctx.fillStyle = '#FFC531'
+      ctx.font = "700 30px Oswald, 'Arial Narrow', sans-serif"
+      ctx.fillText(String(overall), x + colW, y + 28)
+    }
+  }
+  y += 56
+
+  const yLista = y
+  for (const lado of ['A', 'B']) {
+    let yl = yLista
+    ctx.textAlign = 'left'
+    for (const l of lados[lado]) {
+      ctx.fillStyle = '#EAF2EC'
+      const nome = `${l.is_goalkeeper ? '🧤 ' : ''}${l.name}`
+      ctx.font = ajustar(ctx, nome, colW - 56, 26, 400, 'Inter, sans-serif')
+      ctx.fillText(nome, colX[lado], yl + 24)
+      if (l.overall_at_draw != null) {
+        ctx.fillStyle = '#7FA090'
+        ctx.font = '600 20px Oswald, sans-serif'
+        ctx.textAlign = 'right'
+        ctx.fillText(String(l.overall_at_draw), colX[lado] + colW, yl + 24)
+        ctx.textAlign = 'left'
+      }
+      yl += 40
+    }
+  }
+  // risca vertical a separar as colunas
+  ctx.strokeStyle = 'rgba(127,160,144,0.25)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(W / 2, yLista - 40)
+  ctx.lineTo(W / 2, yLista + alturaLista - 12)
+  ctx.stroke()
+  y = yLista + alturaLista + 20
+
+  // equilíbrio
+  if (v.nivel !== 'desconhecido') {
+    ctx.textAlign = 'center'
+    ctx.fillStyle = v.equilibrado ? '#34D058' : '#FFC531'
+    const linha = `⚖️ ${v.rotulo.toUpperCase()} (${v.pct.toFixed(1)}%)${v.lado ? ` — ${v.texto.toUpperCase()}` : ''}`
+    ctx.font = ajustar(ctx, linha, maxW, 28, 600, "Oswald, 'Arial Narrow', sans-serif")
+    ctx.fillText(linha, W / 2, y + 28)
+  }
+  y += 46
+
+  // resenha
+  if (linhasResenha.length) {
+    ctx.textAlign = 'left'
+    ctx.fillStyle = '#7FA090'
+    ctx.font = F.texto
+    for (const linha of linhasResenha) {
+      ctx.fillText(linha, PAD, y + 26)
+      y += 38
+    }
+    y += 24
+  }
+
   ctx.textAlign = 'center'
   ctx.fillStyle = '#34D058'
   ctx.font = F.rodape

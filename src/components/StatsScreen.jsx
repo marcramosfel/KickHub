@@ -240,6 +240,8 @@ export default function StatsScreen({
   session,
   onBack,
   initialTab = 'geral',
+  // deep-link do feed: abre logo esta rodada em detalhe
+  initialMatchId = null,
   onProfile,
   embutido = false,
   // muda a cada toque na navegação, mesmo para o mesmo destino
@@ -259,14 +261,17 @@ export default function StatsScreen({
   // mudado à mão: aí o `initialTab` não muda, mas o toque na navegação tem de
   // voltar a mandar.
   const [navPedido, setNavPedido] = useState({ tab: initialTab, token: navToken })
-  if (navPedido.tab !== initialTab || navPedido.token !== navToken) {
-    setNavPedido({ tab: initialTab, token: navToken })
-    setTab(initialTab)
-  }
   const [stats, setStats] = useState(null)
   const [matches, setMatches] = useState(null)
   const [myVotes, setMyVotes] = useState([])
-  const [detailId, setDetailId] = useState(null) // rodada aberta em detalhe
+  const [detailId, setDetailId] = useState(initialMatchId) // rodada aberta em detalhe
+  if (navPedido.tab !== initialTab || navPedido.token !== navToken) {
+    setNavPedido({ tab: initialTab, token: navToken })
+    setTab(initialTab)
+    // o deep-link do feed abre a rodada certa; uma navegação normal fecha o
+    // detalhe que tenha ficado aberto da visita anterior
+    setDetailId(initialMatchId)
+  }
   const [periodo, setPeriodo] = useState('sempre')
   const [error, setError] = useState('')
 

@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0019)
+# Como aplicar as migrações novas (0015 → 0020)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -12,6 +12,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 3. `0017_goleiros.sql`
 4. `0018_desistencias.sql`
 5. `0019_ciclo_de_vida.sql`
+6. `0020_feed.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -142,6 +143,42 @@ auditoria; `admin_save_match` (caminho antigo da aba "Rodadas antigas") passa a 
 
 **Craque/bagre:** a votação dos jogadores continua a decidir. Os `*_override` são a correção do
 admin (empates, rodadas sem votos) — contam como vencedores nas agregações e ficam na auditoria.
+
+## 0020 — O feed da pelada
+
+**Tabela nova:** `match_publications` — uma linha por publicação (SORTEIO, RESULTADO,
+CANCELAMENTO, SUBSTITUICAO), com `payload` = snapshot do que se publicou e `published_at` a
+mandar na ordem do feed. O feed ordena pela data de **publicação**, não pela data do jogo.
+
+**Função nova:** `get_feed(limit, before)` — pública, mais recente primeiro, com resumo do jogo e
+foto principal. No post de RESULTADO, o craque e o bagre são lidos da votação **atual** (com o
+override do admin a mandar): a votação acontece nos dias seguintes à publicação, congelá-los no
+payload deixava o destaque sempre vazio.
+
+**⚠️ Funções com assinatura NOVA:** `admin_publish_match` e `admin_publish_result` ganham
+`p_resenha text default null` — as versões de 2 argumentos são **removidas** (`drop`), senão o
+PostgREST recusava a chamada por ambiguidade. O frontend desta versão já envia o parâmetro; um
+frontend antigo contra a base nova falha ao publicar (aplica migração + deploy juntos).
+
+**Funções alteradas:** `admin_cancel_match` e `admin_substitute_player` passam a publicar no feed
+(o cancelamento só se o jogo já estava publicado — cancelar um rascunho não é notícia);
+`admin_undo_substitution` apaga o post da troca desfeita; `admin_save_result` refresca o payload
+do post RESULTADO quando edita um resultado já publicado (o placar do feed nunca fica velho);
+`admin_set_match_status` fica restrita a PUBLISHED↔IN_PROGRESS (publicar/fechar/cancelar têm os
+seus caminhos próprios — por aqui saíam sem post e até duplicavam o post de sorteio);
+`match_json` devolve `gk_stats` e respeita `craque_override`/`bagre_override` (o override manda,
+como em todo o lado desde a 0019).
+
+**🔒 Segurança:** `match_json` leva **revoke** do EXECUTE público — era chamável por qualquer
+visitante desde a 0010 (default do Postgres) e deixava ler o placar de um resultado em rascunho e
+as fotos antes da publicação. Os wrappers (`get_matches`, `get_match`, …) continuam a funcionar.
+
+**Novas:** `admin_update_post` / `admin_delete_post` (editar/apagar publicações) e as internas
+`publicar_no_feed` e `payload_resultado` (com revoke).
+
+**Resenhas:** geradas no frontend (`src/lib/resenha.js`, com sequências de `src/lib/streaks.js` e
+os títulos de `achievements.js`), com semente reproduzível. O admin corta/edita/regenera antes de
+publicar; o texto final segue em `p_resenha` e vira o corpo do post.
 
 ---
 

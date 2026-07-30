@@ -1,13 +1,16 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   adminAddMedia,
   adminCancelMatch,
   adminDeleteMedia,
+  adminDeletePost,
   adminDeleteSchedule,
   adminMatchActivity,
   adminPublishResult,
   adminSaveResult,
   adminSetPrimaryMedia,
+  adminUpdatePost,
+  getFeed,
 } from '../../api'
 import { formatarDataDoJogo } from '../../lib/countdown'
 import { fileToDataURL } from '../../lib/image'
@@ -18,9 +21,12 @@ import {
   acoesDoJogo,
   atividadeLegivel,
 } from '../../lib/lifecycle'
+import { calcularSequencias } from '../../lib/streaks'
+import { gerarResenhaResultado } from '../../lib/resenha'
 import { nomeDaEquipa, corDaEquipa } from '../../lib/substitutions'
 import Avatar from '../Avatar'
 import FootballPitch from '../FootballPitch'
+import ResenhaEditor from './ResenhaEditor'
 import { ErrorBox } from '../Ui'
 import { colors, fonts, styles, chip, disabled } from '../../theme'
 
@@ -97,6 +103,87 @@ function Stepper({ icon, label, value, onChange }) {
   )
 }
 
+// Uma publicação do feed deste jogo, com edição inline do título e do corpo.
+function PostDoJogo({ post, busy, onGuardar, onApagar }) {
+  const [editando, setEditando] = useState(false)
+  const [titulo, setTitulo] = useState(post.title || '')
+  const [corpo, setCorpo] = useState(post.body || '')
+  const d = formatarDataDoJogo(post.published_at)
+
+  return (
+    <li style={{ border: `1px solid ${colors.line}`, borderRadius: 10, padding: 10 }}>
+      {editando ? (
+        <div>
+          <input
+            aria-label="Título da publicação"
+            style={{ ...styles.input, marginBottom: 8 }}
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+          />
+          <textarea
+            aria-label="Texto da publicação"
+            rows={3}
+            style={{ ...styles.input, resize: 'vertical', fontSize: 13, marginBottom: 8 }}
+            value={corpo}
+            onChange={(e) => setCorpo(e.target.value)}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                onGuardar(titulo, corpo)
+                setEditando(false)
+              }}
+              style={{ ...styles.button, width: 'auto', padding: '8px 14px', fontSize: 13 }}
+            >
+              Guardar
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              style={{ ...styles.buttonGhost, width: 'auto', padding: '8px 14px', fontSize: 13 }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <strong style={{ fontSize: 14 }}>{post.title}</strong>
+            <span style={{ fontSize: 11, color: colors.muted, marginLeft: 'auto' }}>
+              {d.hora ? `${d.data} ${d.hora}` : ''}
+            </span>
+          </div>
+          {post.body && (
+            <p style={{ fontSize: 13, color: colors.muted, margin: '6px 0 0', whiteSpace: 'pre-line' }}>
+              {post.body}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => setEditando(true)}
+              style={{ background: 'none', border: 'none', color: colors.teamA, fontSize: 12, textDecoration: 'underline', padding: 0 }}
+            >
+              ✏️ Editar
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onApagar}
+              style={{ background: 'none', border: 'none', color: colors.error, fontSize: 12, textDecoration: 'underline', padding: 0 }}
+            >
+              🗑️ Apagar
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  )
+}
+
 function Seccao({ titulo, children, tom }) {
   return (
     <div className="pb-card" style={tom ? { borderColor: tom } : undefined}>
@@ -108,7 +195,7 @@ function Seccao({ titulo, children, tom }) {
   )
 }
 
-export default function GameDetail({ pw, jogo, jogadores, onVoltar, onAtualizado, onAbrirAssistente, onAbrirDesistencias, onApagado }) {
+export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onAtualizado, onAbrirAssistente, onAbrirDesistencias, onApagado }) {
   const acoes = useMemo(() => acoesDoJogo(jogo), [jogo])
   const fase = acoes.fase
 
@@ -157,6 +244,39 @@ export default function GameDetail({ pw, jogo, jogadores, onVoltar, onAtualizado
 
   // ---------- histórico ----------
   const [atividade, setAtividade] = useState(null) // null = ainda não carregado
+
+  // ---------- resenha do resultado (vai no post do feed) ----------
+  const [resenha, setResenha] = useState('')
+  // as sequências de ANTES desta rodada — get_matches ainda não a inclui,
+  // que é exatamente o que "quebrou a invencibilidade" precisa
+  const sequencias = useMemo(() => calcularSequencias(matches), [matches])
+  const gerarResenha = useCallback(
+    (tentativa) =>
+      gerarResenhaResultado({
+        jogo,
+        resultado: {
+          scoreA: form.scoreA,
+          scoreB: form.scoreB,
+          stats: Object.entries(form.stats).map(([player_id, s]) => ({ player_id, ...s })),
+          gkStats: goleiros.map((g) => ({
+            goalkeeper_id: g.player_id,
+            saves: form.gk[g.player_id]?.saves || 0,
+          })),
+        },
+        sequencias,
+        tentativa,
+      }),
+    [jogo, form, goleiros, sequencias]
+  )
+
+  // ---------- publicações deste jogo (editar/apagar) ----------
+  const [posts, setPosts] = useState(null) // null = ainda não carregado
+  // o filtro é do lado do servidor: filtrar aqui os últimos 50 do feed
+  // deixava de encontrar os posts de jogos antigos assim que o feed crescesse
+  const carregarPosts = () =>
+    getFeed(50, null, jogo.id)
+      .then((l) => setPosts(l || []))
+      .catch((e) => setErro(e.message))
 
   const d = formatarDataDoJogo(jogo?.kickoff_at)
 
@@ -232,7 +352,10 @@ export default function GameDetail({ pw, jogo, jogadores, onVoltar, onAtualizado
         craqueId: form.craqueId || null,
         bagreId: form.bagreId || null,
       })
-      return adminPublishResult(pw, jogo.id)
+      const novo = await adminPublishResult(pw, jogo.id, resenha)
+      // a secção de publicações, se já estiver aberta, ganha o post novo
+      if (posts !== null) await carregarPosts()
+      return novo
     }, 'Resultado publicado! 🎉')
   }
 
@@ -240,6 +363,7 @@ export default function GameDetail({ pw, jogo, jogadores, onVoltar, onAtualizado
     correr(async () => {
       const novo = await adminCancelMatch(pw, jogo.id, motivoCancelar)
       setConfirmandoCancelar(false)
+      if (posts !== null) await carregarPosts()
       return novo
     }, 'Jogo cancelado. Fica no histórico, fora das estatísticas.')
 
@@ -517,6 +641,13 @@ export default function GameDetail({ pw, jogo, jogadores, onVoltar, onAtualizado
             placeholder="Resenha, casos do jogo…"
           />
 
+          {/* a resenha só interessa quando a publicação ainda vai acontecer */}
+          {fase !== FASES.RESULTADO_PUBLICADO && (
+            <div style={{ margin: '2px 0 14px', borderTop: `1px solid ${colors.line}`, paddingTop: 14 }}>
+              <ResenhaEditor gerar={gerarResenha} onChange={setResenha} inicial={resenha} />
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -637,6 +768,53 @@ export default function GameDetail({ pw, jogo, jogadores, onVoltar, onAtualizado
               )
             })}
           </ol>
+        )}
+      </Seccao>
+
+      {/* ---------- publicações deste jogo no feed ---------- */}
+      <Seccao titulo="Publicações no feed">
+        {posts === null ? (
+          <button type="button" onClick={carregarPosts} style={{ ...styles.buttonGhost, width: 'auto', padding: '8px 14px' }}>
+            📰 Ver publicações
+          </button>
+        ) : posts.length === 0 ? (
+          <p style={styles.mutedText}>
+            Este jogo ainda não tem publicações — elas nascem ao publicar o sorteio e o resultado.
+          </p>
+        ) : (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {posts.map((p) => (
+              <PostDoJogo
+                key={p.id}
+                post={p}
+                busy={busy}
+                onGuardar={(titulo, corpo) =>
+                  correr(async () => {
+                    await adminUpdatePost(pw, p.id, titulo, corpo)
+                    await carregarPosts()
+                    return null
+                  }, 'Publicação atualizada.')
+                }
+                onApagar={() => {
+                  // os posts de SORTEIO/RESULTADO nascem no ato de publicar e
+                  // não há como os re-emitir — apagar é para sempre
+                  if (
+                    !window.confirm(
+                      p.type === 'SORTEIO' || p.type === 'RESULTADO'
+                        ? 'Apagar esta publicação do feed? Não há forma de a recriar — o jogo desaparece do feed de vez. Para corrigir o texto usa "Editar".'
+                        : 'Apagar esta publicação do feed? Os dados do jogo ficam.'
+                    )
+                  )
+                    return
+                  correr(async () => {
+                    await adminDeletePost(pw, p.id)
+                    await carregarPosts()
+                    return null
+                  }, 'Publicação apagada.')
+                }}
+              />
+            ))}
+          </ul>
         )}
       </Seccao>
 

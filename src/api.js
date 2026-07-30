@@ -257,8 +257,9 @@ export const adminSaveLineup = (pw, matchId, d) =>
     p_seed: d.seed || null,
   })
 
-export const adminPublishMatch = (pw, matchId) =>
-  rpc('admin_publish_match', { p_pw: pw, p_match: matchId })
+// A resenha (opcional) segue com a publicação e vira o corpo do post no feed.
+export const adminPublishMatch = (pw, matchId, resenha) =>
+  rpc('admin_publish_match', { p_pw: pw, p_match: matchId, p_resenha: resenha || null })
 
 export const adminMatchesUpcoming = (pw) => rpc('admin_matches_upcoming', { p_pw: pw })
 
@@ -288,8 +289,21 @@ export const adminSaveResult = (pw, matchId, r) =>
   })
 
 // Publicar é o que fecha o jogo e o faz contar nas estatísticas.
-export const adminPublishResult = (pw, matchId) =>
-  rpc('admin_publish_result', { p_pw: pw, p_match: matchId })
+// A resenha (opcional) vira o corpo do post de resultado no feed.
+export const adminPublishResult = (pw, matchId, resenha) =>
+  rpc('admin_publish_result', { p_pw: pw, p_match: matchId, p_resenha: resenha || null })
+
+// ---------- Feed de publicações (migração 0020) ----------
+// Mais recente primeiro; `before` (timestamptz) pagina para trás;
+// `matchId` filtra as publicações de um só jogo (gestão no admin).
+export const getFeed = (limit = 20, before = null, matchId = null) =>
+  rpc('get_feed', { p_limit: limit, p_before: before, p_match: matchId })
+
+export const adminUpdatePost = (pw, postId, title, body) =>
+  rpc('admin_update_post', { p_pw: pw, p_post: postId, p_title: title || null, p_body: body || null })
+
+export const adminDeletePost = (pw, postId) =>
+  rpc('admin_delete_post', { p_pw: pw, p_post: postId })
 
 // Cancela (sai das estatísticas, fica no histórico). A dupla confirmação é
 // responsabilidade da UI.

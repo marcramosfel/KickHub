@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ackPositionNotice,
+  getFeed,
   getGoalkeeperStats,
   getLatestMatch,
   getMatches,
@@ -65,7 +66,7 @@ export default function App() {
     try {
       // Só `getPlayers` é obrigatório. Tudo o resto degrada: sem uma migração
       // aplicada, a secção respetiva desaparece em vez de a app rebentar.
-      const [players, playerStats, gkStats, matches, proximo, latest, draw, myVotes, pending] =
+      const [players, playerStats, gkStats, matches, proximo, latest, draw, myVotes, pending, feed] =
         await Promise.all([
           getPlayers(),
           getPlayerStats().catch(() => []),
@@ -76,6 +77,10 @@ export default function App() {
           getPublishedDraw().catch(() => null),
           getMyAwardVotes(sessionId, sessionPin).catch(() => []),
           getPendingRatings(sessionId, sessionPin).catch(() => null),
+          // sem a migração 0020 simplesmente não há feed — a Home segue igual.
+          // 12 posts (~1 mês de pelada): os de resultado trazem a foto em
+          // base64, e um feed comprido pesava megabytes em dados móveis.
+          getFeed(12).catch(() => []),
         ])
 
       if (!vivo.atual || token !== cargaRef.current) return
@@ -89,6 +94,7 @@ export default function App() {
         proximoJogo: proximo || null,
         latestMatch: latest,
         draw,
+        feed: feed || [],
         pendingRatings: pending,
         pendingVotes: rodadas.filter(
           (m) =>
@@ -133,12 +139,17 @@ export default function App() {
     return session.voted ? 0 : Math.max(0, (dados.players?.length || 1) - 1)
   }, [dados, session])
 
+  // Deep-link do feed: "Abrir jogo" aponta para UMA rodada concreta do
+  // histórico, não para a lista. Limpo a cada navegação normal.
+  const [navMatchId, setNavMatchId] = useState(null)
+
   // ---------- navegação ----------
-  const navegar = (destino) => {
+  const navegar = (destino, extra) => {
     if (destino === 'profile') {
       setProfileId(session?.id || null)
       setVoltarDoPerfil('home')
     }
+    setNavMatchId(extra?.matchId || null)
     setView(destino)
     // Conta cada toque na navegação, mesmo quando o destino é o mesmo. Sem
     // isto, tocar em "Histórico" depois de já lá estar (mas com o separador
@@ -277,6 +288,7 @@ export default function App() {
           jogadores={jogadores}
           liderancas={liderancas}
           proximoJogo={dados?.proximoJogo}
+          feed={dados?.feed}
           draw={dados?.draw}
           latestMatch={dados?.latestMatch}
           totalRodadas={dados?.matches?.length || 0}
@@ -319,6 +331,7 @@ export default function App() {
         <StatsScreen
           session={session}
           initialTab={view === 'history' ? 'rodadas' : 'geral'}
+          initialMatchId={navMatchId}
           navToken={navToken}
           embutido
           onBack={() => navegar('home')}
