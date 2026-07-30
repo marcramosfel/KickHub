@@ -34,11 +34,14 @@ const ERROS = {
   SEMESCALACAO: 'Sorteia as equipas antes de publicar.',
   POSDUPLICADA: 'Há dois jogadores no mesmo lugar da mesma equipa.',
   JOGADORDUP: 'O mesmo jogador aparece duas vezes na escalação.',
-  // desistências
+  // desistências e trocas
   SEMLINEUP: 'Esse jogador não está na escalação deste jogo.',
   JAESCALADO: 'Esse jogador já está escalado neste jogo.',
   MESMOJOGADOR: 'Quem sai e quem entra não podem ser o mesmo jogador.',
   SUBTROCADA: 'Já houve outra troca neste lugar — desfaz primeiro a mais recente.',
+  MESMAEQUIPA: 'Os dois jogadores estão na mesma equipa — a troca é entre equipas.',
+  TROCAGK: 'Um goleiro só pode trocar com o outro goleiro.',
+  JOGOMEXIDO: 'A escalação mudou entretanto (outra pessoa mexeu). Recarrega e tenta outra vez.',
   // ciclo de vida do resultado (migração 0019)
   SEMRESULTADO: 'Ainda não há resultado preenchido para publicar.',
   RESPUBLICADO: 'O resultado deste jogo já está publicado.',
@@ -357,6 +360,10 @@ export const adminSwapPlayers = (pw, matchId, idA, idB, reason) =>
     p_b: idB,
     p_reason: reason || null,
   })
+
+// Desfaz uma troca (só se ninguém mexeu naqueles dois lugares entretanto).
+export const adminUndoSwap = (pw, swapId) =>
+  rpc('admin_undo_swap', { p_pw: pw, p_swap: swapId })
 
 // Desfaz uma troca (só se quem entrou ainda estiver no mesmo lugar).
 export const adminUndoSubstitution = (pw, subId) =>

@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0020)
+# Como aplicar as migrações novas (0015 → 0021)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -13,6 +13,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 4. `0018_desistencias.sql`
 5. `0019_ciclo_de_vida.sql`
 6. `0020_feed.sql`
+7. `0021_trocas.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -179,6 +180,31 @@ as fotos antes da publicação. Os wrappers (`get_matches`, `get_match`, …) co
 **Resenhas:** geradas no frontend (`src/lib/resenha.js`, com sequências de `src/lib/streaks.js` e
 os títulos de `achievements.js`), com semente reproduzível. O admin corta/edita/regenera antes de
 publicar; o texto final segue em `p_resenha` e vira o corpo do post.
+
+## 0021 — Trocas livres na escalação publicada
+
+**Coluna nova:** `match_substitutions.kind` — `DESISTENCIA` (não podia ir) ou `TROCA` (opção do
+admin). As linhas que já existirem ficam `DESISTENCIA`, que é o que eram.
+
+**Tabela nova:** `match_swaps` — trocar dois jogadores de time não cabe em `match_substitutions`
+(ali há um que sai e um que entra; numa troca continuam os dois a jogar). É esta tabela que dá o
+**Desfazer** e a explicação aos jogadores quando o equilíbrio muda sem ninguém ter desistido.
+
+**⚠️ Assinatura NOVA:** `admin_substitute_player` ganha `p_kind` — a versão de 6 argumentos leva
+**drop**. Aplica a migração e faz o deploy juntos: com esta versão do frontend contra a base
+antiga, até a desistência que funcionava deixa de funcionar (PGRST202).
+
+**Funções novas:** `admin_swap_players` (troca A↔B; goleiro só com goleiro) e `admin_undo_swap`.
+
+**Função alterada:** `match_public_json` devolve `kind` em cada substituição e o array `swaps`.
+Sem isto o frontend não distinguia desistência de troca (era a razão de ser da coluna) e uma
+troca mudava o equilíbrio sem deixar rasto nenhum para os jogadores.
+
+**Concorrência:** as duas funções trancam as linhas da escalação (`for update`) e verificam
+quantas linhas mexeram. Sem isso, dois admins a confirmar em simultâneo gravavam substituições
+fantasma ou desfaziam a troca um do outro em silêncio, com o feed a mostrar as duas.
+
+**Códigos de erro novos:** `TROCAGK`, `MESMAEQUIPA`, `JOGOMEXIDO`.
 
 ---
 

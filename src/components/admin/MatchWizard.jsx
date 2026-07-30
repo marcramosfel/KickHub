@@ -200,26 +200,33 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
   const [local, setLocal] = useState('Browns Sports Resort')
   const [mapa, setMapa] = useState('')
 
-  // passos 2/3 — com pré-seleção do rachão, os goleiros óbvios (tipo ou
-  // posição GK) vão para a baliza e o resto para o campo, dentro dos limites
-  const [goleiros, setGoleiros] = useState(() => {
-    if (!Array.isArray(preSelecao) || !preSelecao.length) return []
-    const ehGk = (id) => {
-      const j = jogadores.find((x) => x.id === id)
-      return j?.playerType === PLAYER_TYPE.GOALKEEPER || j?.primaryPosition === 'GK'
-    }
-    return preSelecao.filter(ehGk).slice(0, N_GOLEIROS)
-  })
-  const [campo, setCampo] = useState(() => {
-    if (!Array.isArray(preSelecao) || !preSelecao.length) return []
-    const ehGk = (id) => {
-      const j = jogadores.find((x) => x.id === id)
-      return j?.playerType === PLAYER_TYPE.GOALKEEPER || j?.primaryPosition === 'GK'
-    }
-    const naBaliza = new Set(preSelecao.filter(ehGk).slice(0, N_GOLEIROS))
-    return preSelecao.filter((id) => !naBaliza.has(id)).slice(0, N_CAMPO)
-  })
+  // passos 2/3
+  const [goleiros, setGoleiros] = useState([])
+  const [campo, setCampo] = useState([])
   const [tornarGkPermanente, setTornarGkPermanente] = useState({})
+
+  // Pré-seleção vinda de um rachão: os goleiros óbvios (tipo ou posição GK)
+  // vão para a baliza e todos os outros para o campo — SEM cortar a lista.
+  // Cortar em silêncio deixava 1 ou 2 jogadores do rachão sem marca nenhuma
+  // quando não havia 2 goleiros declarados (o caso normal); assim o excesso
+  // fica à vista no aviso "são N a mais" do passo 3.
+  //
+  // Aplicada durante o render (o componente fica montado — não há
+  // inicializador que a apanhe) e uma só vez por lista: `preSelecao` é um
+  // array novo a cada "transformar em oficial", e a comparação por
+  // referência é o que distingue uma pré-seleção nova de um re-render.
+  const [preAplicada, setPreAplicada] = useState(null)
+  if (Array.isArray(preSelecao) && preSelecao.length && preSelecao !== preAplicada) {
+    setPreAplicada(preSelecao)
+    const ehGk = (id) => {
+      const j = jogadores.find((x) => x.id === id)
+      return j?.playerType === PLAYER_TYPE.GOALKEEPER || j?.primaryPosition === 'GK'
+    }
+    const naBaliza = preSelecao.filter(ehGk).slice(0, N_GOLEIROS)
+    const daBaliza = new Set(naBaliza)
+    setGoleiros(naBaliza)
+    setCampo(preSelecao.filter((id) => !daBaliza.has(id)))
+  }
 
   // passos 5/6
   const [resultado, setResultado] = useState(null)

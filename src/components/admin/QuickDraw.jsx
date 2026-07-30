@@ -31,7 +31,7 @@ function resumoRapido(resultado) {
   return linhas.join('\n')
 }
 
-export default function QuickDraw({ pw, jogadores, onOficializar }) {
+export default function QuickDraw({ pw, jogadores, onOficializar, onDadosAlterados }) {
   const [escolhidos, setEscolhidos] = useState(() => new Set())
   const [procura, setProcura] = useState('')
   const [nEquipas, setNEquipas] = useState(2)
@@ -54,8 +54,19 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
     setTimeout(() => setAviso(''), 2500)
   }
 
+  // Mexer nos ingredientes invalida o bolo: sem isto, mudar a lista (ou o
+  // número de equipas) depois de sortear deixava no ecrã equipas de uma
+  // seleção e os botões a agir sobre outra — publicava-se ou oficializava-se
+  // algo diferente do que estava à vista.
+  const invalidar = () => {
+    setResultado(null)
+    setSelecao(null)
+    setPublicado(false)
+  }
+
   const alternar = (id) => {
     setErro('')
+    invalidar()
     setEscolhidos((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -86,7 +97,15 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
     if (!selecao) return setSelecao(id)
     if (selecao === id) return setSelecao(null)
     try {
-      setResultado(trocarNoRapido(resultado, selecao, id))
+      const novo = trocarNoRapido(resultado, selecao, id)
+      // dois da mesma equipa: o motor devolve o mesmo objeto e não há troca
+      // nenhuma — dizer "troca feita" era mentira, e reabrir o publicar
+      // convidava a republicar um sorteio idêntico
+      if (novo === resultado) {
+        avisar('Os dois estão na mesma equipa — escolhe um de cada lado.')
+        return
+      }
+      setResultado(novo)
       setPublicado(false)
       avisar('Troca feita — forças recalculadas.')
     } catch (e) {
@@ -106,7 +125,15 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
     try {
       const paraLinha = (j) => {
         const completo = jogadores.find((x) => x.id === j.id)
-        return { id: j.id, name: j.name, photo: completo?.photo || null, avg: completo?.avg ?? null }
+        // o contrato do formato antigo (src/lib/draw.js) é "avg já
+        // normalizada: 2.5 se sem notas" — mandar null fazia o DrawView
+        // mostrar 0.0 e arrastar a média da equipa para baixo
+        return {
+          id: j.id,
+          name: j.name,
+          photo: completo?.photo || null,
+          avg: completo?.avg == null ? 2.5 : Number(completo.avg),
+        }
       }
       await publishDraw(
         pw,
@@ -115,6 +142,9 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
       )
       setPublicado(true)
       avisar('Rachão publicado!')
+      // o AdminScreen usa o último sorteio publicado para semear as
+      // presenças do registo da rodada
+      await onDadosAlterados?.()
     } catch (e) {
       setErro(e.message)
     } finally {
@@ -156,7 +186,10 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
             <span style={{ fontSize: 12, color: colors.muted }}>Equipas</span>
             <select
               value={nEquipas}
-              onChange={(e) => setNEquipas(Number(e.target.value))}
+              onChange={(e) => {
+                invalidar()
+                setNEquipas(Number(e.target.value))
+              }}
               aria-label="Número de equipas"
               style={{ ...styles.input, width: 'auto', padding: '8px 10px' }}
             >
@@ -178,7 +211,10 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
                 type="button"
                 role="radio"
                 aria-checked={modo === id}
-                onClick={() => setModo(id)}
+                onClick={() => {
+                  invalidar()
+                  setModo(id)
+                }}
                 className="pb-tab"
                 style={{
                   fontSize: 13,
@@ -300,6 +336,7 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
                         <button
                           key={j.id}
                           type="button"
+                          aria-pressed={marcado}
                           onClick={() => tocarJogador(j.id)}
                           style={{
                             display: 'flex',
@@ -365,6 +402,12 @@ export default function QuickDraw({ pw, jogadores, onOficializar }) {
             {resultado.equipas.length === 2 && escolhidos.size !== 14 && (
               <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
                 Com exatamente 14 jogadores podes transformar o rachão num jogo oficial 7×7.
+              </p>
+            )}
+            {resultado.equipas.length > 2 && (
+              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
+                Publicar em “Último sorteio rápido” só existe para 2 equipas — com {resultado.equipas.length}{' '}
+                partilha por WhatsApp ou copia o texto.
               </p>
             )}
           </div>

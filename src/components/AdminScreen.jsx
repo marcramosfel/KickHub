@@ -89,7 +89,7 @@ function Stepper({ icon, value, onChange }) {
 export default function AdminScreen({ onExit }) {
   const [pw, setPw] = useState('')
   const [authed, setAuthed] = useState(false)
-  const [tab, setTab] = useState('pedidos') // pedidos | plantel | sorteio
+  const [tab, setTab] = useState('pedidos') // ver a lista de tabBtn() no render
 
   // aba "Novo sorteio": qual dos dois modos está à vista, e a pré-seleção
   // de jogadores quando um rachão de 14 sobe a jogo oficial
@@ -595,6 +595,10 @@ export default function AdminScreen({ onExit }) {
       onClick={() => {
         setTab(id)
         setError('')
+        // a pré-seleção de um rachão vale para o jogo que se está a marcar
+        // agora; sair da aba abandona-a, senão voltava a semear os passos
+        // 2 e 3 com o plantel da semana passada
+        setPreSelecao(null)
       }}
       style={{
         flex: '1 0 auto',
@@ -776,7 +780,10 @@ export default function AdminScreen({ onExit }) {
             })}
           </div>
 
-          {modoSorteio === 'completo' ? (
+          {/* Os dois ficam MONTADOS e esconde-se o inativo: com um ternário,
+              tocar no outro cartão desmontava o ativo e deitava fora um
+              rachão já sorteado (ou as escolhas dos passos 2-3) sem aviso. */}
+          <div hidden={modoSorteio !== 'completo'}>
             <MatchWizard
               pw={pw}
               jogadores={jogadores}
@@ -784,10 +791,12 @@ export default function AdminScreen({ onExit }) {
               preSelecao={preSelecao}
               onDadosAlterados={refresh}
             />
-          ) : (
+          </div>
+          <div hidden={modoSorteio !== 'rapido'}>
             <QuickDraw
               pw={pw}
               jogadores={jogadores}
+              onDadosAlterados={refresh}
               onOficializar={(ids) => {
                 // o rachão de 14 vira jogo oficial: os mesmos jogadores já
                 // entram marcados nos passos 2 e 3 do assistente
@@ -795,7 +804,7 @@ export default function AdminScreen({ onExit }) {
                 setModoSorteio('completo')
               }}
             />
-          )}
+          </div>
         </div>
       )}
 

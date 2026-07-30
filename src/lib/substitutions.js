@@ -58,6 +58,8 @@ export function vantagem(forcaA, forcaB) {
       equilibrado: true,
     }
   }
+  // nota: o `texto` daqui aparece aos jogadores (chips do feed e da Home),
+  // por isso é PT-BR — "times", não "equipas"
 
   const { diff, balancePct, balanceLevel, balanceLabel } = avaliarEquilibrio(a, b)
   const lado = diff === 0 ? null : a > b ? 'A' : 'B'
@@ -69,7 +71,7 @@ export function vantagem(forcaA, forcaB) {
     pct: balancePct,
     nivel: balanceLevel,
     rotulo: balanceLabel,
-    texto: lado ? `${nomeDaEquipa(lado)} mais forte` : 'Equipas iguais',
+    texto: lado ? `${nomeDaEquipa(lado)} mais forte` : 'Times iguais',
     // "bom" e "excelente" são os níveis que o sorteio dá por aceitáveis
     equilibrado: balanceLevel === 'excelente' || balanceLevel === 'bom',
   }
@@ -154,13 +156,51 @@ function normalizarTroca(s) {
   }
 }
 
-// As desistências de um jogo, pela ordem em que aconteceram.
-export function desistenciasDoJogo(jogo) {
-  const lista = Array.isArray(jogo?.substitutions) ? jogo.substitutions : []
-  return lista.map(normalizarTroca).filter((t) => t && t.lado)
+// Uma troca de equipas (A⇄B): os dois continuam a jogar, só mudaram de
+// lado. `delta` é o que a equipa de origem de A ganhou com a mexida.
+function normalizarSwap(s) {
+  if (!s) return null
+  const de = ladoDe(s.a_team)
+  const para = ladoDe(s.b_team)
+  if (!de || !para) return null
+  const oa = numOuNulo(s.a_overall)
+  const ob = numOuNulo(s.b_overall)
+  return {
+    id: s.id ?? `${s.a_player_id}-${s.b_player_id}`,
+    kind: 'SWAP',
+    lado: de, // a equipa de onde A saiu
+    equipa: nomeDaEquipa(de),
+    slot: s.a_position ?? null,
+    ehGoleiro: s.is_goalkeeper === true,
+    saiId: s.a_player_id ?? null,
+    saiNome: s.a_name || 'Jogador',
+    saiFoto: s.a_photo ?? null,
+    saiOverall: oa,
+    entraId: s.b_player_id ?? null,
+    entraNome: s.b_name || 'Jogador',
+    entraFoto: s.b_photo ?? null,
+    entraOverall: ob,
+    // A saiu de `de` e B entrou lá: a equipa de origem ganha (ob − oa)
+    delta: oa == null || ob == null ? null : ob - oa,
+    motivo: s.reason || null,
+    quando: s.created_at ?? null,
+  }
 }
 
-// Quanto é que cada equipa ganhou ou perdeu com as desistências. Serve para
+// Todas as mexidas de um jogo (substituições e trocas de equipa), pela
+// ordem em que aconteceram. Os jogadores veem-nas na mesma lista: o que
+// lhes interessa é o que mudou desde o sorteio, não em que tabela ficou.
+export function desistenciasDoJogo(jogo) {
+  const subs = (Array.isArray(jogo?.substitutions) ? jogo.substitutions : [])
+    .map(normalizarTroca)
+    .filter((t) => t && t.lado)
+  const swaps = (Array.isArray(jogo?.swaps) ? jogo.swaps : [])
+    .map(normalizarSwap)
+    .filter(Boolean)
+  return [...subs, ...swaps].sort((a, b) => String(a.quando || '').localeCompare(String(b.quando || '')))
+}
+
+// Quanto é que cada equipa ganhou ou perdeu com as mexidas. Serve para
 // dizer *porquê* é que um time ficou mais forte, em vez de só mostrar que
 // ficou.
 export function impactoDasDesistencias(trocas) {
@@ -168,8 +208,14 @@ export function impactoDasDesistencias(trocas) {
   for (const t of Array.isArray(trocas) ? trocas : []) {
     if (!t?.lado) continue
     impacto.total += 1
-    if (t.delta == null) impacto.incerto = true
-    else impacto[t.lado] += t.delta
+    if (t.delta == null) {
+      impacto.incerto = true
+      continue
+    }
+    impacto[t.lado] += t.delta
+    // numa troca de equipas o que um lado ganha o outro perde — a mesma
+    // mexida mexe nas duas colunas
+    if (t.kind === 'SWAP') impacto[t.lado === 'A' ? 'B' : 'A'] -= t.delta
   }
   return impacto
 }

@@ -4,6 +4,7 @@ import {
   adminSubstitutePlayer,
   adminSwapPlayers,
   adminUndoSubstitution,
+  adminUndoSwap,
 } from '../../api'
 import { OVERALL_NEUTRO } from '../../lib/drawEngine'
 import { formatarDataDoJogo } from '../../lib/countdown'
@@ -11,6 +12,7 @@ import { nomeDaPosicao, siglaDaPosicao } from '../../lib/positions'
 import {
   corDaEquipa,
   nomeDaEquipa,
+  previewReplace,
   previewSwap,
   resumoDeDesistencias,
 } from '../../lib/substitutions'
@@ -23,7 +25,7 @@ import { colors, fonts, styles, chip, disabled } from '../../theme'
 // Mexidas num sorteio publicado. Continua sem haver re-sorteio: cada ação é
 // cirúrgica, fica na auditoria e aparece no feed. São três, e só três:
 //   🚑 desistência  — "não posso ir": sai um, entra alguém de fora;
-//   🔁 trocar       — um de cada equipa trocam de lado (com prévia);
+//   🔁 trocar       — um de cada time trocam de lado (com prévia);
 //   ➡️ substituir   — sai um, entra alguém de fora, por opção do admin.
 // A desistência explica um desequilíbrio; a troca e a substituição são
 // decisões — por isso os jogadores veem etiquetas diferentes.
@@ -32,7 +34,7 @@ const LADOS = ['A', 'B']
 
 const ACOES = [
   { id: 'desistencia', rotulo: '🚑 Desistência', dica: 'Alguém avisou que não pode ir.' },
-  { id: 'trocar', rotulo: '🔁 Trocar de equipa', dica: 'Um de cada lado trocam entre si.' },
+  { id: 'trocar', rotulo: '🔁 Trocar de time', dica: 'Um de cada lado trocam entre si.' },
   { id: 'substituir', rotulo: '➡️ Substituir', dica: 'Sai um, entra outro — sem ser desistência.' },
 ]
 
@@ -59,6 +61,13 @@ function Aviso({ tom = 'aviso', children }) {
     </div>
   )
 }
+
+// Sem a 0021 aplicada, as ações novas chegam como SEMMIGRACAO genérico —
+// dizer QUAL o ficheiro falta poupa a caça ao erro.
+const erroLegivel = (e) =>
+  e?.code === 'SEMMIGRACAO'
+    ? 'Falta aplicar a migração 0021_trocas.sql no Supabase (instruções em supabase/APLICAR.md).'
+    : e?.message
 
 // O overall que vai ficar congelado na escalação. O neutro é o mesmo que o
 // motor usa para quem ainda não tem número — sem ele, um substituto sem
@@ -173,7 +182,7 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
       setTimeout(() => setAviso(''), 3000)
       await onDadosAlterados?.()
     } catch (e) {
-      setErro(e.message)
+      setErro(erroLegivel(e))
     } finally {
       setBusy(false)
     }
@@ -203,7 +212,7 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
       setTimeout(() => setAviso(''), 3000)
       await onDadosAlterados?.()
     } catch (e) {
-      setErro(e.message)
+      setErro(erroLegivel(e))
     } finally {
       setBusy(false)
     }
@@ -211,16 +220,20 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
 
   const desfazer = async (t) => {
     if (busy) return
-    if (!window.confirm(`Desfazer a troca? ${t.saiNome} volta ao lugar de ${t.entraNome}.`)) return
+    const ehSwap = t.kind === 'SWAP'
+    const pergunta = ehSwap
+      ? `Desfazer a troca? ${t.saiNome} e ${t.entraNome} voltam aos times de origem.`
+      : `Desfazer? ${t.saiNome} volta ao lugar de ${t.entraNome}.`
+    if (!window.confirm(pergunta)) return
     setBusy(true)
     setErro('')
     try {
-      aplicar(await adminUndoSubstitution(pw, t.id))
-      setAviso('Troca desfeita.')
+      aplicar(ehSwap ? await adminUndoSwap(pw, t.id) : await adminUndoSubstitution(pw, t.id))
+      setAviso(ehSwap ? 'Troca desfeita.' : 'Substituição desfeita.')
       setTimeout(() => setAviso(''), 3000)
       await onDadosAlterados?.()
     } catch (e) {
-      setErro(e.message)
+      setErro(erroLegivel(e))
     } finally {
       setBusy(false)
     }
@@ -232,8 +245,8 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
       <div className="pb-card">
         <p style={{ ...styles.mutedText, fontSize: 13 }}>
           ⚠️ As desistências ainda não estão ativas na base de dados. Aplica a migração{' '}
-          <strong>0018_desistencias.sql</strong> no SQL Editor do Supabase (instruções em{' '}
-          <code>supabase/APLICAR.md</code>).
+          <strong>0021_trocas.sql</strong> (e as anteriores) no SQL Editor do Supabase — instruções
+          em <code>supabase/APLICAR.md</code>.
         </p>
       </div>
     )
@@ -345,7 +358,7 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
               <div
                 style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 14, marginBottom: 6 }}
               >
-                Trocas feitas ({resumo.total})
+                Mudanças feitas ({resumo.total})
               </div>
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {resumo.trocas.map((t) => (
@@ -362,13 +375,26 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
                   >
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span className="pb-truncate" style={{ display: 'block' }}>
-                        <span style={{ color: colors.muted, textDecoration: 'line-through' }}>
-                          {t.saiNome}
-                        </span>{' '}
-                        → <strong>{t.entraNome}</strong>
+                        {t.kind === 'SWAP' ? (
+                          <>
+                            <strong>{t.saiNome}</strong> ⇄ <strong>{t.entraNome}</strong>
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ color: colors.muted, textDecoration: 'line-through' }}>
+                              {t.saiNome}
+                            </span>{' '}
+                            → <strong>{t.entraNome}</strong>
+                          </>
+                        )}
                       </span>
                       <span style={{ fontSize: 11, color: colors.muted }}>
-                        {t.equipa} · {t.ehGoleiro ? 'Goleiro' : nomeDaPosicao(t.slot)}
+                        {t.equipa} · {t.ehGoleiro ? 'Goleiro' : nomeDaPosicao(t.slot)} ·{' '}
+                        {t.kind === 'SWAP'
+                          ? 'trocaram de time'
+                          : t.kind === 'TROCA'
+                            ? 'substituição'
+                            : 'desistência'}
                         {t.delta == null ? '' : ` · ${t.delta > 0 ? '+' : '−'}${Math.abs(t.delta)}`}
                         {t.motivo ? ` · ${t.motivo}` : ''}
                       </span>
@@ -436,54 +462,77 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
                     Não há mais ninguém disponível — todos os jogadores já estão escalados.
                   </p>
                 )}
-                {disponiveis.map((j) => (
-                  <div
-                    key={j.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '8px 4px',
-                      borderBottom: `1px solid ${colors.line}`,
-                    }}
-                  >
-                    <Avatar name={j.name} photo={j.photo} size={30} />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span className="pb-truncate" style={{ display: 'block', fontSize: 14 }}>
-                        {j.name}
-                      </span>
-                      <span style={{ fontSize: 11, color: colors.muted }}>
-                        {j.primaryPosition ? nomeDaPosicao(j.primaryPosition) : 'sem posição'}
-                        {j.overall == null ? ' · sem overall (entra com 50)' : ''}
-                      </span>
-                    </span>
-                    <span
+                {disponiveis.map((j) => {
+                  // o efeito nas forças ANTES de confirmar, como na troca —
+                  // o confirm promete "com o efeito à vista" e é aqui que ele
+                  // aparece
+                  const p = previewReplace(jogo, saiId, overallDe(j))
+                  return (
+                    <div
+                      key={j.id}
                       style={{
-                        width: 32,
-                        textAlign: 'center',
-                        fontFamily: fonts.title,
-                        fontWeight: 700,
-                        color: colors.teamA,
-                        fontVariantNumeric: 'tabular-nums',
-                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 4px',
+                        borderBottom: `1px solid ${colors.line}`,
+                        flexWrap: 'wrap',
                       }}
                     >
-                      {j.overall ?? '—'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => substituir(j)}
-                      disabled={busy}
-                      style={
-                        busy
-                          ? disabled({ ...styles.button, width: 'auto', padding: '8px 12px', fontSize: 13 })
-                          : { ...styles.button, width: 'auto', padding: '8px 12px', fontSize: 13 }
-                      }
-                    >
-                      Entra
-                    </button>
-                  </div>
-                ))}
+                      <Avatar name={j.name} photo={j.photo} size={30} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span className="pb-truncate" style={{ display: 'block', fontSize: 14 }}>
+                          {j.name}
+                        </span>
+                        <span style={{ fontSize: 11, color: colors.muted }}>
+                          {j.primaryPosition ? nomeDaPosicao(j.primaryPosition) : 'sem posição'}
+                          {j.overall == null ? ' · sem overall (entra com 50)' : ''}
+                          {p && (
+                            <>
+                              {' · '}
+                              {nomeDaEquipa(p.lado)} {p.antes[p.lado === 'A' ? 'forcaA' : 'forcaB']}
+                              {' → '}
+                              <strong style={{ color: colors.text }}>
+                                {p.depois[p.lado === 'A' ? 'forcaA' : 'forcaB']}
+                              </strong>
+                              {!p.depois.equilibrado && (
+                                <span style={{ color: colors.error }}>
+                                  {' '}
+                                  · fica {p.depois.pct.toFixed(1)}% desequilibrado
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </span>
+                      </span>
+                      <span
+                        style={{
+                          width: 32,
+                          textAlign: 'center',
+                          fontFamily: fonts.title,
+                          fontWeight: 700,
+                          color: colors.teamA,
+                          fontVariantNumeric: 'tabular-nums',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {j.overall ?? '—'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => substituir(j)}
+                        disabled={busy}
+                        style={
+                          busy
+                            ? disabled({ ...styles.button, width: 'auto', padding: '8px 12px', fontSize: 13 })
+                            : { ...styles.button, width: 'auto', padding: '8px 12px', fontSize: 13 }
+                        }
+                      >
+                        Entra
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
 
               <button type="button" onClick={cancelar} style={{ ...styles.buttonGhost, marginTop: 12 }}>
@@ -631,13 +680,13 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontSize: 12, color: colors.muted }}>antes:</span>
                         <span style={chip(colors.muted)}>
-                          ⚫ {previa.antes.forcaA} vs ⚪ {previa.antes.forcaB}
+                          ⚫ {previa.antes.forcaA} vs ⚪ {previa.antes.forcaB} · Δ {previa.antes.diff}
                         </span>
                         <VantagemAtual vantagem={previa.antes} comNumeros={false} />
                         <span aria-hidden style={{ color: colors.muted }}>→</span>
                         <span style={{ fontSize: 12, color: colors.muted }}>depois:</span>
-                        <span style={chip(colors.muted)}>
-                          ⚫ {previa.depois.forcaA} vs ⚪ {previa.depois.forcaB}
+                        <span style={chip(previa.depois.diff <= previa.antes.diff ? colors.grass : colors.teamA)}>
+                          ⚫ {previa.depois.forcaA} vs ⚪ {previa.depois.forcaB} · Δ {previa.depois.diff}
                         </span>
                         <VantagemAtual vantagem={previa.depois} comNumeros={false} />
                       </div>

@@ -71,7 +71,7 @@ describe('vantagem', () => {
   it('sem diferença não há lado nenhum', () => {
     const v = vantagem(320, 320)
     expect(v.lado).toBe(null)
-    expect(v.texto).toBe('Equipas iguais')
+    expect(v.texto).toBe('Times iguais')
     expect(v.equilibrado).toBe(true)
   })
 
@@ -122,6 +122,58 @@ describe('impactoDasDesistencias', () => {
     const trocas = desistenciasDoJogo({ substitutions: [troca({ out_overall: null })] })
     expect(impactoDasDesistencias(trocas).incerto).toBe(true)
     expect(impactoDasDesistencias(trocas).A).toBe(0)
+  })
+})
+
+describe('trocas de equipa (swaps) no resumo', () => {
+  const swap = (extra = {}) => ({
+    id: 'w1',
+    a_player_id: 'pa',
+    a_name: 'Quem estava nos Pretos',
+    a_team: 'A',
+    a_position: 'ST',
+    a_overall: 70,
+    b_player_id: 'pb',
+    b_name: 'Quem estava nos Brancos',
+    b_team: 'B',
+    b_position: 'MID-C',
+    b_overall: 55,
+    is_goalkeeper: false,
+    created_at: '2026-07-30T10:00:00Z',
+    ...extra,
+  })
+
+  it('entra na mesma lista das substituições, por ordem cronológica', () => {
+    const trocas = desistenciasDoJogo({
+      substitutions: [troca({ created_at: '2026-07-30T09:00:00Z' })],
+      swaps: [swap()],
+    })
+    expect(trocas.map((t) => t.kind)).toEqual(['DESISTENCIA', 'SWAP'])
+  })
+
+  it('o delta de um swap conta nas DUAS equipas — o que uma ganha a outra perde', () => {
+    const trocas = desistenciasDoJogo({ swaps: [swap()] })
+    // saiu um 70 dos Pretos e entrou um 55: A perde 15, B ganha 15
+    expect(trocas[0].delta).toBe(-15)
+    expect(impactoDasDesistencias(trocas)).toEqual({ A: -15, B: 15, incerto: false, total: 1 })
+  })
+
+  it('sem overalls o delta fica incerto em vez de fingir zero', () => {
+    const trocas = desistenciasDoJogo({ swaps: [swap({ b_overall: null })] })
+    expect(trocas[0].delta).toBe(null)
+    expect(impactoDasDesistencias(trocas).incerto).toBe(true)
+  })
+
+  it('um jogo só com swaps continua a ter aviso para os jogadores', () => {
+    const r = resumoDeDesistencias({ swaps: [swap()], team_a_overall: 300, team_b_overall: 330 })
+    expect(r.houve).toBe(true)
+    expect(r.total).toBe(1)
+    expect(r.vantagem.lado).toBe('B')
+  })
+
+  it('swaps sem equipa válida são descartados', () => {
+    expect(desistenciasDoJogo({ swaps: [swap({ a_team: 'Z' })] })).toEqual([])
+    expect(desistenciasDoJogo({ swaps: null })).toEqual([])
   })
 })
 
