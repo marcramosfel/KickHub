@@ -32,6 +32,7 @@ import GamesPanel from './admin/GamesPanel'
 import MatchWizard from './admin/MatchWizard'
 import AdminNav from './admin/AdminNav'
 import AdminOverview from './admin/AdminOverview'
+import FiltroLista, { useFiltro } from './admin/FiltroLista'
 import PositionsAdmin from './admin/PositionsAdmin'
 import QuickDraw from './admin/QuickDraw'
 import SubstitutionsPanel from './admin/SubstitutionsPanel'
@@ -39,6 +40,29 @@ import { adminMatchesUpcoming } from '../api'
 import { jogosComResultadoPendente } from '../lib/lifecycle'
 import { PhotoFrame } from './RoundParts'
 import { colors, fonts, styles, disabled } from '../theme'
+
+// Ordenações das listas do painel. Fora do componente: são constantes, e
+// recriá-las a cada render fazia o useMemo do filtro recalcular sempre.
+const ORDENS_PLANTEL = [
+  { id: 'nome', rotulo: 'Nome', comparar: (a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }) },
+  { id: 'media', rotulo: 'Média', comparar: (a, b) => (b.avg ?? -1) - (a.avg ?? -1) },
+  { id: 'votos', rotulo: 'Votos', comparar: (a, b) => Number(b.votes || 0) - Number(a.votes || 0) },
+]
+
+const ORDENS_RODADAS = [
+  { id: 'recente', rotulo: 'Mais recentes', comparar: (a, b) => String(b.played_at).localeCompare(String(a.played_at)) },
+  { id: 'antiga', rotulo: 'Mais antigas', comparar: (a, b) => String(a.played_at).localeCompare(String(b.played_at)) },
+]
+
+const ORDENS_ACESSOS = [
+  { id: 'nome', rotulo: 'Nome', comparar: (a, b) => a.name.localeCompare(b.name, 'pt', { sensitivity: 'base' }) },
+  { id: 'id', rotulo: 'ID', comparar: (a, b) => String(a.user_id || '').localeCompare(String(b.user_id || '')) },
+]
+
+// Os campos onde cada pesquisa procura. Também constantes, pela mesma razão.
+const CAMPOS_PLANTEL = (p) => [p.name]
+const CAMPOS_RODADAS = (m) => [m.played_at, m.notes, ...(m.players || []).map((x) => x.name)]
+const CAMPOS_ACESSOS = (u) => [u.name, u.user_id]
 
 function idade(dob) {
   if (!dob) return null
@@ -147,6 +171,11 @@ export default function AdminScreen({ onExit }) {
 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // pesquisa + ordenação das três listas longas do painel
+  const filtroPlantel = useFiltro({ lista: players, campos: CAMPOS_PLANTEL, ordens: ORDENS_PLANTEL })
+  const filtroRodadas = useFiltro({ lista: matches, campos: CAMPOS_RODADAS, ordens: ORDENS_RODADAS })
+  const filtroAcessos = useFiltro({ lista: users, campos: CAMPOS_ACESSOS, ordens: ORDENS_ACESSOS })
 
   const refresh = async (senha = pw) => {
     // o sorteio publicado vem no mesmo lote para o efeito que semeia as
@@ -817,50 +846,72 @@ export default function AdminScreen({ onExit }) {
 
       {/* ---------- PLANTEL ---------- */}
       {tab === 'plantel' && (
-        <div style={{ ...styles.panel, padding: 8 }}>
-          {players.length === 0 && (
+        <div>
+          <FiltroLista
+            id="procura-plantel"
+            termo={filtroPlantel.termo}
+            onTermo={filtroPlantel.setTermo}
+            ordens={ORDENS_PLANTEL}
+            ordemId={filtroPlantel.ordemId}
+            onOrdem={filtroPlantel.setOrdemId}
+            total={players.length}
+            visiveis={filtroPlantel.resultado.length}
+            rotuloSingular="jogador"
+            rotuloPlural="jogadores"
+            placeholder="Procurar jogador"
+          />
+
+          {players.length === 0 ? (
             <p style={{ ...styles.mutedText, textAlign: 'center', padding: 14 }}>
               Ainda não há jogadores aprovados.
             </p>
-          )}
-          {players.map((p, i) => (
-            <div
-              key={p.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: 8,
-                borderBottom: i < players.length - 1 ? `1px solid ${colors.line}` : 'none',
-              }}
-            >
-              <Avatar name={p.name} photo={p.photo_url} size={38} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{p.name}</div>
-                <div style={{ fontSize: 12, color: colors.muted }}>
-                  {p.avg != null ? `média ${Number(p.avg).toFixed(2)}` : 'sem votos'} ·{' '}
-                  {p.votes} {Number(p.votes) === 1 ? 'voto' : 'votos'}
+          ) : filtroPlantel.resultado.length === 0 ? (
+            <p style={{ ...styles.mutedText, textAlign: 'center', padding: 14 }}>
+              Ninguém corresponde a “{filtroPlantel.termo}”.
+            </p>
+          ) : (
+            // grelha no computador, uma coluna no telemóvel — 30 nomes numa
+            // coluna só era rolar por rolar
+            <div className="pb-cards">
+              {filtroPlantel.resultado.map((p) => (
+                <div
+                  key={p.id}
+                  className="pb-card"
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10 }}
+                >
+                  <Avatar name={p.name} photo={p.photo_url} size={38} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="pb-truncate" style={{ fontSize: 15, fontWeight: 600 }}>
+                      {p.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: colors.muted }}>
+                      {p.avg != null ? `média ${Number(p.avg).toFixed(2)}` : 'sem votos'} ·{' '}
+                      {p.votes} {Number(p.votes) === 1 ? 'voto' : 'votos'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                    <button
+                      onClick={() => reavaliarUm(p)}
+                      disabled={busy}
+                      title="Todo o grupo reavalia este jogador"
+                      style={{ ...linkStyle, color: colors.teamA, minHeight: 22 }}
+                    >
+                      Reavaliar
+                    </button>
+                    <button
+                      onClick={() => rejeitar(p, 'Remover')}
+                      disabled={busy}
+                      style={{ ...linkStyle, color: colors.error, minHeight: 22 }}
+                    >
+                      Remover
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => reavaliarUm(p)}
-                disabled={busy}
-                title="Todo o grupo reavalia este jogador"
-                style={{ ...linkStyle, color: colors.teamA }}
-              >
-                Reavaliar
-              </button>
-              <button
-                onClick={() => rejeitar(p, 'Remover')}
-                disabled={busy}
-                style={{ ...linkStyle, color: colors.error }}
-              >
-                Remover
-              </button>
+              ))}
             </div>
-          ))}
+          )}
           {players.length > 0 && (
-            <div style={{ padding: '12px 8px 4px', borderTop: `1px solid ${colors.line}` }}>
+            <div className="pb-card" style={{ marginTop: 14 }}>
               <button
                 onClick={reavaliarTodos}
                 disabled={busy}
@@ -1167,14 +1218,34 @@ export default function AdminScreen({ onExit }) {
           <div
             style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, margin: '18px 0 8px' }}
           >
-            Rodadas registadas ({matches.length})
+            Rodadas registadas
           </div>
+          {matches.length > 0 && (
+            <FiltroLista
+              id="procura-rodadas"
+              termo={filtroRodadas.termo}
+              onTermo={filtroRodadas.setTermo}
+              ordens={ORDENS_RODADAS}
+              ordemId={filtroRodadas.ordemId}
+              onOrdem={filtroRodadas.setOrdemId}
+              total={matches.length}
+              visiveis={filtroRodadas.resultado.length}
+              rotuloSingular="rodada"
+              rotuloPlural="rodadas"
+              placeholder="Procurar por data, jogador ou nota"
+            />
+          )}
           {matches.length === 0 && !matchesErr && (
             <div style={{ ...styles.panel, textAlign: 'center', padding: 18 }}>
               <p style={styles.mutedText}>Ainda não há rodadas registadas.</p>
             </div>
           )}
-          {matches.map((m) => {
+          {matches.length > 0 && filtroRodadas.resultado.length === 0 && (
+            <div style={{ ...styles.panel, textAlign: 'center', padding: 18 }}>
+              <p style={styles.mutedText}>Nenhuma rodada corresponde a “{filtroRodadas.termo}”.</p>
+            </div>
+          )}
+          {filtroRodadas.resultado.map((m) => {
             const craque = awardWinners(m.craque)
             const bagre = awardWinners(m.bagre)
             const golsTot = m.players.reduce((s, p) => s + p.goals, 0)
@@ -1411,7 +1482,7 @@ export default function AdminScreen({ onExit }) {
                 }}
               >
                 <span style={{ ...styles.mutedText, fontSize: 13 }}>
-                  {users.length} {users.length === 1 ? 'utilizador' : 'utilizadores'}
+                  Acessos do grupo
                 </span>
                 <button
                   onClick={copiarLista}
@@ -1435,8 +1506,29 @@ export default function AdminScreen({ onExit }) {
                 </div>
               )}
 
+              {users.length > 0 && (
+                <FiltroLista
+                  id="procura-acessos"
+                  termo={filtroAcessos.termo}
+                  onTermo={filtroAcessos.setTermo}
+                  ordens={ORDENS_ACESSOS}
+                  ordemId={filtroAcessos.ordemId}
+                  onOrdem={filtroAcessos.setOrdemId}
+                  total={users.length}
+                  visiveis={filtroAcessos.resultado.length}
+                  rotuloSingular="utilizador"
+                  rotuloPlural="utilizadores"
+                  placeholder="Procurar por nome ou ID"
+                />
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {users.map((u) => (
+                {filtroAcessos.resultado.length === 0 && users.length > 0 && (
+                  <p style={{ ...styles.mutedText, textAlign: 'center', padding: 14 }}>
+                    Ninguém corresponde a “{filtroAcessos.termo}”.
+                  </p>
+                )}
+                {filtroAcessos.resultado.map((u) => (
                   <div key={u.id} style={{ ...styles.panel, padding: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
