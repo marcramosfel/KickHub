@@ -115,6 +115,23 @@ export function jogosComResultadoPendente(jogos, agora = new Date()) {
   })
 }
 
+// O jogo que a visão geral do admin mostra: o futuro mais próximo; se já
+// passaram todos, o mais recente. É a mesma regra do `get_next_match()` do
+// servidor, e vive aqui (e não no componente) porque `new Date()` dentro do
+// render é impuro — o mesmo motivo que já trouxe `faseDoJogo` para cá.
+export function proximoJogoDoAdmin(jogos, agora = new Date()) {
+  const lista = Array.isArray(jogos) ? jogos : []
+  if (!lista.length) return null
+  const comData = lista.filter((j) => j?.kickoff_at)
+  if (!comData.length) return lista[0]
+
+  const instante = (j) => new Date(j.kickoff_at).getTime()
+  const t = agora.getTime()
+  const futuros = comData.filter((j) => instante(j) >= t).sort((a, b) => instante(a) - instante(b))
+  if (futuros.length) return futuros[0]
+  return [...comData].sort((a, b) => instante(b) - instante(a))[0]
+}
+
 // ---------- histórico ----------
 // Tradução das ações da tabela match_activity para linguagem de ecrã.
 export const ACAO_LEGIVEL = {

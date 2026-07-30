@@ -303,7 +303,7 @@ body {
 }
 
 /* Abaixo de 768px a navegacao vive na barra inferior. */
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   .pb-header {
     display: none;
   }
@@ -465,7 +465,7 @@ body {
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   .pb-bottomnav {
     position: fixed;
     left: 0;
@@ -597,7 +597,7 @@ body {
 }
 
 /* Variante bottom-sheet: colada em baixo, so no telemovel. */
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   .pb-modal-overlay:has(> .pb-sheet),
   .pb-overlay:has(> .pb-sheet) {
     align-items: flex-end;
@@ -710,13 +710,34 @@ body {
    Assim, fora da media query nao existe regra nenhuma e o display natural do
    elemento mantem-se. O `!important` e preciso porque nesta app quase tudo tem
    `display` em estilo inline, e o inline ganharia a uma classe normal. */
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   .pb-hide-mobile {
     display: none !important;
   }
 }
 @media (min-width: 768px) {
   .pb-only-mobile {
+    display: none !important;
+  }
+}
+
+/* Corte do DESKTOP (1024px), nao o do tablet: e a partir daqui que ha
+   largura para uma barra lateral e o conteudo ao lado sem apertar nenhum
+   dos dois. Abaixo disso a navegacao do admin volta a ser uma fila.
+
+   O `.98` nao e manha: com racios de pixeis nao inteiros a largura da
+   janela pode ser 1023.5, e ai `max-width: 1023px` e `min-width: 1024px`
+   sao AMBOS falsos -- apareciam as duas navegacoes ao mesmo tempo. Foi
+   visto a 1023px numa medicao real. Vale para todos os cortes deste
+   ficheiro, incluindo os 767.98px da barra de baixo (a 767.5px ficava-se
+   sem navegacao NENHUMA). */
+@media (max-width: 1023.98px) {
+  .pb-only-desktop {
+    display: none !important;
+  }
+}
+@media (min-width: 1024px) {
+  .pb-hide-desktop {
     display: none !important;
   }
 }

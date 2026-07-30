@@ -20,6 +20,7 @@ import {
   getMatch,
   getMatches,
   getPlayers,
+  getFeed,
   getPublishedDraw,
 } from '../api'
 import { fileToDataURL } from '../lib/image'
@@ -29,6 +30,8 @@ import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
 import GamesPanel from './admin/GamesPanel'
 import MatchWizard from './admin/MatchWizard'
+import AdminNav from './admin/AdminNav'
+import AdminOverview from './admin/AdminOverview'
 import PositionsAdmin from './admin/PositionsAdmin'
 import QuickDraw from './admin/QuickDraw'
 import SubstitutionsPanel from './admin/SubstitutionsPanel'
@@ -89,7 +92,7 @@ function Stepper({ icon, value, onChange }) {
 export default function AdminScreen({ onExit }) {
   const [pw, setPw] = useState('')
   const [authed, setAuthed] = useState(false)
-  const [tab, setTab] = useState('pedidos') // ver a lista de tabBtn() no render
+  const [tab, setTab] = useState('visao') // ver GRUPOS em admin/AdminNav.jsx
 
   // aba "Novo sorteio": qual dos dois modos está à vista, e as EQUIPAS do
   // rachão quando ele sobe a jogo oficial (dois arrays de ids)
@@ -128,6 +131,10 @@ export default function AdminScreen({ onExit }) {
   const [faltasErr, setFaltasErr] = useState('')
   // jogos do ciclo novo (0016+): alimenta o badge da aba "Jogos"
   const [jogosAbertos, setJogosAbertos] = useState([])
+  // ultimas publicacoes, so para a visao geral
+  const [feedAdmin, setFeedAdmin] = useState([])
+  // jogo que a visao geral mandou abrir na aba Jogos
+  const [jogoAberto, setJogoAberto] = useState(null)
   const [copiedFalta, setCopiedFalta] = useState('')
 
   // utilizadores / IDs
@@ -183,6 +190,10 @@ export default function AdminScreen({ onExit }) {
     adminMatchesUpcoming(senha)
       .then((l) => setJogosAbertos(l || []))
       .catch(() => setJogosAbertos([]))
+    // ultimas publicacoes para a visao geral (nao-fatal: sem a 0020 nao ha feed)
+    getFeed(3)
+      .then((l) => setFeedAdmin(l || []))
+      .catch(() => setFeedAdmin([]))
   }
 
   // presenças do jogo a registar: por defeito, quem estava no último sorteio publicado
@@ -590,93 +601,78 @@ export default function AdminScreen({ onExit }) {
   const resultadosPendentes = jogosComResultadoPendente(jogosAbertos).length
 
   // ---------- tabs ----------
-  const tabBtn = (id, label, badge) => (
-    <button
-      onClick={() => {
-        setTab(id)
-        setError('')
-        // as equipas de um rachão valem para o jogo que se está a marcar
-        // agora; sair da aba abandona-as, senão voltavam a semear o
-        // assistente com o plantel da semana passada
-        setConversao(null)
-      }}
-      style={{
-        flex: '1 0 auto',
-        flexShrink: 0,
-        whiteSpace: 'nowrap',
-        padding: '10px 12px',
-        background: 'transparent',
-        color: tab === id ? colors.text : colors.muted,
-        border: 'none',
-        borderBottom: `2px solid ${tab === id ? colors.grass : colors.line}`,
-        fontFamily: fonts.title,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        fontSize: 14,
-        fontWeight: 600,
-        position: 'relative',
-      }}
-    >
-      {label}
-      {badge > 0 && (
-        <span
-          style={{
-            marginLeft: 6,
-            background: colors.error,
-            color: '#fff',
-            borderRadius: 999,
-            padding: '1px 7px',
-            fontSize: 11,
-            fontFamily: fonts.body,
-          }}
-        >
-          {badge}
-        </span>
-      )}
-    </button>
-  )
+  // Contadores da navegação e da visão geral, num sítio só.
+  const badges = {
+    resultadosPendentes,
+    pedidos: pending.length,
+    semPosicao,
+    faltas: faltasTotal,
+  }
+
+  const escolherAba = (id) => {
+    setTab(id)
+    setError('')
+    // as equipas de um rachão valem para o jogo que se está a marcar agora
+    setConversao(null)
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
-    <div style={styles.page}>
+    // `pb-container` em vez do `styles.page` de 480px: o painel de admin é
+    // onde há listas, tabelas e formulários lado a lado — apertá-lo a meia
+    // largura no computador era desperdiçar o ecrã todo.
+    <div className="pb-container" style={{ padding: '20px 16px 40px', minHeight: '100vh' }}>
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: 12,
           marginBottom: 14,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h1 style={{ ...styles.title, fontSize: 22 }}>
             Admin <span style={{ color: colors.grass }}>⚖️</span>
           </h1>
           <p style={{ ...styles.mutedText, fontSize: 13, marginTop: 2 }}>{ADMIN_NAME}</p>
         </div>
-        <button onClick={onExit} style={linkStyle}>
+        <button onClick={onExit} style={{ ...linkStyle, minHeight: 44, flexShrink: 0 }}>
           Sair
         </button>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          marginBottom: 16,
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {tabBtn('jogos-ciclo', 'Jogos', resultadosPendentes)}
-        {tabBtn('novo', 'Novo sorteio', 0)}
-        {tabBtn('pedidos', 'Pedidos', pending.length)}
-        {tabBtn('desistencias', 'Trocas', 0)}
-        {tabBtn('posicoes', 'Posições', semPosicao)}
-        {tabBtn('plantel', 'Plantel', 0)}
-        {tabBtn('jogos', 'Rodadas antigas', 0)}
-        {tabBtn('faltas', 'Faltas', faltasTotal)}
-        {tabBtn('utilizadores', 'IDs', 0)}
+      {/* telemóvel e tablet: fila que rola dentro do próprio bloco */}
+      <div className="pb-hide-desktop">
+        <AdminNav tab={tab} badges={badges} onEscolher={escolherAba} />
       </div>
 
       {error && <p style={{ ...styles.errorText, marginBottom: 12 }}>{error}</p>}
+
+      <div className="pb-grid">
+        {/* desktop: barra lateral fixa, sempre à vista */}
+        <div className="pb-col-3 pb-only-desktop">
+          <div style={{ position: 'sticky', top: 16 }}>
+            <AdminNav tab={tab} badges={badges} onEscolher={escolherAba} lateral />
+          </div>
+        </div>
+
+        <div className="pb-col-9 pb-col-md-12" style={{ minWidth: 0 }}>
+      {/* ---------- VISÃO GERAL ---------- */}
+      {tab === 'visao' && (
+        <AdminOverview
+          jogosAbertos={jogosAbertos}
+          jogadores={jogadores}
+          pedidos={pending}
+          faltas={faltas}
+          feed={feedAdmin}
+          onIr={escolherAba}
+          onAbrirJogo={(id) => {
+            setJogoAberto(id)
+            escolherAba('jogos-ciclo')
+          }}
+        />
+      )}
 
       {/* ---------- PEDIDOS ---------- */}
       {tab === 'pedidos' && (
@@ -730,6 +726,8 @@ export default function AdminScreen({ onExit }) {
           pw={pw}
           jogadores={jogadores}
           matches={matches}
+          abrirId={jogoAberto}
+          onAbertoConsumido={() => setJogoAberto(null)}
           onAbrirAssistente={() => {
             setModoSorteio('completo')
             setTab('novo')
@@ -1638,6 +1636,8 @@ export default function AdminScreen({ onExit }) {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   )
 }

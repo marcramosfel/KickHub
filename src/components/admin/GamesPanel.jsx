@@ -21,11 +21,27 @@ const TOM_COR = { ok: colors.grass, aviso: colors.teamA, erro: colors.error, neu
 // morre com o refresh — exatamente o que "uma vez por sessão" quer dizer.
 let lembreteDispensado = false
 
-export default function GamesPanel({ pw, jogadores, matches, onAbrirAssistente, onAbrirDesistencias }) {
+export default function GamesPanel({
+  pw,
+  jogadores,
+  matches,
+  // a visão geral pode mandar abrir um jogo concreto; `onAbertoConsumido`
+  // limpa o pedido para ele não voltar a abrir sozinho na próxima visita
+  abrirId = null,
+  onAbertoConsumido,
+  onAbrirAssistente,
+  onAbrirDesistencias,
+}) {
   const [jogos, setJogos] = useState(null) // null = a carregar
   const [erro, setErro] = useState('')
   const [faltaMigracao, setFaltaMigracao] = useState(false)
-  const [abertoId, setAbertoId] = useState(null)
+  const [abertoId, setAbertoId] = useState(abrirId)
+  const [pedidoAplicado, setPedidoAplicado] = useState(abrirId)
+  if (abrirId && abrirId !== pedidoAplicado) {
+    setPedidoAplicado(abrirId)
+    setAbertoId(abrirId)
+    onAbertoConsumido?.()
+  }
   const [, setTick] = useState(0) // re-render depois de dispensar o lembrete
 
   const carregar = useCallback(
