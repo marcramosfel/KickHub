@@ -22,7 +22,7 @@
 // uma ao acaso com o gerador semeado: o sorteio deixa de ser sempre idêntico
 // mas continua a ser reproduzível a partir do ID do jogo.
 
-import { FIELD_SLOTS, PENALIZACAO, penalizacaoDe } from './positions.js'
+import { FIELD_SLOTS, PENALIZACAO, PLAYER_TYPE, penalizacaoDe } from './positions.js'
 import { baralhar, criarRandom, escolher } from './seed.js'
 
 // Quem ainda não tem overall entra como médio: 0 fazia dele um peso morto que
@@ -181,8 +181,29 @@ const DIVISOES = divisoesDeCampo()
 // É exacto: nenhuma outra distribuição destes 6 jogadores por estes 6 lugares
 // tem penalização menor.
 function atribuicaoOtima(jogadores) {
+  return hungaro(jogadores.map((j) => FIELD_SLOTS.map((slot) => penalizacaoDe(j, slot))))
+}
+
+// Atribuição que dá prioridade a quem é melhor: o custo de cada lugar é a
+// penalização a MULTIPLICAR pelo overall, por isso pôr um craque fora da
+// posição dele custa muito mais do que pôr lá quem ainda está a aprender.
+// É o que se quer quando as equipas já vêm fechadas de um rachão e não há
+// como agradar a toda a gente: os melhores ficam onde jogam, os outros
+// ocupam o que sobra — e o empate entre lugares equivalentes desempata ao
+// acaso (semeado), para não ser sempre o mesmo a calhar mal.
+function atribuicaoPorQualidade(jogadores, random) {
+  return hungaro(
+    jogadores.map((j) =>
+      FIELD_SLOTS.map(
+        (slot) => penalizacaoDe(j, slot) * (j.overall || OVERALL_NEUTRO) + random() * 0.5
+      )
+    )
+  )
+}
+
+// Algoritmo húngaro sobre uma matriz de custos n×n já construída.
+function hungaro(c) {
   const n = FIELD_SLOTS.length
-  const c = jogadores.map((j) => FIELD_SLOTS.map((slot) => penalizacaoDe(j, slot)))
 
   // Índices 1..n; a coluna 0 é a sentinela do caminho aumentante.
   const u = new Array(n + 1).fill(0)
@@ -461,6 +482,68 @@ export function moverParaSlot(resultado, playerId, team, slot) {
     alvo[onde.slot] = tmp
   }
   return remontar(base, resultado.seed)
+}
+
+// ---------------------------------------------------------------- equipas já formadas
+//
+// Um rachão que sobe a jogo oficial já traz as duas equipas decididas — e
+// foi provavelmente sorteado assim por não haver dois goleiros fixos nesse
+// dia. Voltar a pedir goleiros e jogadores seria refazer à mão o que já
+// está feito, com o risco de sair diferente do que o grupo já viu.
+//
+// Aqui a composição das equipas é INTOCÁVEL: só se decide quem vai à baliza
+// e quem joga em que lugar, dentro de cada equipa.
+//   - goleiro: se houver quem esteja registado como goleiro (ou tenha GK
+//     como posição principal), é essa pessoa; se não houver — o caso normal
+//     num rachão — sai à sorte;
+//   - campo: os melhores ficam na sua posição e quem sobra ocupa o resto
+//     (`atribuicaoPorQualidade`).
+export function escalarEquipasFixas({ equipas, seed } = {}) {
+  const lista = Array.isArray(equipas) ? equipas : []
+  if (lista.length !== 2) {
+    throw erro('EQUIPAS', `A escalação 2-3-1 precisa de 2 equipas: há ${lista.length}.`)
+  }
+  for (const e of lista) {
+    const n = Array.isArray(e) ? e.filter(Boolean).length : 0
+    if (n !== JOGADORES_POR_EQUIPA) {
+      throw erro(
+        'CAMPO',
+        `Cada equipa precisa de ${JOGADORES_POR_EQUIPA} jogadores (1 goleiro + ${POR_EQUIPA} de campo): há uma com ${n}.`
+      )
+    }
+  }
+
+  const vistos = new Set()
+  for (const j of lista.flat()) {
+    const id = j?.id
+    if (id == null || id === '') {
+      throw erro('SEMJOGADOR', `"${j?.name || 'Um jogador'}" não tem id — recarrega a lista.`)
+    }
+    if (vistos.has(id)) {
+      throw erro('DUPLICADO', `"${j.name}" aparece nas duas equipas.`, { playerId: id })
+    }
+    vistos.add(id)
+  }
+
+  const random = criarRandom(seed ?? '')
+  const montadas = lista.map((crus) => {
+    const jogadores = crus.filter(Boolean).map(normalizar)
+    const candidatos = jogadores.filter(
+      (j) => j.playerType === PLAYER_TYPE.GOALKEEPER || j.primaryPosition === 'GK'
+    )
+    const gk = escolher(candidatos.length ? candidatos : jogadores, random)
+    const campo = jogadores.filter((j) => j.id !== gk.id)
+    const atrib = atribuicaoPorQualidade(campo, random)
+    const porSlot = {}
+    campo.forEach((j, i) => {
+      porSlot[FIELD_SLOTS[atrib.slotDe[i]]] = j
+    })
+    return montarEquipa(gk, porSlot)
+  })
+
+  // A ordem das equipas é a do rachão: o grupo já viu o "Time 1" e o
+  // "Time 2", e trocá-los aqui só semeava confusão.
+  return montarResultado(montadas[0], montadas[1], seed)
 }
 
 // ---------------------------------------------------------------- sorteio rápido

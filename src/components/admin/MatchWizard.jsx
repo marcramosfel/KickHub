@@ -7,6 +7,7 @@ import {
   adminSetPositions,
 } from '../../api'
 import {
+  escalarEquipasFixas,
   moverParaSlot,
   paraLinhasDeEscalacao,
   sortearEquipas,
@@ -66,8 +67,20 @@ const paraLocal = (iso) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-function Progresso({ passo }) {
-  const atual = PASSOS.find((p) => p.id === passo)
+// Numa conversão os passos 2 a 5 não existem: as equipas vêm do rachão e as
+// posições são atribuídas sozinhas. Contar "passo 6 de 7" num fluxo de três
+// ecrãs seria mentir ao admin sobre o que falta.
+const PASSOS_CONVERSAO = [
+  { id: 1, titulo: 'Informações do jogo' },
+  { id: 6, titulo: 'Rever escalação' },
+  { id: 7, titulo: 'Publicar' },
+]
+
+function Progresso({ passo, conversao }) {
+  const lista = conversao ? PASSOS_CONVERSAO : PASSOS
+  const indice = Math.max(0, lista.findIndex((p) => p.id === passo))
+  const atual = lista[indice]
+  const numero = indice + 1
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -80,21 +93,21 @@ function Progresso({ passo }) {
         }}
       >
         <span style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15 }}>
-          Passo {passo} de {PASSOS.length} — {atual?.titulo}
+          Passo {numero} de {lista.length} — {atual?.titulo}
         </span>
       </div>
       <div
         style={{ height: 8, background: '#0C1915', borderRadius: 999, overflow: 'hidden' }}
         role="progressbar"
-        aria-valuenow={passo}
+        aria-valuenow={numero}
         aria-valuemin={1}
-        aria-valuemax={PASSOS.length}
-        aria-label={`Passo ${passo} de ${PASSOS.length}: ${atual?.titulo}`}
+        aria-valuemax={lista.length}
+        aria-label={`Passo ${numero} de ${lista.length}: ${atual?.titulo}`}
       >
         <div
           style={{
             height: '100%',
-            width: `${(passo / PASSOS.length) * 100}%`,
+            width: `${(numero / lista.length) * 100}%`,
             background: colors.grass,
             borderRadius: 999,
             transition: 'width .3s',
@@ -181,10 +194,12 @@ function LinhaJogador({ j, marcado, onToggle, extra, desativado }) {
   )
 }
 
-// `preSelecao` (lista de ids) chega quando um rachão de 14 sobe a jogo
-// oficial: quem parece goleiro vai para a baliza, o resto para o campo, e o
-// admin ajusta nos passos 2 e 3 como sempre.
-export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDadosAlterados }) {
+// `conversao` (duas listas de ids) chega quando um rachão sobe a jogo
+// oficial. Nesse caso as equipas já estão decididas — e o rachão foi
+// provavelmente usado por não haver dois goleiros fixos nesse dia — por isso
+// o assistente salta a escolha de goleiros e de jogadores: marca-se a data e
+// vai-se direto rever a escalação, com as posições já distribuídas.
+export default function MatchWizard({ pw, jogadores, matches, conversao, onDadosAlterados }) {
   const [passo, setPasso] = useState(1)
   const [jogo, setJogo] = useState(null) // rascunho guardado no servidor
   const [proximos, setProximos] = useState([])
@@ -205,29 +220,6 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
   const [campo, setCampo] = useState([])
   const [tornarGkPermanente, setTornarGkPermanente] = useState({})
 
-  // Pré-seleção vinda de um rachão: os goleiros óbvios (tipo ou posição GK)
-  // vão para a baliza e todos os outros para o campo — SEM cortar a lista.
-  // Cortar em silêncio deixava 1 ou 2 jogadores do rachão sem marca nenhuma
-  // quando não havia 2 goleiros declarados (o caso normal); assim o excesso
-  // fica à vista no aviso "são N a mais" do passo 3.
-  //
-  // Aplicada durante o render (o componente fica montado — não há
-  // inicializador que a apanhe) e uma só vez por lista: `preSelecao` é um
-  // array novo a cada "transformar em oficial", e a comparação por
-  // referência é o que distingue uma pré-seleção nova de um re-render.
-  const [preAplicada, setPreAplicada] = useState(null)
-  if (Array.isArray(preSelecao) && preSelecao.length && preSelecao !== preAplicada) {
-    setPreAplicada(preSelecao)
-    const ehGk = (id) => {
-      const j = jogadores.find((x) => x.id === id)
-      return j?.playerType === PLAYER_TYPE.GOALKEEPER || j?.primaryPosition === 'GK'
-    }
-    const naBaliza = preSelecao.filter(ehGk).slice(0, N_GOLEIROS)
-    const daBaliza = new Set(naBaliza)
-    setGoleiros(naBaliza)
-    setCampo(preSelecao.filter((id) => !daBaliza.has(id)))
-  }
-
   // passos 5/6
   const [resultado, setResultado] = useState(null)
   const [selecao, setSelecao] = useState(null) // troca manual: primeiro clique
@@ -240,6 +232,27 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
   const [publicado, setPublicado] = useState(false)
   const [acabouDePublicar, setAcabouDePublicar] = useState(false)
   const publicandoRef = useRef(false)
+
+  // ---------- conversão de um rachão ----------
+  // Chegam as duas EQUIPAS já formadas. O assistente não volta a pedir
+  // goleiros nem jogadores: as equipas ficam como estão e só se distribuem
+  // as posições. `equipasFixas` guarda-as; enquanto existirem, os passos
+  // 2 a 5 não têm nada para fazer e ficam de fora do caminho.
+  //
+  // Guardadas durante o render (o componente fica montado, não há
+  // inicializador que as apanhe) e uma só vez por conversão: é um array
+  // novo a cada "transformar em oficial", e a comparação por referência
+  // distingue uma conversão nova de um simples re-render.
+  const [equipasFixas, setEquipasFixas] = useState(null)
+  const [conversaoAplicada, setConversaoAplicada] = useState(null)
+  if (Array.isArray(conversao) && conversao.length === 2 && conversao !== conversaoAplicada) {
+    setConversaoAplicada(conversao)
+    setEquipasFixas(conversao)
+    setResultado(null)
+    setAjustado(false)
+    setTentativa(0)
+  }
+  const ehConversao = Array.isArray(equipasFixas)
 
   // Jogo já publicado que não fomos nós a publicar agora: a base recusa gravar
   // escalação fora de DRAFT, por isso não vale a pena deixar sortear.
@@ -269,6 +282,17 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
       lineup,
     }
   }, [resultado, jogo])
+  // Quem foi à baliza sem ser goleiro: numa conversão saiu à sorte, e o
+  // admin tem de o saber para poder trocar antes de publicar. Fica de fora
+  // do `outOfPosition` do motor de propósito (ali só entra quem foi
+  // empurrado para um lugar de CAMPO), por isso conta-se aqui.
+  const improvisados = useMemo(() => {
+    if (!ehConversao || !resultado) return []
+    return [resultado.teamA?.goalkeeper, resultado.teamB?.goalkeeper]
+      .filter((g) => g && g.playerType !== PLAYER_TYPE.GOALKEEPER && g.primaryPosition !== 'GK')
+      .map((g) => g.name)
+  }, [ehConversao, resultado])
+
   const gerarResenha = useCallback(
     (tentativa) =>
       jogoParaResenha
@@ -311,9 +335,23 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
       })
       setJogo({ id, kickoff_at: paraISO(quando), location: local, map_url: mapa, status: 'DRAFT' })
       await carregarProximos()
+      // Numa conversão não há goleiros nem plantel a escolher: distribuem-se
+      // as posições com o id do jogo já na semente e vai-se direto rever.
+      if (ehConversao) {
+        const r = escalarEquipasFixas({
+          equipas: equipasFixas.map((ids) => ids.map((x) => porId.get(x))),
+          seed: String(id),
+        })
+        setTentativa(1)
+        setResultado(r)
+        setSelecao(null)
+        setAjustado(false)
+        setPasso(6)
+        return
+      }
       setPasso(2)
     } catch (e) {
-      setErro(e.message)
+      setErro(e.detalhe || e.message)
     } finally {
       setBusy(false)
     }
@@ -473,10 +511,15 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
 
   // ---------- passo 5: sortear ----------
   const sortear = () => {
-    if (busy || !podeSortear || bloqueado) return
+    if (busy || bloqueado) return
+    if (!ehConversao && !podeSortear) return
     if (
       ajustado &&
-      !window.confirm('Sortear de novo apaga as trocas que fizeste à mão. Continuar?')
+      !window.confirm(
+        ehConversao
+          ? 'Distribuir as posições de novo apaga as trocas que fizeste à mão. Continuar?'
+          : 'Sortear de novo apaga as trocas que fizeste à mão. Continuar?'
+      )
     )
       return
     setBusy(true)
@@ -489,11 +532,19 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
       // semente — muda o sorteio sem trocar a reprodutibilidade por um
       // relógio, que dava uma semente diferente até no primeiro sorteio.
       const base = jogo?.id || 'rascunho'
-      const r = sortearEquipas({
-        goalkeepers: goleiros.map((id) => porId.get(id)),
-        fieldPlayers: campo.map((id) => porId.get(id)),
-        seed: tentativa === 0 ? String(base) : `${base}#${tentativa}`,
-      })
+      const seed = tentativa === 0 ? String(base) : `${base}#${tentativa}`
+      // Numa conversão as equipas vêm fechadas do rachão: só se distribuem
+      // as posições dentro de cada uma. Nada de re-sortear quem joga com quem.
+      const r = ehConversao
+        ? escalarEquipasFixas({
+            equipas: equipasFixas.map((ids) => ids.map((id) => porId.get(id))),
+            seed,
+          })
+        : sortearEquipas({
+            goalkeepers: goleiros.map((id) => porId.get(id)),
+            fieldPlayers: campo.map((id) => porId.get(id)),
+            seed,
+          })
       setTentativa(tentativa + 1)
       setResultado(r)
       setSelecao(null)
@@ -501,9 +552,9 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
       setPasso(6)
     } catch (e) {
       setErro(
-        e.message === 'GOLEIROS' || e.message === 'CAMPO'
-          ? `${e.message === 'GOLEIROS' ? 'Goleiros' : 'Jogadores de campo'} em número errado. ${e.detalhe || ''}`
-          : e.message
+        e.message === 'GOLEIROS' || e.message === 'CAMPO' || e.message === 'EQUIPAS'
+          ? `${e.detalhe || 'Número de jogadores errado.'}`
+          : e.detalhe || e.message
       )
     } finally {
       setBusy(false)
@@ -641,7 +692,7 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
 
   return (
     <div>
-      <Progresso passo={passo} />
+      <Progresso passo={passo} conversao={ehConversao} />
 
       {faltaMigracao ? (
         <div style={{ ...styles.panel, marginBottom: 12 }}>
@@ -670,6 +721,13 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
       {/* ---------- 1. informações ---------- */}
       {passo === 1 && (
         <div className="pb-card">
+          {ehConversao && (
+            <Aviso tom="ok">
+              As duas equipas do rachão ({equipasFixas[0].length} + {equipasFixas[1].length}{' '}
+              jogadores) vêm tal como estão. Só falta a data — os goleiros e as posições são
+              tratados a seguir, sem voltar a escolher ninguém.
+            </Aviso>
+          )}
           <label style={styles.label} htmlFor="quando">
             Data e hora do jogo *
           </label>
@@ -722,7 +780,13 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
                 : { ...styles.button, marginTop: 16 }
             }
           >
-            {busy ? 'A guardar…' : jogo ? 'Guardar alterações e continuar' : 'Criar rascunho e continuar'}
+            {busy
+              ? 'A guardar…'
+              : ehConversao
+                ? '⚽ Escalar as equipas do rachão'
+                : jogo
+                  ? 'Guardar alterações e continuar'
+                  : 'Criar rascunho e continuar'}
           </button>
 
           {proximos.length > 0 && (
@@ -982,6 +1046,25 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
       {/* ---------- 6. rever ---------- */}
       {passo === 6 && resultado && (
         <div className="pb-stack">
+          {ehConversao && (
+            <Aviso tom="ok">
+              Equipas vindas do <strong>sorteio rápido</strong> — ficaram como estavam. Só as
+              posições foram distribuídas: quem tem posição definida ficou nela sempre que deu, e
+              quem sobrou ocupou o resto.
+              {improvisados.length > 0 && (
+                <>
+                  {' '}
+                  <strong>
+                    {improvisados.join(' e ')} {improvisados.length === 1 ? 'vai' : 'vão'} à baliza
+                  </strong>{' '}
+                  sem ser goleiro{improvisados.length === 1 ? '' : 's'} — saiu à sorte, porque
+                  ninguém nesse time está registado como tal. Troca à mão se houver melhor
+                  candidato.
+                </>
+              )}{' '}
+              Ajusta o que quiseres aqui antes de publicar.
+            </Aviso>
+          )}
           <div className="pb-card" style={{ padding: 12 }}>
             <FootballPitch
               teamA={{ ...resultado.teamA, nome: '⚫ Pretos', cor: '#8A96A0' }}
@@ -1138,7 +1221,7 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
               disabled={busy || bloqueado}
               style={{ ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' }}
             >
-              🔄 Sortear de novo
+              {ehConversao ? '🔄 Distribuir posições de novo' : '🔄 Sortear de novo'}
             </button>
             <button
               type="button"
@@ -1148,14 +1231,14 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
               Continuar para publicar
             </button>
           </div>
-          {botoes(5, null)}
+          {botoes(ehConversao ? 1 : 5, null)}
         </div>
       )}
 
       {passo === 6 && !resultado && (
         <div className="pb-card">
           <p style={styles.mutedText}>Ainda não há sorteio. Volta ao passo 5.</p>
-          {botoes(5, null)}
+          {botoes(ehConversao ? 1 : 5, null)}
         </div>
       )}
 
@@ -1165,7 +1248,7 @@ export default function MatchWizard({ pw, jogadores, matches, preSelecao, onDado
           {!resultado ? (
             <>
               <p style={styles.mutedText}>Falta sortear as equipas.</p>
-              {botoes(5, null)}
+              {botoes(ehConversao ? 1 : 5, null)}
             </>
           ) : acabouDePublicar ? (
             <>

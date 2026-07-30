@@ -91,10 +91,10 @@ export default function AdminScreen({ onExit }) {
   const [authed, setAuthed] = useState(false)
   const [tab, setTab] = useState('pedidos') // ver a lista de tabBtn() no render
 
-  // aba "Novo sorteio": qual dos dois modos está à vista, e a pré-seleção
-  // de jogadores quando um rachão de 14 sobe a jogo oficial
+  // aba "Novo sorteio": qual dos dois modos está à vista, e as EQUIPAS do
+  // rachão quando ele sobe a jogo oficial (dois arrays de ids)
   const [modoSorteio, setModoSorteio] = useState('completo')
-  const [preSelecao, setPreSelecao] = useState(null)
+  const [conversao, setConversao] = useState(null)
 
   const [pending, setPending] = useState([])
   const [players, setPlayers] = useState([])
@@ -595,10 +595,10 @@ export default function AdminScreen({ onExit }) {
       onClick={() => {
         setTab(id)
         setError('')
-        // a pré-seleção de um rachão vale para o jogo que se está a marcar
-        // agora; sair da aba abandona-a, senão voltava a semear os passos
-        // 2 e 3 com o plantel da semana passada
-        setPreSelecao(null)
+        // as equipas de um rachão valem para o jogo que se está a marcar
+        // agora; sair da aba abandona-as, senão voltavam a semear o
+        // assistente com o plantel da semana passada
+        setConversao(null)
       }}
       style={{
         flex: '1 0 auto',
@@ -788,7 +788,7 @@ export default function AdminScreen({ onExit }) {
               pw={pw}
               jogadores={jogadores}
               matches={matches}
-              preSelecao={preSelecao}
+              conversao={conversao}
               onDadosAlterados={refresh}
             />
           </div>
@@ -797,10 +797,11 @@ export default function AdminScreen({ onExit }) {
               pw={pw}
               jogadores={jogadores}
               onDadosAlterados={refresh}
-              onOficializar={(ids) => {
-                // o rachão de 14 vira jogo oficial: os mesmos jogadores já
-                // entram marcados nos passos 2 e 3 do assistente
-                setPreSelecao(ids)
+              onOficializar={(equipas) => {
+                // o rachão vira jogo oficial com as equipas que já tem: o
+                // assistente salta a escolha de goleiros e de jogadores e
+                // trata só das posições
+                setConversao(equipas)
                 setModoSorteio('completo')
               }}
             />

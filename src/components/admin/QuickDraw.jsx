@@ -162,8 +162,13 @@ export default function QuickDraw({ pw, jogadores, onOficializar, onDadosAlterad
     avisar('Copiado!')
   }
 
-  // subir a jogo oficial: só faz sentido com o plantel exato do 7×7
-  const podeOficializar = resultado && resultado.equipas.length === 2 && escolhidos.size === 14
+  // Subir a jogo oficial: as equipas do rachão passam tal e qual para a
+  // formação 2-3-1, por isso o que tem de bater certo é o tamanho DELAS
+  // (7 + 7), não a lista de marcados — que pode até já ter mudado.
+  const podeOficializar =
+    resultado &&
+    resultado.equipas.length === 2 &&
+    resultado.equipas.every((e) => e.jogadores.length === 7)
 
   return (
     <div className="pb-stack">
@@ -391,7 +396,14 @@ export default function QuickDraw({ pw, jogadores, onOficializar, onDadosAlterad
               {podeOficializar && (
                 <button
                   type="button"
-                  onClick={() => onOficializar?.([...escolhidos])}
+                  onClick={() =>
+                    // vão as EQUIPAS, não uma lista solta: o assistente não
+                    // volta a pedir goleiros nem jogadores, só distribui as
+                    // posições dentro de cada uma
+                    onOficializar?.(
+                      resultado.equipas.map((e) => e.jogadores.map((j) => j.id))
+                    )
+                  }
                   className="pb-tab"
                   style={{ fontSize: 13, color: colors.grass }}
                 >
@@ -399,9 +411,10 @@ export default function QuickDraw({ pw, jogadores, onOficializar, onDadosAlterad
                 </button>
               )}
             </div>
-            {resultado.equipas.length === 2 && escolhidos.size !== 14 && (
+            {resultado.equipas.length === 2 && !podeOficializar && (
               <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
-                Com exatamente 14 jogadores podes transformar o rachão num jogo oficial 7×7.
+                Com 14 jogadores (7 por equipa) podes transformar o rachão num jogo oficial — as
+                equipas passam tal como estão e o assistente só distribui as posições.
               </p>
             )}
             {resultado.equipas.length > 2 && (
