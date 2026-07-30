@@ -568,6 +568,16 @@ body {
   justify-content: center;
   padding: 12px;
   background: rgba(3, 9, 7, 0.72);
+  /* O `overflow: hidden` do useModal chega no Android e no desktop, mas no iOS
+     o arrasto ainda passava para a pagina de tras. `touch-action: none` no
+     fundo corta-o na raiz; a folha repoe o arrasto vertical, senao deixava de
+     poder deslizar por dentro. */
+  touch-action: none;
+}
+
+.pb-modal,
+.pb-sheet {
+  touch-action: pan-y;
 }
 
 /* O `.pb-sheet` herda a mesma base: e usado sozinho (sem `.pb-modal`) e sem

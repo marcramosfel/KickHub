@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { APP_NAME } from '../config'
 import Avatar from './Avatar'
 import { useIsDesktop } from '../hooks/useMediaQuery'
+import { useModal } from '../hooks/useModal'
 import { colors, fonts } from '../theme'
 
 // Navegação da app.
@@ -152,14 +153,9 @@ function MoreMenu({ view, session, foto, onNavigate, onLogout, isAdmin, onAdmin 
   const [aberto, setAberto] = useState(false)
   const itens = [...NAV_SECUNDARIAS, ...(isAdmin ? [NAV_ADMIN] : [])]
 
-  // É um diálogo modal: tem de fechar com Escape (teclado no tablet, teclado
-  // externo). Sem isto só se saía a tocar fora ou no botão "Fechar".
-  useEffect(() => {
-    if (!aberto) return undefined
-    const esc = (e) => e.key === 'Escape' && setAberto(false)
-    document.addEventListener('keydown', esc)
-    return () => document.removeEventListener('keydown', esc)
-  }, [aberto])
+  // Escape, tranca do scroll do fundo, foco para dentro e foco devolvido ao
+  // botão — tudo em `useModal`, para o próximo modal da app não repetir isto.
+  const { ref: caixa, aoClicarNoFundo } = useModal(aberto, () => setAberto(false))
 
   return (
     <>
@@ -179,12 +175,18 @@ function MoreMenu({ view, session, foto, onNavigate, onLogout, isAdmin, onAdmin 
       {aberto && (
         <div
           className="pb-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Mais páginas"
-          onClick={() => setAberto(false)}
+          aria-hidden={false}
+          onClick={aoClicarNoFundo}
         >
-          <div className="pb-sheet" onClick={(e) => e.stopPropagation()}>
+          {/* o `role="dialog"` vive na folha, não no fundo: um leitor de ecrã
+              anunciava o diálogo e depois não encontrava lá nada dentro */}
+          <div
+            ref={caixa}
+            className="pb-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mais páginas"
+          >
             {session && (
               <div
                 style={{

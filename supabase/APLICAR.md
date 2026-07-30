@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0018)
+# Como aplicar as migrações novas (0015 → 0019)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -11,6 +11,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 2. `0016_jogos_agendados.sql`
 3. `0017_goleiros.sql`
 4. `0018_desistencias.sql`
+5. `0019_ciclo_de_vida.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -109,6 +110,38 @@ leva `revoke` do PUBLIC — não pede senha e não pode ser chamada de fora.
 > **Nota de desenho:** substituir **não** reequilibra as equipas, de propósito. A troca serve para
 > os times ficarem completos; o desequilíbrio que dela vier fica registado e aparece a todos, com
 > a indicação de qual a equipa que ficou mais forte e porquê.
+
+## 0019 — Ciclo de vida do jogo (resultado em rascunho, auditoria, fotos, cancelamento)
+
+**Colunas novas em `matches`:** `result_status` (`NONE`/`DRAFT`/`PUBLISHED`), `result_published_at`,
+`cancelled_at`, `cancel_reason`, `craque_override`, `bagre_override`.
+
+**Backfill inofensivo:** todas as rodadas `COMPLETED` existentes ficam com `result_status =
+'PUBLISHED'` — continuam a contar exatamente como contavam. Nada mais é alterado.
+
+**View nova:** `matches_validas` = a definição ÚNICA de "jogo que conta nas estatísticas"
+(`COMPLETED` + resultado publicado). **Todas** as funções de agregação (`get_player_stats`,
+`get_player_stats_range`, `get_player_profile`, `get_player_chemistry`, `get_goalkeeper_stats`,
+`get_matches`, `get_latest_match`) foram redefinidas em cima dela — um resultado em rascunho ou um
+jogo cancelado nunca contamina rankings.
+
+**Tabelas novas:** `match_media` (N fotos por jogo, uma principal — índice único parcial) e
+`match_activity` (auditoria por jogo: quem fez o quê, quando).
+
+**Funções novas:** `admin_save_result` (grava/edita o resultado do PRÓPRIO jogo — as linhas são
+regravadas, nunca duplicadas; editar um publicado recalcula sem despublicar),
+`admin_publish_result` (fecha o jogo e fá-lo contar), `admin_cancel_match` (sai das estatísticas,
+fica no histórico com motivo), `admin_add_media` / `admin_set_primary_media` / `admin_delete_media`,
+`admin_match_activity`, e a interna `registar_atividade` (com revoke).
+
+**Funções alteradas:** `admin_publish_match` e `admin_substitute_player` passam a registar na
+auditoria; `admin_save_match` (caminho antigo da aba "Rodadas antigas") passa a carimbar
+`result_status = 'PUBLISHED'` — sem isso, uma rodada gravada por lá ficava invisível;
+`match_public_json` devolve o ciclo completo (resultado, cancelamento, stats, fotos);
+`admin_matches_upcoming` inclui jogos à espera de resultado e cancelados recentes.
+
+**Craque/bagre:** a votação dos jogadores continua a decidir. Os `*_override` são a correção do
+admin (empates, rodadas sem votos) — contam como vencedores nas agregações e ficam na auditoria.
 
 ---
 

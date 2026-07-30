@@ -31,9 +31,12 @@ import { juntarEstatisticas } from '../lib/ranking'
 import { ADMIN_NAME, APP_NAME } from '../config'
 import Avatar from './Avatar'
 import DrawView from './DrawView'
+import GamesPanel from './admin/GamesPanel'
 import MatchWizard from './admin/MatchWizard'
 import PositionsAdmin from './admin/PositionsAdmin'
 import SubstitutionsPanel from './admin/SubstitutionsPanel'
+import { adminMatchesUpcoming } from '../api'
+import { jogosComResultadoPendente } from '../lib/lifecycle'
 import { PhotoFrame } from './RoundParts'
 import { colors, fonts, styles, disabled } from '../theme'
 
@@ -127,6 +130,8 @@ export default function AdminScreen({ onExit }) {
   // quem falta votar
   const [faltas, setFaltas] = useState(null)
   const [faltasErr, setFaltasErr] = useState('')
+  // jogos do ciclo novo (0016+): alimenta o badge da aba "Jogos"
+  const [jogosAbertos, setJogosAbertos] = useState([])
   const [copiedFalta, setCopiedFalta] = useState('')
 
   // utilizadores / IDs
@@ -185,6 +190,11 @@ export default function AdminScreen({ onExit }) {
         setFaltasErr('')
       })
       .catch((err) => setFaltasErr(err.message))
+    // jogos abertos, para o badge de resultados pendentes na aba "Jogos"
+    // (não-fatal: sem a 0016 a aba mostra o seu próprio aviso)
+    adminMatchesUpcoming(senha)
+      .then((l) => setJogosAbertos(l || []))
+      .catch(() => setJogosAbertos([]))
   }
 
   // presenças do jogo a registar: por defeito, quem estava no último sorteio publicado
@@ -630,6 +640,8 @@ export default function AdminScreen({ onExit }) {
   const faltasTotal = awardPend.length + ratingsPend.length
   // jogadores ainda sem posição: o sorteio posicional não os coloca bem
   const semPosicao = jogadores.filter((j) => !j.primaryPosition).length
+  // jogos cuja hora já passou e continuam sem resultado publicado
+  const resultadosPendentes = jogosComResultadoPendente(jogosAbertos).length
 
   // ---------- tabs ----------
   const tabBtn = (id, label, badge) => (
@@ -703,13 +715,14 @@ export default function AdminScreen({ onExit }) {
           WebkitOverflowScrolling: 'touch',
         }}
       >
+        {tabBtn('jogos-ciclo', 'Jogos', resultadosPendentes)}
+        {tabBtn('proximo', 'Marcar jogo', 0)}
         {tabBtn('pedidos', 'Pedidos', pending.length)}
-        {tabBtn('proximo', 'Próximo jogo', 0)}
         {tabBtn('desistencias', 'Desistências', 0)}
         {tabBtn('posicoes', 'Posições', semPosicao)}
         {tabBtn('plantel', 'Plantel', 0)}
         {tabBtn('sorteio', 'Sorteio simples', 0)}
-        {tabBtn('jogos', 'Jogos', 0)}
+        {tabBtn('jogos', 'Rodadas antigas', 0)}
         {tabBtn('faltas', 'Faltas', faltasTotal)}
         {tabBtn('utilizadores', 'IDs', 0)}
       </div>
@@ -762,7 +775,17 @@ export default function AdminScreen({ onExit }) {
         </div>
       )}
 
-      {/* ---------- PRÓXIMO JOGO (assistente) ---------- */}
+      {/* ---------- JOGOS (ciclo de vida completo, um jogo = uma página) ---------- */}
+      {tab === 'jogos-ciclo' && (
+        <GamesPanel
+          pw={pw}
+          jogadores={jogadores}
+          onAbrirAssistente={() => setTab('proximo')}
+          onAbrirDesistencias={() => setTab('desistencias')}
+        />
+      )}
+
+      {/* ---------- MARCAR JOGO (assistente de criação/sorteio) ---------- */}
       {tab === 'proximo' && (
         <MatchWizard pw={pw} jogadores={jogadores} onDadosAlterados={refresh} />
       )}
@@ -967,6 +990,23 @@ export default function AdminScreen({ onExit }) {
       {/* ---------- JOGOS ---------- */}
       {tab === 'jogos' && (
         <div>
+          {/* O resultado de um jogo AGENDADO preenche-se na página desse jogo
+              (aba "Jogos") — um jogo, um sítio. Esta aba fica para rodadas que
+              nunca passaram pelo agendamento e para editar rodadas antigas. */}
+          <div style={{ ...styles.panel, marginBottom: 12, borderColor: colors.teamB }}>
+            <p style={{ fontSize: 13 }}>
+              ℹ️ Esta aba serve para <strong>rodadas antigas</strong> ou jogadas sem agendamento.
+              O resultado de um jogo marcado preenche-se na aba{' '}
+              <button
+                type="button"
+                onClick={() => setTab('jogos-ciclo')}
+                style={{ background: 'none', border: 'none', color: colors.grass, textDecoration: 'underline', font: 'inherit', padding: 0 }}
+              >
+                Jogos
+              </button>
+              , na página do próprio jogo.
+            </p>
+          </div>
           {matchesErr && (
             <div style={{ ...styles.panel, marginBottom: 12 }}>
               <p style={{ ...styles.mutedText, fontSize: 13 }}>

@@ -148,6 +148,9 @@ export function contarResultados(rodadas) {
     // get_matches() já só devolve COMPLETED, mas quem lhe passar uma lista de
     // admin traz rascunhos a 0-0 — e isso dava um empate a toda a gente.
     if (rodada?.status && rodada.status !== 'COMPLETED') continue
+    // Desde a 0019 há mais um estado invisível: resultado em rascunho. Só o
+    // publicado conta — a mesma régua da view matches_validas do servidor.
+    if (rodada?.result_status && rodada.result_status !== 'PUBLISHED') continue
     if (rodada?.score_a == null || rodada?.score_b == null) continue
     const a = num(rodada.score_a)
     const b = num(rodada.score_b)

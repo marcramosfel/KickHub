@@ -221,7 +221,10 @@ export default function MatchWizard({ pw, jogadores, onDadosAlterados }) {
     () =>
       adminMatchesUpcoming(pw)
         .then((l) => {
-          setProximos(l || [])
+          // Desde a 0019 a agenda também traz jogos à espera de resultado e
+          // cancelados (para a aba "Jogos"). Aqui só interessam os que ainda
+          // se marcam ou sorteiam.
+          setProximos((l || []).filter((m) => ['DRAFT', 'PUBLISHED', 'IN_PROGRESS'].includes(m.status)))
           setFaltaMigracao(false)
         })
         .catch((e) => {

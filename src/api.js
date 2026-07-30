@@ -39,6 +39,10 @@ const ERROS = {
   JAESCALADO: 'Esse jogador já está escalado neste jogo.',
   MESMOJOGADOR: 'Quem sai e quem entra não podem ser o mesmo jogador.',
   SUBTROCADA: 'Já houve outra troca neste lugar — desfaz primeiro a mais recente.',
+  // ciclo de vida do resultado (migração 0019)
+  SEMRESULTADO: 'Ainda não há resultado preenchido para publicar.',
+  RESPUBLICADO: 'O resultado deste jogo já está publicado.',
+  JOGOCANCELADO: 'Este jogo foi cancelado — não recebe resultado.',
 }
 
 export class ApiError extends Error {
@@ -264,6 +268,53 @@ export const adminSetMatchStatus = (pw, matchId, status) =>
 // Só apaga jogos em rascunho/cancelados — rodadas já jogadas ficam protegidas
 export const adminDeleteSchedule = (pw, matchId) =>
   rpc('admin_delete_schedule', { p_pw: pw, p_match: matchId })
+
+// ---------- Ciclo de vida do resultado (migração 0019) ----------
+// Grava o resultado do PRÓPRIO jogo (rascunho invisível, ou edição de um já
+// publicado — as linhas são regravadas, nunca duplicadas).
+// stats: [{player_id, team, goals, assists}]
+// gkStats: [{goalkeeper_id, team, saves, goals_conceded}]
+export const adminSaveResult = (pw, matchId, r) =>
+  rpc('admin_save_result', {
+    p_pw: pw,
+    p_match: matchId,
+    p_score_a: r.scoreA,
+    p_score_b: r.scoreB,
+    p_stats: r.stats,
+    p_gk_stats: r.gkStats || null,
+    p_notes: r.notes || null,
+    p_craque: r.craqueId || null,
+    p_bagre: r.bagreId || null,
+  })
+
+// Publicar é o que fecha o jogo e o faz contar nas estatísticas.
+export const adminPublishResult = (pw, matchId) =>
+  rpc('admin_publish_result', { p_pw: pw, p_match: matchId })
+
+// Cancela (sai das estatísticas, fica no histórico). A dupla confirmação é
+// responsabilidade da UI.
+export const adminCancelMatch = (pw, matchId, reason) =>
+  rpc('admin_cancel_match', { p_pw: pw, p_match: matchId, p_reason: reason || null })
+
+// Fotos do jogo (N por jogo, uma principal)
+export const adminAddMedia = (pw, matchId, kind, dataUrl, isPrimary) =>
+  rpc('admin_add_media', {
+    p_pw: pw,
+    p_match: matchId,
+    p_kind: kind || 'PHOTO',
+    p_data: dataUrl,
+    p_primary: !!isPrimary,
+  })
+
+export const adminSetPrimaryMedia = (pw, mediaId) =>
+  rpc('admin_set_primary_media', { p_pw: pw, p_media: mediaId })
+
+export const adminDeleteMedia = (pw, mediaId) =>
+  rpc('admin_delete_media', { p_pw: pw, p_media: mediaId })
+
+// Histórico de atividades de um jogo (auditoria)
+export const adminMatchActivity = (pw, matchId) =>
+  rpc('admin_match_activity', { p_pw: pw, p_match: matchId })
 
 // ---------- Desistências / substituições (migração 0018) ----------
 // Troca quem desistiu por outro jogador, no mesmo lugar e na mesma equipa.
