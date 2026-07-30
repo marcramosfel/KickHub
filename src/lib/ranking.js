@@ -272,6 +272,9 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
       secondaryPosition: row.secondary_position ?? row.secondaryPosition ?? null,
       acceptsOther: (row.accepts_other_positions ?? row.acceptsOther) !== false,
       positionStatus: row.position_status ?? row.positionStatus ?? POSITION_STATUS.NOT_SELECTED,
+      // escolhas do jogador para o card (migração 0022)
+      nickname: row.nickname ?? row.apelido ?? null,
+      primaryCard: row.primary_card ?? row.primaryCard ?? null,
       avg,
       votes: num(row.votes),
       matches,

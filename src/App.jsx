@@ -14,6 +14,7 @@ import {
 } from './api'
 import { contarResultados, juntarEstatisticas } from './lib/ranking'
 import { calcularLiderancas } from './lib/achievements'
+import { calcularSequencias } from './lib/streaks'
 import { POSITION_STATUS } from './lib/positions'
 import AdminScreen from './components/AdminScreen'
 import AppShell from './components/AppShell'
@@ -21,6 +22,7 @@ import DrawsScreen from './components/DrawsScreen'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
 import NextMatch from './components/NextMatch'
+import PlayerCardModal from './components/PlayerCardModal'
 import PlayerProfile from './components/PlayerProfile'
 import PlayersScreen from './components/PlayersScreen'
 import PositionSetupScreen from './components/PositionSetupScreen'
@@ -37,6 +39,8 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [view, setView] = useState('auth')
   const [profileId, setProfileId] = useState(null)
+  // jogador cujo card está aberto por cima do ecrã (null = nenhum)
+  const [cardId, setCardId] = useState(null)
   const [voltarDoPerfil, setVoltarDoPerfil] = useState('home')
   const [navToken, setNavToken] = useState(0)
 
@@ -132,6 +136,12 @@ export default function App() {
   }, [dados])
 
   const liderancas = useMemo(() => calcularLiderancas({ jogadores }), [jogadores])
+  // sequências por jogador — alimentam os cards de "Invencível", "Homem-Gol"…
+  const sequencias = useMemo(() => calcularSequencias(dados?.matches), [dados?.matches])
+  const jogadorDoCard = useMemo(
+    () => (cardId ? jogadores.find((j) => j.id === cardId) || null : null),
+    [cardId, jogadores]
+  )
 
   const faltamAvaliar = useMemo(() => {
     if (!dados || !session) return 0
@@ -160,8 +170,17 @@ export default function App() {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // Tocar num jogador abre o CARD dele (o pedido da fase D). O perfil
+  // completo continua a existir — é um botão dentro do card, e é para lá que
+  // vai quem quer o histórico rodada a rodada.
+  const abrirCard = (id) => {
+    if (!id) return
+    setCardId(id)
+  }
+
   const abrirPerfil = (id) => {
     if (!id) return
+    setCardId(null)
     setProfileId(id)
     setVoltarDoPerfil(VIEWS_COM_SHELL.includes(view) && view !== 'profile' ? view : 'home')
     setView('profile')
@@ -297,7 +316,7 @@ export default function App() {
           loading={carregando}
           error={erro}
           onRate={() => setView('rate')}
-          onProfile={abrirPerfil}
+          onProfile={abrirCard}
           onNavigate={navegar}
           onPinChanged={(novo) => setSession((s) => ({ ...s, pin: novo }))}
           onRecarregar={carregar}
@@ -309,21 +328,21 @@ export default function App() {
           <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 14 }}>
             Próximo jogo <span style={{ color: colors.grass }}>📅</span>
           </h1>
-          <NextMatch jogo={dados?.proximoJogo} onPlayerClick={(j) => abrirPerfil(j.id)} />
+          <NextMatch jogo={dados?.proximoJogo} onPlayerClick={(j) => abrirCard(j.id)} />
         </>
       )}
 
       {view === 'ranking' && (
-        <RankingScreen jogadores={jogadores} liderancas={liderancas} onProfile={abrirPerfil} />
+        <RankingScreen jogadores={jogadores} liderancas={liderancas} onProfile={abrirCard} />
       )}
 
-      {view === 'players' && <PlayersScreen jogadores={jogadores} onProfile={abrirPerfil} />}
+      {view === 'players' && <PlayersScreen jogadores={jogadores} onProfile={abrirCard} />}
 
       {view === 'draws' && (
         <DrawsScreen
           proximoJogo={dados?.proximoJogo}
           draw={dados?.draw}
-          onProfile={abrirPerfil}
+          onProfile={abrirCard}
         />
       )}
 
@@ -335,7 +354,7 @@ export default function App() {
           navToken={navToken}
           embutido
           onBack={() => navegar('home')}
-          onProfile={abrirPerfil}
+          onProfile={abrirCard}
         />
       )}
 
@@ -347,6 +366,21 @@ export default function App() {
           jogador={jogadores.find((j) => j.id === perfilId)}
           embutido
           onBack={() => navegar(voltarDoPerfil)}
+        />
+      )}
+
+      {/* O card vive por cima de qualquer página: abre-se de onde se tocou e
+          fecha-se no mesmo sítio, sem perder o ecrã que estava por baixo. */}
+      {jogadorDoCard && (
+        <PlayerCardModal
+          jogador={jogadorDoCard}
+          liderancas={liderancas}
+          sequencias={sequencias}
+          totalRodadas={dados?.matches?.length || 0}
+          session={session}
+          onFechar={() => setCardId(null)}
+          onVerPerfil={abrirPerfil}
+          onAtualizado={carregar}
         />
       )}
     </AppShell>

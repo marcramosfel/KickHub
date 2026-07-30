@@ -39,6 +39,7 @@ const ERROS = {
   JAESCALADO: 'Esse jogador já está escalado neste jogo.',
   MESMOJOGADOR: 'Quem sai e quem entra não podem ser o mesmo jogador.',
   SUBTROCADA: 'Já houve outra troca neste lugar — desfaz primeiro a mais recente.',
+  APELIDO: 'O apelido tem de ter no máximo 18 caracteres.',
   MESMAEQUIPA: 'Os dois jogadores estão na mesma equipa — a troca é entre equipas.',
   TROCAGK: 'Um goleiro só pode trocar com o outro goleiro.',
   JOGOMEXIDO: 'A escalação mudou entretanto (outra pessoa mexeu). Recarrega e tenta outra vez.',
@@ -106,6 +107,24 @@ export const changePin = (id, pin, novo) =>
   rpc('change_pin', { p_id: id, p_pin: pin, p_new: novo })
 
 export const getPublishedDraw = () => rpc('get_published_draw')
+
+// ---------- Cards (migração 0022) ----------
+// Só o próprio jogador escolhe o seu card e o seu apelido — daí o PIN.
+// `card` a null volta ao automático (o mais raro que ele tiver).
+export const setMyPrimaryCard = (id, pin, card) =>
+  rpc('set_my_primary_card', { p_id: id, p_pin: pin, p_card: card || null })
+
+export const setMyNickname = (id, pin, nickname) =>
+  rpc('set_my_nickname', { p_id: id, p_pin: pin, p_nickname: nickname || null })
+
+// Correção do admin: só LIMPA (card atribuído por engano, apelido impróprio).
+export const adminClearCardChoices = (pw, playerId, { card = false, nickname = false } = {}) =>
+  rpc('admin_clear_card_choices', {
+    p_pw: pw,
+    p_id: playerId,
+    p_card: card,
+    p_nickname: nickname,
+  })
 
 // ---------- Estatísticas / rodadas ----------
 export const getMatches = () => rpc('get_matches')

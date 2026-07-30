@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0021)
+# Como aplicar as migrações novas (0015 → 0022)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -14,6 +14,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 5. `0019_ciclo_de_vida.sql`
 6. `0020_feed.sql`
 7. `0021_trocas.sql`
+8. `0022_cards.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -205,6 +206,29 @@ quantas linhas mexeram. Sem isso, dois admins a confirmar em simultâneo gravava
 fantasma ou desfaziam a troca um do outro em silêncio, com o feed a mostrar as duas.
 
 **Códigos de erro novos:** `TROCAGK`, `MESMAEQUIPA`, `JOGOMEXIDO`.
+
+## 0022 — Cards dos jogadores
+
+**Colunas novas em `players`:** `primary_card` (qual o card que o jogador quer exibir) e
+`nickname` (o apelido que aparece no card). Ambas `null` por omissão — ninguém fica diferente até
+escolher.
+
+**Os cards em si NÃO têm tabela, e é decisão, não esquecimento.** Continua a valer o que ficou
+escrito na 0015: títulos derivados dos números do momento nunca se dessincronizam. Quem perde a
+artilharia perde o card na mesma hora, sem job nem migração. A base só guarda o que o cálculo não
+consegue adivinhar — a *escolha* do jogador. O catálogo e as regras vivem em `src/lib/cards.js`.
+
+**Funções novas:** `set_my_primary_card` e `set_my_nickname` — só o **próprio jogador**, com o
+PIN. O admin não escolhe cards por ninguém; `admin_clear_card_choices` apenas **limpa** (card
+atribuído por engano, apelido impróprio) e o jogador volta a escolher.
+
+**Funções alteradas:** `get_players` (drop + create, muda o `returns table`) e `login` passam a
+devolver `primary_card` e `nickname`. Corpos iguais aos da 0015 — em especial o `voted` do login
+continua a ser "já não tem ninguém por avaliar", não "já votou alguma vez".
+
+**Se o card escolhido deixar de estar desbloqueado** (perdeu a artilharia), o frontend mostra o
+mais raro que ele tenha e a escolha fica guardada: se voltar a conquistá-lo, volta sozinho. Por
+isso a base **não valida** se o código do card existe — ela não conhece o catálogo, e não deve.
 
 ---
 
