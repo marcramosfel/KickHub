@@ -78,6 +78,24 @@ export const styles = {
     fontSize: 15,
     fontWeight: 600,
   },
+  // Botão com aspeto de link ("Editar", "Remover", "cancelar edição").
+  //
+  // O texto tem 13px, mas o alvo de toque não pode ter 13px de altura: eram
+  // 16–22px medidos no telemóvel, e no plantel o "Remover" (que apaga a conta)
+  // ficava a dois pixéis do "Reavaliar". A padding dá-lhe os ~34px de altura e
+  // separa-o do vizinho sem mudar nada do que se vê.
+  link: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'none',
+    border: 'none',
+    padding: '8px 6px',
+    minHeight: 34,
+    color: colors.muted,
+    fontSize: 13,
+    textDecoration: 'underline',
+  },
   errorText: {
     color: colors.error,
     fontSize: 14,

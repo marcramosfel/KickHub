@@ -26,15 +26,6 @@ const ORDENS = [
 
 const CAMPOS = (u) => [u.name, u.user_id]
 
-const linkStyle = {
-  background: 'none',
-  border: 'none',
-  color: colors.muted,
-  fontSize: 13,
-  textDecoration: 'underline',
-  minHeight: 22,
-}
-
 export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, onErro, onBusy }) {
   const [copiedId, setCopiedId] = useState(null)
   const [copiedList, setCopiedList] = useState(false)
@@ -278,7 +269,7 @@ export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, o
                     onClick={() => copiarId(u)}
                     aria-label={`Copiar ID de ${u.name}`}
                     style={{
-                      ...linkStyle,
+                      ...styles.link,
                       color: copiedId === u.user_id ? colors.grass : colors.text,
                       flexShrink: 0,
                     }}
@@ -292,21 +283,21 @@ export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, o
                   <button
                     onClick={() => editarId(u)}
                     disabled={busy}
-                    style={{ ...linkStyle, color: colors.teamA }}
+                    style={{ ...styles.link, color: colors.teamA }}
                   >
                     ✎ Editar ID
                   </button>
                   <button
                     onClick={() => regenerarId(u)}
                     disabled={busy}
-                    style={linkStyle}
+                    style={styles.link}
                   >
                     ↻ Regenerar
                   </button>
                   <button
                     onClick={() => definirPin(u)}
                     disabled={busy}
-                    style={{ ...linkStyle, color: colors.grass }}
+                    style={{ ...styles.link, color: colors.grass }}
                   >
                     🔑 Definir novo PIN
                   </button>

@@ -234,6 +234,25 @@ body {
   gap: var(--pb-gap-sm);
 }
 
+/* Grelha que so se divide quando cada coluna tem mesmo espaco.
+   Serve as listas de "avatar + nome + contadores" dos formularios de
+   resultado: dividir por breakpoint apertava a coluna a ~340px e o nome mais
+   comprido do plantel ficava cortado; com `auto-fit` a lista fica numa coluna
+   ate haver largura para duas inteiras. O minimo define-se por uso, na
+   variavel `--pb-split-min` (linhas mais largas pedem mais).
+   O `min(...,100%)` evita transbordar num ecra de 320px, e o `row-gap: 0`
+   existe porque cada linha destas ja se separa com a sua borda. */
+.pb-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--pb-split-min, 400px), 100%), 1fr));
+  column-gap: var(--pb-gap);
+  row-gap: 0;
+}
+
+.pb-split > * {
+  min-width: 0;
+}
+
 /* Cards de uma mesma fila com a mesma altura, independentemente do texto. */
 .pb-row-align {
   align-items: stretch;

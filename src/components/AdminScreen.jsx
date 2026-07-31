@@ -29,14 +29,6 @@ import RodadasPanel from './admin/RodadasPanel'
 import SubstitutionsPanel from './admin/SubstitutionsPanel'
 import { colors, fonts, styles, disabled } from '../theme'
 
-const linkStyle = {
-  background: 'none',
-  border: 'none',
-  color: colors.muted,
-  fontSize: 13,
-  textDecoration: 'underline',
-}
-
 export default function AdminScreen({ onExit }) {
   const [pw, setPw] = useState('')
   const [authed, setAuthed] = useState(false)
@@ -198,7 +190,7 @@ export default function AdminScreen({ onExit }) {
           {error && <p style={styles.errorText}>{error}</p>}
         </form>
         <div style={{ textAlign: 'center', marginTop: 22 }}>
-          <button onClick={onExit} style={linkStyle}>
+          <button onClick={onExit} style={styles.link}>
             Voltar
           </button>
         </div>
@@ -252,7 +244,12 @@ export default function AdminScreen({ onExit }) {
           </h1>
           <p style={{ ...styles.mutedText, fontSize: 13, marginTop: 2 }}>{ADMIN_NAME}</p>
         </div>
-        <button onClick={onExit} style={{ ...linkStyle, minHeight: 44, flexShrink: 0 }}>
+        {/* "Sair" são quatro letras: sem a padding lateral o alvo tinha 24px de
+            largura, encostado ao canto do ecrã. */}
+        <button
+          onClick={onExit}
+          style={{ ...styles.link, minHeight: 44, padding: '10px 14px', flexShrink: 0 }}
+        >
           Sair
         </button>
       </div>

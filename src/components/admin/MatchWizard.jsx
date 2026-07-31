@@ -832,14 +832,7 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
                       <button
                         type="button"
                         onClick={() => retomar(m)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: colors.teamA,
-                          fontSize: 13,
-                          textDecoration: 'underline',
-                          flexShrink: 0,
-                        }}
+                        style={{ ...styles.link, color: colors.teamA, flexShrink: 0 }}
                       >
                         Retomar
                       </button>

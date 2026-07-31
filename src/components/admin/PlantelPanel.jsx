@@ -24,15 +24,6 @@ const ORDENS = [
 
 const CAMPOS = (p) => [p.name]
 
-const linkStyle = {
-  background: 'none',
-  border: 'none',
-  color: colors.muted,
-  fontSize: 13,
-  textDecoration: 'underline',
-  minHeight: 22,
-}
-
 export default function PlantelPanel({ pw, players = [], busy, onAcao, onRemover }) {
   const filtro = useFiltro({ lista: players, campos: CAMPOS, ordens: ORDENS })
 
@@ -101,14 +92,14 @@ export default function PlantelPanel({ pw, players = [], busy, onAcao, onRemover
                   onClick={() => reavaliarUm(p)}
                   disabled={busy}
                   title="Todo o grupo reavalia este jogador"
-                  style={{ ...linkStyle, color: colors.teamA }}
+                  style={{ ...styles.link, color: colors.teamA }}
                 >
                   Reavaliar
                 </button>
                 <button
                   onClick={() => onRemover(p)}
                   disabled={busy}
-                  style={{ ...linkStyle, color: colors.error }}
+                  style={{ ...styles.link, color: colors.error }}
                 >
                   Remover
                 </button>

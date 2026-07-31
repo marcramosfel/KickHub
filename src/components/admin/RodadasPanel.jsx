@@ -9,6 +9,7 @@ import {
 import { fileToDataURL } from '../../lib/image'
 import { awardWinners, formatDia, hojeLocal, matchWinner } from '../../lib/format'
 import Avatar from '../Avatar'
+import Stepper from './Stepper'
 import FiltroLista, { useFiltro } from './FiltroLista'
 import { PhotoFrame } from '../RoundParts'
 import { colors, fonts, styles, disabled } from '../../theme'
@@ -38,42 +39,6 @@ const ORDENS = [
 
 const CAMPOS = (m) => [m.played_at, m.notes, ...(m.players || []).map((x) => x.name)]
 
-const linkStyle = {
-  background: 'none',
-  border: 'none',
-  color: colors.muted,
-  fontSize: 13,
-  textDecoration: 'underline',
-}
-
-const stepBtn = {
-  width: 26,
-  height: 26,
-  borderRadius: 8,
-  border: `1px solid ${colors.line}`,
-  background: '#0C1915',
-  color: colors.text,
-  fontSize: 15,
-  fontWeight: 700,
-  lineHeight: 1,
-  padding: 0,
-}
-
-// Contador − n + para gols/assistências
-function Stepper({ icon, value, onChange }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-      <span style={{ fontSize: 12 }}>{icon}</span>
-      <button type="button" onClick={() => onChange(Math.max(0, value - 1))} style={stepBtn}>
-        −
-      </button>
-      <span style={{ width: 16, textAlign: 'center', fontWeight: 700, fontSize: 13 }}>{value}</span>
-      <button type="button" onClick={() => onChange(Math.min(99, value + 1))} style={stepBtn}>
-        +
-      </button>
-    </div>
-  )
-}
 
 export default function RodadasPanel({
   pw,
@@ -326,7 +291,17 @@ export default function RodadasPanel({
           <button
             type="button"
             onClick={onIrParaJogos}
-            style={{ background: 'none', border: 'none', color: colors.grass, textDecoration: 'underline', font: 'inherit', padding: 0 }}
+            /* inline, para não partir a frase — a padding vertical só alarga o
+               alvo de toque, que sem ela tinha 16px de altura */
+            style={{
+              display: 'inline',
+              background: 'none',
+              border: 'none',
+              color: colors.grass,
+              textDecoration: 'underline',
+              font: 'inherit',
+              padding: '8px 3px',
+            }}
           >
             Jogos
           </button>
@@ -356,7 +331,7 @@ export default function RodadasPanel({
             {editingId ? '✎ Editar rodada' : 'Registar jogo'}
           </span>
           {editingId && (
-            <button onClick={cancelarEdicao} style={linkStyle}>
+            <button onClick={cancelarEdicao} style={styles.link}>
               cancelar edição
             </button>
           )}
@@ -419,31 +394,47 @@ export default function RodadasPanel({
           Marca quem jogou, o time (A/B) e os gols ⚽ e assistências 🅰️ de cada um. Quem esteve
           na baliza leva 🧤 defesas e 🥅 gols sofridos — é o que alimenta o ranking de goleiros.
         </p>
+        {/* Com o plantel todo esta lista passa das 30 linhas, por isso divide-se
+            em duas colunas quando há largura. O mínimo é maior do que o do
+            resultado porque a linha aqui leva mais: caixa, nome, A/B e até
+            quatro contadores. */}
+        <div className="pb-split" style={{ '--pb-split-min': '440px' }}>
         {players.map((p) => (
           <div
             key={p.id}
             style={{ padding: '8px 0', borderBottom: `1px solid ${colors.line}` }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={!!jogou[p.id]}
-                onChange={(e) => setJogou({ ...jogou, [p.id]: e.target.checked })}
-                style={{ width: 18, height: 18, accentColor: colors.grass }}
-              />
-              <Avatar name={p.name} photo={p.photo_url} size={28} />
-              <span
+              {/* A caixa e o nome são o mesmo alvo: 18px de caixa era pouco no
+                  telemóvel, e marcar presenças é o gesto mais repetido desta
+                  página. A `label` estica o toque até ao fim do nome. */}
+              <label
+                htmlFor={`jogou-${p.id}`}
                 style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                   flex: 1,
-                  fontSize: 14,
                   minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
+                  padding: '6px 0',
+                  margin: '-6px 0',
                 }}
               >
-                {p.name}
-              </span>
+                <input
+                  id={`jogou-${p.id}`}
+                  type="checkbox"
+                  checked={!!jogou[p.id]}
+                  onChange={(e) => setJogou({ ...jogou, [p.id]: e.target.checked })}
+                  style={{ width: 20, height: 20, flexShrink: 0, accentColor: colors.grass }}
+                />
+                <Avatar name={p.name} photo={p.photo_url} size={28} />
+                <span
+                  className="pb-truncate"
+                  style={{ flex: 1, fontSize: 14, minWidth: 0 }}
+                >
+                  {p.name}
+                </span>
+              </label>
               {jogou[p.id] &&
                 ['A', 'B'].map((t) => {
                   const on = team[p.id] === t
@@ -474,11 +465,13 @@ export default function RodadasPanel({
               <div style={{ display: 'flex', gap: 14, marginTop: 8, paddingLeft: 34, flexWrap: 'wrap' }}>
                 <Stepper
                   icon="⚽"
+                  label={`gols de ${p.name}`}
                   value={gols[p.id] || 0}
                   onChange={(v) => setGols({ ...gols, [p.id]: v })}
                 />
                 <Stepper
                   icon="🅰️"
+                  label={`assistências de ${p.name}`}
                   value={assists[p.id] || 0}
                   onChange={(v) => setAssists({ ...assists, [p.id]: v })}
                 />
@@ -497,7 +490,7 @@ export default function RodadasPanel({
                   aria-pressed={!!gkForm[p.id]}
                   title="Foi goleiro nesta rodada"
                   style={{
-                    ...linkStyle,
+                    ...styles.link,
                     color: gkForm[p.id] ? colors.teamB : colors.muted,
                     textDecoration: 'none',
                     border: `1px solid ${gkForm[p.id] ? colors.teamB : colors.line}`,
@@ -512,6 +505,7 @@ export default function RodadasPanel({
                   <>
                     <Stepper
                       icon="🧤"
+                      label={`defesas de ${p.name}`}
                       value={gkForm[p.id].saves || 0}
                       onChange={(v) =>
                         setGkForm((f) => ({ ...f, [p.id]: { ...f[p.id], saves: v } }))
@@ -519,6 +513,7 @@ export default function RodadasPanel({
                     />
                     <Stepper
                       icon="🥅"
+                      label={`gols sofridos por ${p.name}`}
                       value={gkForm[p.id].conceded || 0}
                       onChange={(v) =>
                         setGkForm((f) => ({ ...f, [p.id]: { ...f[p.id], conceded: v } }))
@@ -530,15 +525,17 @@ export default function RodadasPanel({
             )}
           </div>
         ))}
+        </div>
         {players.length === 0 && <p style={styles.mutedText}>Sem jogadores aprovados.</p>}
 
-        {/* fotos */}
-        <div style={{ marginTop: 14 }}>
+        {/* fotos — lado a lado quando cabem */}
+        <div className="pb-split" style={{ '--pb-split-min': '260px', rowGap: 14, marginTop: 14 }}>
+        <div>
           <label style={{ ...styles.label, marginBottom: 6 }}>🏆 Foto do time vencedor</label>
           {winnerPhoto ? (
             <div>
               <PhotoFrame src={winnerPhoto} alt="Time vencedor" />
-              <button onClick={() => setWinnerPhoto('')} style={{ ...linkStyle, color: colors.error, marginTop: 6 }}>
+              <button onClick={() => setWinnerPhoto('')} style={{ ...styles.link, color: colors.error, marginTop: 6 }}>
                 remover foto
               </button>
             </div>
@@ -546,18 +543,19 @@ export default function RodadasPanel({
             <input type="file" accept="image/*" onChange={escolherFoto(setWinnerPhoto)} style={{ color: colors.muted, fontSize: 13 }} />
           )}
         </div>
-        <div style={{ marginTop: 14 }}>
+        <div>
           <label style={{ ...styles.label, marginBottom: 6 }}>📍 Foto do local</label>
           {locationPhoto ? (
             <div>
               <PhotoFrame src={locationPhoto} alt="Local da pelada" />
-              <button onClick={() => setLocationPhoto('')} style={{ ...linkStyle, color: colors.error, marginTop: 6 }}>
+              <button onClick={() => setLocationPhoto('')} style={{ ...styles.link, color: colors.error, marginTop: 6 }}>
                 remover foto
               </button>
             </div>
           ) : (
             <input type="file" accept="image/*" onChange={escolherFoto(setLocationPhoto)} style={{ color: colors.muted, fontSize: 13 }} />
           )}
+        </div>
         </div>
 
         {/* observações */}
@@ -645,13 +643,13 @@ export default function RodadasPanel({
                 {formatDia(m.played_at)}
               </span>
               <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
-                <button onClick={() => editarJogo(m)} disabled={busy} style={{ ...linkStyle, color: colors.teamA }}>
+                <button onClick={() => editarJogo(m)} disabled={busy} style={{ ...styles.link, color: colors.teamA }}>
                   Editar
                 </button>
                 <button
                   onClick={() => apagarJogo(m)}
                   disabled={busy}
-                  style={{ ...linkStyle, color: colors.error }}
+                  style={{ ...styles.link, color: colors.error }}
                 >
                   Apagar
                 </button>
