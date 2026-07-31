@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Avatar from './Avatar'
+import { StarScore } from './StarRating'
 import { assisters, matchWinner, scorers, teamPlayers } from '../lib/format'
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import {
@@ -198,6 +199,72 @@ export function AwardCard({ tipo, list, players, onProfile }) {
             />
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// Avaliação pós-jogo da rodada: só as MÉDIAS. Quem deu que nota a quem não
+// sai da base de dados — a votação é anónima entre companheiros, e é isso
+// que faz as pessoas votarem a sério.
+export function PostRatingsCard({ m, onProfile }) {
+  const lista = m?.post_ratings || []
+  const aberta = m?.post_rating_status === 'OPEN'
+  if (!lista.length) {
+    if (!aberta) return null
+    return (
+      <div style={{ ...styles.panel, padding: 12 }}>
+        <div style={{ fontFamily: fonts.title, fontSize: 13, letterSpacing: 1, color: colors.teamA }}>
+          ⭐ Avaliação dos companheiros
+        </div>
+        <p style={{ ...styles.mutedText, fontSize: 13, marginTop: 6 }}>
+          A votação está aberta — as médias aparecem aqui à medida que o pessoal avalia.
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div style={{ ...styles.panel, padding: 12 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          gap: 8,
+          marginBottom: 6,
+        }}
+      >
+        <span style={{ fontFamily: fonts.title, fontSize: 13, letterSpacing: 1, color: colors.teamA }}>
+          ⭐ Avaliação dos companheiros
+        </span>
+        <span style={{ fontSize: 11, color: colors.muted, flexShrink: 0 }}>
+          {aberta ? 'votação aberta' : 'votação encerrada'}
+        </span>
+      </div>
+      {lista.map((x) => (
+        <div
+          key={x.player_id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '6px 0',
+            borderTop: `1px solid ${colors.line}`,
+          }}
+        >
+          <Avatar name={x.name} photo={x.photo} size={28} />
+          <span className="pb-truncate" style={{ flex: 1, fontSize: 13, minWidth: 0 }}>
+            <NomeClicavel id={x.player_id} nome={x.name} onProfile={onProfile} />
+          </span>
+          <span style={{ flexShrink: 0 }}>
+            <StarScore media={x.avg} votos={x.votes} />
+          </span>
+        </div>
+      ))}
+      {lista.some((x) => Number(x.votes) === 1) && (
+        <p style={{ ...styles.mutedText, fontSize: 11, marginTop: 8 }}>
+          Quem tem uma só avaliação ainda tem nota provisória.
+        </p>
       )}
     </div>
   )
@@ -488,6 +555,10 @@ export function RoundBody({ m, full = false, onProfile }) {
           <TeamRoster m={m} side="B" onProfile={onProfile} />
         </div>
       )}
+
+      {/* só no detalhe: no destaque da Home a lista de médias empurrava os
+          gols e as assistências para fora do primeiro ecrã */}
+      {full && <PostRatingsCard m={m} onProfile={onProfile} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <StatLine icon="⚽" label="Gols" list={scorers(m)} emptyText="sem gols" onProfile={onProfile} />

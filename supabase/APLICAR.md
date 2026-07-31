@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0022)
+# Como aplicar as migrações novas (0015 → 0023)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -15,6 +15,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 6. `0020_feed.sql`
 7. `0021_trocas.sql`
 8. `0022_cards.sql`
+9. `0023_avaliacao_pos_jogo.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -229,6 +230,62 @@ continua a ser "já não tem ninguém por avaliar", não "já votou alguma vez".
 **Se o card escolhido deixar de estar desbloqueado** (perdeu a artilharia), o frontend mostra o
 mais raro que ele tenha e a escolha fica guardada: se voltar a conquistá-lo, volta sozinho. Por
 isso a base **não valida** se o código do card existe — ela não conhece o catálogo, e não deve.
+
+## 0023 — Avaliação pós-jogo, overall v2 e candidatos de craque/bagre
+
+**A regra que manda nesta migração:** *nenhum overall pode mudar no dia em que os pesos mudam.*
+
+**Coluna nova em `matches`:** `overall_version`. É acrescentada com omissão **1**, e é assim que
+todos os jogos que já existem herdam a versão antiga sem um único `update` a mexer-lhes. Só
+depois a omissão passa a **2**, para os jogos futuros. Os jogos já agendados mas ainda **por
+jogar** são marcados como 2 (vão acontecer depois desta versão). Um jogo da versão 1 nunca abre
+avaliação pós-jogo e nunca é recalculado.
+
+**Como é que os overalls ficam quietos:** um jogador continua na fórmula antiga (70% grupo + 30%
+campo) **até receber a primeira avaliação pós-jogo válida**. A partir daí passa a 50% grupo + 25%
+campo + 25% companheiros. Quem nunca for avaliado nunca muda de fórmula — e a ausência de
+avaliações **nunca** vale zero. Isto é decidido em `src/lib/overall.js` a partir da média e da
+contagem que estas funções devolvem (`post_rating_avg` a `null` = ninguém o avaliou).
+
+**Tabela nova:** `post_match_ratings` (jogo, quem avalia, quem é avaliado, 0–5 estrelas). A chave
+primária **é** a regra "um voto por companheiro"; há um `check` que impede avaliar-se a si
+próprio. Guarda quem votou — para bloquear voto duplo e deixar corrigir — mas **nenhuma leitura
+pública devolve o `rater_id`**: só sai a média.
+
+**Colunas novas em `matches`:** `post_rating_status` (`OPEN`/`CLOSED`), `post_rating_opened_at`,
+`post_rating_closed_at`. Publicar o resultado abre a votação sozinha; o admin abre, encerra e
+reabre em Jogos → o jogo → **Avaliação pós-jogo**.
+
+**Funções novas:** `submit_post_match_ratings` (só companheiros da mesma equipa, só com a votação
+aberta, aceita avaliações parciais e corrige as anteriores), `get_my_post_ratings` (o que falta
+avaliar, já preenchido) e `admin_set_post_rating_status`.
+
+**Craque e bagre passam a depender do resultado:** `vote_award` só aceita votos de jogos com o
+resultado **publicado**, o craque tem de estar na equipa **vencedora** e o bagre na **derrotada**.
+Num **empate** (ou numa rodada antiga sem equipas atribuídas) não há lados, e aí concorre toda a
+gente que jogou — foi a decisão tomada, e é a mesma régua em `src/lib/awards.js` e em
+`elegiveis_premio`. A correção do admin obedece à mesma regra: não se corrige à mão o que a
+votação proíbe.
+
+**Se o admin mudar o resultado depois de haver votos**, `admin_save_result` apaga os votos que
+deixaram de ser válidos (craque que passou a perdedor, avaliação de quem já não é companheiro) e
+regista quantos foram no histórico do jogo. São apagados e não anulados porque craque e bagre
+vivem na **mesma linha**, com as duas colunas obrigatórias — não há meia votação. Quem perdeu o
+voto volta a ver o cartão de votação.
+
+**Funções alteradas:** `get_player_stats`, `get_player_stats_range` e `get_player_profile` passam
+a devolver `post_rating_avg` (a `null` quando não há avaliações) e `post_rating_count`;
+`match_json` devolve as médias por jogador daquela rodada e o estado da votação;
+`match_public_json` devolve o estado e quantos já avaliaram. **`get_match` passa a filtrar por
+jogo válido** — devolvia qualquer jogo com fotos a quem soubesse o id, incluindo resultados ainda
+em rascunho (a 0020 fechou o acesso direto a `match_json` por esta mesma razão, mas esta porta
+ficara aberta).
+
+**A view `matches_validas` é recriada** — foi criada com `select m.*` antes de estas colunas
+existirem, e sem isso as funções não veriam a `overall_version`.
+
+**Códigos de erro novos:** `VOTACAOFECHADA`, `CRAQUEPERDEDOR`, `BAGREVENCEDOR`, `VERSAOANTIGA`,
+`AVFECHADA`, `ESTRELAS`, `SEMCOMPANHEIRO`, `SEMEQUIPAS`.
 
 ---
 

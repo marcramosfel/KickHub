@@ -1,15 +1,41 @@
 // Overall do jogador (o número grande do card): junta a opinião do grupo
 // — a média 0–5 que toda a gente dá — com o que acontece mesmo em campo.
 //
-// Fórmula: 70% opinião do grupo + 30% desempenho, mais um bónus pela taxa
-// de craques e um desconto pela taxa de bagres. Fica entre 1 e 99.
+// Há DUAS versões da fórmula a viver ao mesmo tempo, e é de propósito:
+//
+//   v1 (a de sempre): 70% opinião do grupo + 30% desempenho
+//   v2 (esta):        50% opinião + 25% desempenho + 25% avaliação pós-jogo
+//
+// Um jogador só passa para a v2 quando recebe a PRIMEIRA avaliação pós-jogo
+// válida (só existem em jogos da versão 2 — ver `overall_version` na
+// migração 0023). Até lá continua na v1, com o número que sempre teve. Foi
+// assim que os overalls não mudaram todos no dia em que os pesos mudaram:
+// o que muda a nota de alguém é ele ser avaliado, não o deploy.
+//
+// A ausência de avaliações NUNCA vale zero. Sem avaliação não há parcela —
+// há a fórmula antiga.
+//
+// Em ambas as versões, depois da base: bónus pela taxa de craques, desconto
+// pela taxa de bagres, arredondamento e limite 1–99.
 //
 // O desempenho conta desde o primeiro jogo (decisão do grupo). Só quem
 // ainda não jogou nenhuma rodada registada é que fica só pela média —
 // senão o desempenho a zero era um castigo por algo que não aconteceu.
 
+// Versão atual da fórmula. Não é decoração: é o que distingue "ainda não
+// foi avaliado" de "foi avaliado e a nota é esta".
+export const OVERALL_VERSION = 2
+
 export const PESO_GRUPO = 0.7
 export const PESO_DESEMPENHO = 0.3
+
+// v2 — a soma continua a dar 1; o que saiu da opinião do grupo (20 pontos
+// percentuais) e do desempenho (5) foi para a avaliação dos companheiros.
+export const PESO_GRUPO_V2 = 0.5
+export const PESO_DESEMPENHO_V2 = 0.25
+export const PESO_POS_JOGO_V2 = 0.25
+export const ESTRELAS_MAX = 5
+
 export const PARTICIPACOES_TOPO = 3 // gols + assistências por jogo que valem 100
 // Os prémios contam pela TAXA, não pelo total: craque em todas as rodadas
 // vale o máximo, craque numa de vinte vale quase nada. Assim quem joga há
@@ -19,8 +45,17 @@ export const PENAL_BAGRE_MAX = 6
 
 const limitar = (n) => Math.max(1, Math.min(99, Math.round(n)))
 
-// Recebe o perfil de get_player_profile e devolve o overall já decomposto,
-// para o número poder ser explicado (senão parece arbitrário).
+// A média de estrelas do servidor chega como numeric (string no JSON) ou
+// já como número; `null` significa "ninguém o avaliou", que é diferente de 0.
+const numeroOuNulo = (v) => {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+// Recebe o perfil de get_player_profile (ou a linha de get_player_stats) e
+// devolve o overall já decomposto, para o número poder ser explicado
+// (senão parece arbitrário).
 export function calcularOverall(perfil) {
   const avg = perfil?.avg == null ? null : Number(perfil.avg)
   const matches = Number(perfil?.matches || 0)
@@ -28,6 +63,8 @@ export function calcularOverall(perfil) {
   const assists = Number(perfil?.assists || 0)
   const craques = Number(perfil?.craques || 0)
   const bagres = Number(perfil?.bagres || 0)
+  const estrelas = numeroOuNulo(perfil?.post_rating_avg ?? perfil?.postRatingAvg)
+  const avaliacoes = Number(perfil?.post_rating_count ?? perfil?.postRatingCount ?? 0)
 
   const base = avg == null ? null : avg * 20 // 0–100, a opinião do grupo
   const ppj = matches > 0 ? (goals + assists) / matches : 0 // participações por jogo
@@ -38,25 +75,81 @@ export function calcularOverall(perfil) {
   const bonusCraque = taxaCraque * BONUS_CRAQUE_MAX
   const penalBagre = taxaBagre * PENAL_BAGRE_MAX
 
-  const partes = { base, desempenho, ppj, bonusCraque, penalBagre, taxaCraque, taxaBagre }
+  // A avaliação dos companheiros só entra com pelo menos uma nota dada. As
+  // duas condições são precisas: o contador sem média (ou o contrário) é
+  // sinal de dados a meio, e nesse caso vale a fórmula antiga.
+  const temPosJogo = avaliacoes > 0 && estrelas != null
+  const posJogo = temPosJogo ? (estrelas / ESTRELAS_MAX) * 100 : null
+  const versao = temPosJogo ? 2 : 1
 
-  // sem notas e sem jogos não há nada para calcular
-  if (base == null && matches === 0) {
-    return { ...partes, overall: null, provisorio: true }
+  const partes = {
+    base,
+    desempenho,
+    ppj,
+    bonusCraque,
+    penalBagre,
+    taxaCraque,
+    taxaBagre,
+    versao,
+    estrelas,
+    avaliacoes,
+    posJogo,
+    // uma única avaliação ainda não é uma média — a UI diz que é provisória
+    posJogoProvisorio: temPosJogo && avaliacoes === 1,
+    pesos:
+      versao === 2
+        ? { grupo: PESO_GRUPO_V2, desempenho: PESO_DESEMPENHO_V2, posJogo: PESO_POS_JOGO_V2 }
+        : { grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 },
   }
-  // ainda sem notas do grupo: conta só o que fez em campo
-  if (base == null) {
-    return { ...partes, overall: limitar(desempenho), provisorio: true }
+
+  // ---------- v1: exatamente o que este ficheiro sempre fez ----------
+  // Nem uma vírgula muda aqui. Os ramos abaixo devolvem o overall SEM o
+  // bónus e o desconto (quem não tem notas do grupo, ou não tem rodadas,
+  // também não tem prémios que contem) — passá-los pela conta genérica da
+  // v2 mexia em números que têm de ficar quietos.
+  if (!temPosJogo) {
+    // sem notas e sem jogos não há nada para calcular
+    if (base == null && matches === 0) {
+      return { ...partes, overallBase: null, overall: null, provisorio: true }
+    }
+    // ainda sem notas do grupo: conta só o que fez em campo
+    if (base == null) {
+      return { ...partes, overallBase: desempenho, overall: limitar(desempenho), provisorio: true }
+    }
+    // ainda sem rodadas registadas: vale só a opinião do grupo
+    if (matches === 0) {
+      return { ...partes, overallBase: base, overall: limitar(base), provisorio: true }
+    }
+    const overallBase = PESO_GRUPO * base + PESO_DESEMPENHO * desempenho
+    return {
+      ...partes,
+      overallBase,
+      overall: limitar(overallBase + bonusCraque - penalBagre),
+      provisorio: false,
+    }
   }
-  // ainda sem rodadas registadas: vale só a opinião do grupo
-  if (matches === 0) {
-    return { ...partes, overall: limitar(base), provisorio: true }
-  }
+
+  // ---------- v2: 50% grupo + 25% campo + 25% companheiros ----------
+  // Média ponderada só com as parcelas que EXISTEM. Um jogador sem notas do
+  // grupo (ou sem rodadas de campo) não leva zero na parcela em falta: ela
+  // sai da conta e os pesos das outras são renormalizados. Com as três
+  // presentes — o caso normal — isto é exatamente 50/25/25, porque o
+  // divisor dá 1.
+  const parcelas = [[posJogo, PESO_POS_JOGO_V2]]
+  if (base != null) parcelas.push([base, PESO_GRUPO_V2])
+  if (matches > 0) parcelas.push([desempenho, PESO_DESEMPENHO_V2])
+
+  const pesoTotal = parcelas.reduce((s, [, p]) => s + p, 0)
+  const somaPesada = parcelas.reduce((s, [v, p]) => s + v * p, 0)
+  const overallBase = somaPesada / pesoTotal
 
   return {
     ...partes,
-    overall: limitar(PESO_GRUPO * base + PESO_DESEMPENHO * desempenho + bonusCraque - penalBagre),
-    provisorio: false,
+    overallBase,
+    overall: limitar(overallBase + bonusCraque - penalBagre),
+    // "provisório" continua a querer dizer "ainda falta informação para o
+    // número valer por inteiro" — é o que escolhe o texto da explicação
+    provisorio: base == null || matches === 0,
   }
 }
 

@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { getMatches, getMyAwardVotes, getPlayerStats, getPlayerStatsRange, voteAward } from '../api'
+import {
+  getMatches,
+  getMyAwardVotes,
+  getMyPostRatings,
+  getPlayerStats,
+  getPlayerStatsRange,
+  voteAward,
+} from '../api'
 import {
   assisters as getAssisters,
   awardWinners,
@@ -9,23 +16,33 @@ import {
   PERIODOS,
   scorers as getScorers,
 } from '../lib/format'
+import { candidatosBagre, candidatosCraque, podeVotar, semLadosDefinidos } from '../lib/awards'
 import { liderancas } from '../lib/trophies'
 import { NomeClicavel } from './RoundParts'
 import Avatar from './Avatar'
+import PostMatchRatingCard from './PostMatchRating'
 import RoundDetail from './RoundDetail'
 import { ErrorBox, SkeletonCard } from './Ui'
 import { colors, fonts, styles, disabled } from '../theme'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-// Cartão de votação de craque + bagre numa rodada pendente
+// Cartão de votação de craque + bagre numa rodada pendente.
+//
+// Os candidatos já não são "toda a gente que jogou": craque sai dos
+// vencedores, bagre dos derrotados. Num empate (ou numa rodada antiga sem
+// equipas) não há lados, e aí concorre toda a gente — a mesma régua que o
+// servidor aplica em `elegiveis_premio`.
 function VoteCard({ match, session, onVoted }) {
   const [craque, setCraque] = useState(null)
   const [bagre, setBagre] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  const options = match.players.filter((p) => p.player_id !== session.id)
+  const opcoesCraque = candidatosCraque(match, session.id)
+  const opcoesBagre = candidatosBagre(match, session.id)
+  const semLados = semLadosDefinidos(match)
+  const vencedor = matchWinner(match)
   const mesmo = craque && bagre && craque === bagre
   const pronto = craque && bagre && !mesmo
 
@@ -45,7 +62,7 @@ function VoteCard({ match, session, onVoted }) {
     }
   }
 
-  const chips = (selected, cor, onPick) => (
+  const chips = (options, selected, cor, onPick) => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
       {options.map((p) => {
         const sel = selected === p.player_id
@@ -82,19 +99,24 @@ function VoteCard({ match, session, onVoted }) {
       <p style={{ ...styles.mutedText, fontSize: 13 }}>
         Só quem jogou vota, e só se vota uma vez — pensa bem. 😄
       </p>
+      <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 6 }}>
+        {semLados
+          ? '🤝 Sem vencedor definido nesta rodada — concorre toda a gente que jogou.'
+          : `👑 O craque sai de quem venceu (${vencedor.name}); 🐟 o bagre, de quem perdeu.`}
+      </p>
 
       <div style={{ marginTop: 14 }}>
         <span style={{ fontFamily: fonts.title, letterSpacing: 1, color: colors.teamA }}>
           👑 Craque da rodada
         </span>
-        {chips(craque, colors.teamA, setCraque)}
+        {chips(opcoesCraque, craque, colors.teamA, setCraque)}
       </div>
 
       <div style={{ marginTop: 14 }}>
         <span style={{ fontFamily: fonts.title, letterSpacing: 1, color: colors.teamB }}>
           🐟 Bagre da rodada
         </span>
-        {chips(bagre, colors.teamB, setBagre)}
+        {chips(opcoesBagre, bagre, colors.teamB, setBagre)}
       </div>
 
       {mesmo && (
@@ -264,6 +286,8 @@ export default function StatsScreen({
   const [stats, setStats] = useState(null)
   const [matches, setMatches] = useState(null)
   const [myVotes, setMyVotes] = useState([])
+  // jogos com a avaliação pós-jogo aberta em que eu joguei (migração 0023)
+  const [posJogo, setPosJogo] = useState([])
   const [detailId, setDetailId] = useState(initialMatchId) // rodada aberta em detalhe
   if (navPedido.tab !== initialTab || navPedido.token !== navToken) {
     setNavPedido({ tab: initialTab, token: navToken })
@@ -299,10 +323,14 @@ export default function StatsScreen({
       carregarStats(periodo),
       getMatches(),
       getMyAwardVotes(session.id, session.pin),
+      // não-fatal: sem a 0023 aplicada a secção simplesmente não aparece,
+      // em vez de deitar abaixo o histórico todo
+      getMyPostRatings(session.id, session.pin).catch(() => []),
     ])
-      .then(([, m, v]) => {
+      .then(([, m, v, pj]) => {
         setMatches(m || [])
         setMyVotes(v || [])
+        setPosJogo(pj || [])
         setError('')
       })
       .catch((err) => setError(err.message))
@@ -377,12 +405,18 @@ export default function StatsScreen({
   }
 
   // rodadas em que joguei e ainda não votei (com <3 jogadores não há
-  // votação possível — sem votar em si e com craque ≠ bagre)
+  // votação possível — sem votar em si e com craque ≠ bagre).
+  // `podeVotar` tira as que ficaram sem candidatos de um dos lados: um
+  // cartão que só dá erro ao submeter é pior do que cartão nenhum.
   const pendentes = matches.filter(
     (m) =>
       m.players.length >= 3 &&
       m.players.some((p) => p.player_id === session.id) &&
-      !myVotes.includes(m.id)
+      !myVotes.includes(m.id) &&
+      podeVotar(m, session.id)
+  )
+  const porAvaliar = posJogo.filter((j) =>
+    (j.teammates || []).some((c) => !Number.isInteger(c.stars))
   )
 
   return (
@@ -415,7 +449,7 @@ export default function StatsScreen({
 
       <div style={{ display: 'flex', marginBottom: 16 }}>
         {tabBtn('geral', 'Geral')}
-        {tabBtn('rodadas', `Rodadas${pendentes.length ? ' 🗳️' : ''}`)}
+        {tabBtn('rodadas', `Rodadas${pendentes.length || porAvaliar.length ? ' 🗳️' : ''}`)}
       </div>
 
       {error && <p style={{ ...styles.errorText, marginBottom: 12 }}>{error}</p>}
@@ -614,6 +648,14 @@ export default function StatsScreen({
         <div>
           {pendentes.map((m) => (
             <VoteCard key={m.id} match={m} session={session} onVoted={load} />
+          ))}
+          {posJogo.map((j) => (
+            <PostMatchRatingCard
+              key={j.match_id}
+              jogo={j}
+              session={session}
+              onSaved={load}
+            />
           ))}
           {matches.length === 0 && (
             <div style={{ ...styles.panel, textAlign: 'center', padding: 22 }}>

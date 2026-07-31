@@ -243,6 +243,12 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
     const craques = num(stats.craques ?? row.craques)
     const bagres = num(stats.bagres ?? row.bagres)
     const avg = numOuNulo(row.avg ?? stats.avg)
+    // Avaliação pós-jogo (0023): `null` quer dizer "ainda ninguém o avaliou"
+    // e é o que mantém o jogador na fórmula antiga. Um `?? 0` aqui punha
+    // toda a gente na v2 com zero estrelas — exatamente o que o pedido
+    // proíbe. A contagem, essa, pode ser 0 à vontade.
+    const postRatingAvg = numOuNulo(stats.post_rating_avg ?? row.post_rating_avg)
+    const postRatingCount = num(stats.post_rating_count ?? row.post_rating_count)
 
     // As vitórias podem vir do histórico ou já contadas na linha do goleiro;
     // sem nenhuma das duas fontes ficam a null e a aba mostra empty state.
@@ -253,7 +259,16 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
     const draws = numOuNulo(res?.draws ?? gk?.draws)
     const losses = numOuNulo(res?.losses ?? gk?.losses)
 
-    const campo = calculateFieldPlayerOverall({ avg, matches: matchesDeCampo, goals, assists, craques, bagres })
+    const campo = calculateFieldPlayerOverall({
+      avg,
+      matches: matchesDeCampo,
+      goals,
+      assists,
+      craques,
+      bagres,
+      post_rating_avg: postRatingAvg,
+      post_rating_count: postRatingCount,
+    })
     // Para o overall de baliza contam as vitórias COM ele na baliza; só na
     // falta delas é que se recorre ao histórico geral.
     const baliza = gk
@@ -282,6 +297,11 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
       assists,
       craques,
       bagres,
+      postRatingAvg,
+      postRatingCount,
+      // versão da fórmula deste jogador: 1 enquanto não for avaliado pelos
+      // companheiros, 2 a partir daí
+      overallVersion: campo.versao,
       // o overall que a UI mostra depende do tipo: goleiro vale pela baliza
       overall: playerType === PLAYER_TYPE.GOALKEEPER ? (baliza?.overall ?? null) : campo.overall,
       provisorio: playerType === PLAYER_TYPE.GOALKEEPER ? (baliza?.provisorio ?? true) : campo.provisorio,

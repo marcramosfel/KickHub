@@ -287,6 +287,38 @@ describe('juntarEstatisticas com o payload real do get_goalkeeper_stats', () => 
   })
 })
 
+describe('juntarEstatisticas — avaliação pós-jogo (0023)', () => {
+  const players = [{ id: 'p1', name: 'Pedro', avg: 4 }]
+  const base = { id: 'p1', name: 'Pedro', matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0 }
+
+  it('sem avaliações o jogador fica na fórmula antiga', () => {
+    const [j] = juntarEstatisticas({ players, playerStats: [{ ...base, post_rating_count: 0 }] })
+    expect(j.overallVersion).toBe(1)
+    expect(j.postRatingAvg).toBeNull()
+  })
+
+  it('com avaliações o overall passa a contar os companheiros', () => {
+    const [semNota] = juntarEstatisticas({ players, playerStats: [base] })
+    const [comNota] = juntarEstatisticas({
+      players,
+      playerStats: [{ ...base, post_rating_avg: '5.00', post_rating_count: 9 }],
+    })
+    expect(comNota.overallVersion).toBe(2)
+    expect(comNota.postRatingAvg).toBe(5)
+    expect(comNota.postRatingCount).toBe(9)
+    expect(comNota.overall).toBeGreaterThan(semNota.overall)
+  })
+
+  it('média nula não vira zero estrelas (não baixa o overall de ninguém)', () => {
+    const [j] = juntarEstatisticas({
+      players,
+      playerStats: [{ ...base, post_rating_avg: null, post_rating_count: 0 }],
+    })
+    const [referencia] = juntarEstatisticas({ players, playerStats: [base] })
+    expect(j.overall).toBe(referencia.overall)
+  })
+})
+
 describe('RANKING_TABS', () => {
   it('tem as seis abas pela ordem combinada', () => {
     expect(RANKING_TABS.map((t) => t.id)).toEqual([

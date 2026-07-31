@@ -8,7 +8,10 @@ import {
   PARTICIPACOES_TOPO,
   PENAL_BAGRE_MAX,
   PESO_DESEMPENHO,
+  PESO_DESEMPENHO_V2,
   PESO_GRUPO,
+  PESO_GRUPO_V2,
+  PESO_POS_JOGO_V2,
   calcularOverall,
 } from '../lib/overall'
 import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '../lib/trophies'
@@ -19,6 +22,9 @@ import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
 
 const CORES_RES = { V: colors.grass, E: colors.muted, D: colors.error }
+
+// Uma casa decimal com vírgula — é assim que o grupo lê notas.
+const num1 = (x) => Number(x).toFixed(1).replace('.', ',')
 
 function StatBox({ label, valor, cor }) {
   return (
@@ -80,117 +86,152 @@ function Parcela({ label, nota, valor, cor }) {
 }
 
 // "Como se calcula" — a decomposição do overall, aberta só a pedido.
+//
+// Mostra os pesos da versão em que ESTE jogador está: 70/30 enquanto
+// ninguém o avaliou depois de um jogo, 50/25/25 a partir da primeira
+// avaliação. Os números são os dele, não a fórmula em abstrato — é o que
+// distingue uma explicação de um folheto.
 function OverallExplicado({ o }) {
   if (o.overall == null) return null
-  const num = (x) => (Math.round(x * 10) / 10).toFixed(1)
-  const soPelaMedia = o.provisorio && o.base != null
-  const soPeloCampo = o.base == null
+  const num = (x) => (Math.round(x * 10) / 10).toFixed(1).replace('.', ',')
+  const pct = (p) => `${Math.round(p * 100)}%`
+  const soPelaMedia = o.versao === 1 && o.provisorio && o.base != null
+  const soPeloCampo = o.versao === 1 && o.base == null
 
   return (
-    <>
-      <details style={{ ...styles.panel, padding: 12, marginTop: 8 }}>
-        <summary
-          style={{
-            cursor: 'pointer',
-            fontSize: 13,
-            color: colors.muted,
-            listStyle: 'revert',
-          }}
-        >
-          Como se calcula o overall?
-        </summary>
+    <details style={{ ...styles.panel, padding: 12, marginTop: 8 }}>
+      <summary
+        style={{
+          cursor: 'pointer',
+          fontSize: 13,
+          color: colors.muted,
+          listStyle: 'revert',
+        }}
+      >
+        Como se calcula o overall?
+      </summary>
 
-        <div style={{ marginTop: 10 }}>
-          {soPelaMedia ? (
-            <>
+      <div style={{ marginTop: 10 }}>
+        {soPelaMedia ? (
+          <>
+            <Parcela
+              label="Opinião do grupo"
+              nota={`média ${(o.base / 20).toFixed(2)} × 20`}
+              valor={num(o.base)}
+              cor={colors.grass}
+            />
+            <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
+              Ainda sem rodadas registadas — por agora conta só a nota do grupo. Assim que
+              jogares uma pelada, entram os gols, as assistências, a avaliação dos companheiros
+              e os prémios da rodada.
+            </p>
+          </>
+        ) : soPeloCampo ? (
+          <>
+            <Parcela
+              label="Desempenho em campo"
+              nota={`${num(o.ppj)} participações por jogo`}
+              valor={num(o.desempenho)}
+              cor={colors.grass}
+            />
+            <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
+              Ainda sem notas do grupo — por agora conta só o que aconteceu em campo.
+            </p>
+          </>
+        ) : (
+          <>
+            {o.base != null && (
               <Parcela
-                label="Opinião do grupo"
-                nota={`média ${(o.base / 20).toFixed(2)} × 20`}
-                valor={num(o.base)}
+                label={`Opinião do grupo (${pct(o.pesos.grupo)})`}
+                nota={`${(o.base / 20).toFixed(2).replace('.', ',')} × 20 = ${num(o.base)} × ${pct(o.pesos.grupo)}`}
+                valor={`+${num(o.pesos.grupo * o.base)}`}
                 cor={colors.grass}
               />
-              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
-                Ainda sem rodadas registadas — por agora conta só a nota do grupo. Assim que
-                jogares uma pelada, entram os gols, as assistências e os prémios da rodada.
-              </p>
-            </>
-          ) : soPeloCampo ? (
-            <>
+            )}
+            <Parcela
+              label={`Desempenho em campo (${pct(o.pesos.desempenho)})`}
+              nota={`${num(o.ppj)} gols+assist. por jogo = ${num(o.desempenho)} × ${pct(o.pesos.desempenho)}`}
+              valor={`+${num(o.pesos.desempenho * o.desempenho)}`}
+              cor={colors.grass}
+            />
+            {o.versao === 2 && (
               <Parcela
-                label="Desempenho em campo"
-                nota={`${num(o.ppj)} participações por jogo`}
-                valor={num(o.desempenho)}
-                cor={colors.grass}
+                label={`⭐ Avaliação dos companheiros (${pct(o.pesos.posJogo)})`}
+                nota={`${num(o.estrelas)} de 5 em ${o.avaliacoes} ${
+                  o.avaliacoes === 1 ? 'avaliação' : 'avaliações'
+                } = ${num(o.posJogo)} × ${pct(o.pesos.posJogo)}`}
+                valor={`+${num(o.pesos.posJogo * o.posJogo)}`}
+                cor={colors.teamA}
               />
-              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
-                Ainda sem notas do grupo — por agora conta só o que aconteceu em campo.
-              </p>
-            </>
-          ) : (
-            <>
-              <Parcela
-                label={`Opinião do grupo (${Math.round(PESO_GRUPO * 100)}%)`}
-                nota={`média ${(o.base / 20).toFixed(2)} × 20 = ${num(o.base)}`}
-                valor={`+${num(PESO_GRUPO * o.base)}`}
-                cor={colors.grass}
-              />
-              <Parcela
-                label={`Desempenho em campo (${Math.round(PESO_DESEMPENHO * 100)}%)`}
-                nota={`${num(o.ppj)} gols+assist. por jogo = ${num(o.desempenho)}`}
-                valor={`+${num(PESO_DESEMPENHO * o.desempenho)}`}
-                cor={colors.grass}
-              />
-              <Parcela
-                label="👑 Bónus de craque"
-                nota={
-                  o.bonusCraque > 0
-                    ? `craque em ${Math.round(o.taxaCraque * 100)}% das rodadas (máximo +${BONUS_CRAQUE_MAX})`
-                    : 'ainda sem craques'
-                }
-                valor={o.bonusCraque > 0 ? `+${num(o.bonusCraque)}` : '0'}
-                cor={o.bonusCraque > 0 ? colors.teamA : colors.muted}
-              />
-              <Parcela
-                label="🐟 Desconto de bagre"
-                nota={
-                  o.penalBagre > 0
-                    ? `bagre em ${Math.round(o.taxaBagre * 100)}% das rodadas (máximo −${PENAL_BAGRE_MAX})`
-                    : 'sem bagres 😌'
-                }
-                valor={o.penalBagre > 0 ? `−${num(o.penalBagre)}` : '0'}
-                cor={o.penalBagre > 0 ? colors.error : colors.muted}
-              />
-              <div
+            )}
+            <Parcela
+              label="👑 Bónus de craque"
+              nota={
+                o.bonusCraque > 0
+                  ? `craque em ${Math.round(o.taxaCraque * 100)}% das rodadas (máximo +${BONUS_CRAQUE_MAX})`
+                  : 'ainda sem craques'
+              }
+              valor={o.bonusCraque > 0 ? `+${num(o.bonusCraque)}` : '0'}
+              cor={o.bonusCraque > 0 ? colors.teamA : colors.muted}
+            />
+            <Parcela
+              label="🐟 Desconto de bagre"
+              nota={
+                o.penalBagre > 0
+                  ? `bagre em ${Math.round(o.taxaBagre * 100)}% das rodadas (máximo −${PENAL_BAGRE_MAX})`
+                  : 'sem bagres 😌'
+              }
+              valor={o.penalBagre > 0 ? `−${num(o.penalBagre)}` : '0'}
+              cor={o.penalBagre > 0 ? colors.error : colors.muted}
+            />
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                paddingTop: 10,
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Overall final</span>
+              <span
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  paddingTop: 10,
+                  fontFamily: fonts.title,
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: colors.grass,
                 }}
               >
-                <span style={{ fontSize: 13, fontWeight: 700 }}>Overall</span>
-                <span
-                  style={{
-                    fontFamily: fonts.title,
-                    fontSize: 22,
-                    fontWeight: 700,
-                    color: colors.grass,
-                  }}
-                >
-                  {o.overall}
-                </span>
-              </div>
-              <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
-                {PARTICIPACOES_TOPO} gols+assistências por jogo valem 100 no desempenho. Os
-                prémios contam pela percentagem de rodadas, não pelo total — quem joga há mais
-                tempo não acumula bónus só por isso. A média 0–5 continua a ser a nota do grupo;
-                o overall é só outra forma de a ler.
+                {o.overall}
+              </span>
+            </div>
+            {o.posJogoProvisorio && (
+              <p style={{ fontSize: 12, color: colors.teamA, marginTop: 8 }}>
+                ⏳ Só uma avaliação pós-jogo até agora — a nota dos companheiros ainda é
+                provisória e vai assentar com as próximas peladas.
               </p>
-            </>
-          )}
-        </div>
-      </details>
-    </>
+            )}
+            <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
+              {o.versao === 2 ? (
+                <>
+                  {PARTICIPACOES_TOPO} gols+assistências por jogo valem 100 no desempenho, e 5
+                  estrelas valem 100 na avaliação dos companheiros. Os prémios contam pela
+                  percentagem de rodadas, não pelo total — quem joga há mais tempo não acumula
+                  bónus só por isso.
+                </>
+              ) : (
+                <>
+                  Enquanto ninguém te avaliar depois de um jogo, o overall continua a ser
+                  calculado como sempre foi ({pct(PESO_GRUPO)} grupo, {pct(PESO_DESEMPENHO)}{' '}
+                  campo). A partir da primeira avaliação passa a{' '}
+                  {pct(PESO_GRUPO_V2)} + {pct(PESO_DESEMPENHO_V2)} + {pct(PESO_POS_JOGO_V2)} —
+                  não perdes nada por ainda não teres sido avaliado.
+                </>
+              )}
+            </p>
+          </>
+        )}
+      </div>
+    </details>
   )
 }
 
@@ -413,6 +454,13 @@ export default function PlayerProfile({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
         <StatBox label="MÉDIA" valor={p.avg == null ? '—' : Number(p.avg).toFixed(2)} cor={colors.grass} />
         <StatBox label="OVERALL" valor={ovr.overall == null ? '—' : ovr.overall} cor={colors.grass} />
+        {/* "—" e não 0: ninguém o avaliou ainda, o que é diferente de ter
+            levado zero estrelas */}
+        <StatBox
+          label="⭐ PÓS-JOGO"
+          valor={ovr.estrelas == null ? '—' : num1(ovr.estrelas)}
+          cor={colors.teamA}
+        />
         <StatBox label="JOGOS" valor={p.matches} />
         <StatBox label="GOLS" valor={p.goals} />
         <StatBox label="ASSIST." valor={p.assists} />
@@ -602,6 +650,11 @@ export default function PlayerProfile({
                 <span style={{ fontSize: 12, color: colors.muted, flexShrink: 0 }}>
                   {h.goals > 0 && <span style={{ color: colors.text }}>⚽{h.goals} </span>}
                   {h.assists > 0 && <span style={{ color: colors.text }}>🅰️{h.assists} </span>}
+                  {h.post_rating_avg != null && (
+                    <span style={{ color: colors.teamA }} title="Média dos companheiros nesta rodada">
+                      ⭐{num1(h.post_rating_avg)}{' '}
+                    </span>
+                  )}
                   {h.craque && '👑'}
                   {h.bagre && '🐟'}
                 </span>

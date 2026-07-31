@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
+  BONUS_CRAQUE_MAX,
+  OVERALL_VERSION,
+  PENAL_BAGRE_MAX,
+  PESO_DESEMPENHO,
+  PESO_DESEMPENHO_V2,
+  PESO_GRUPO,
+  PESO_GRUPO_V2,
+  PESO_POS_JOGO_V2,
   calcularOverall,
   calculateFieldPlayerOverall,
   calculateGoalkeeperOverall,
@@ -14,6 +22,162 @@ describe('calculateFieldPlayerOverall', () => {
   it('mantém a fórmula de campo intacta', () => {
     const perfil = { avg: 4, matches: 10, goals: 10, assists: 5, craques: 2, bagres: 0 }
     expect(calculateFieldPlayerOverall(perfil).overall).toBe(calcularOverall(perfil).overall)
+  })
+})
+
+// ---------------------------------------------------------------------
+// A regra que dá origem a tudo isto: mudar os pesos NÃO pode mexer no
+// overall de ninguém. Quem ainda não foi avaliado pelos companheiros
+// continua na fórmula de sempre.
+// ---------------------------------------------------------------------
+describe('versão da fórmula', () => {
+  const v1 = (overrides) => ({
+    avg: 4.1,
+    matches: 10,
+    goals: 12,
+    assists: 6,
+    craques: 2,
+    bagres: 1,
+    ...overrides,
+  })
+
+  it('sem avaliação pós-jogo fica na v1, com 70/30', () => {
+    const r = calcularOverall(v1())
+    expect(r.versao).toBe(1)
+    expect(r.pesos).toEqual({ grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 })
+    const base = 4.1 * 20
+    const desempenho = Math.min(18 / 10 / 3, 1) * 100
+    const esperado =
+      PESO_GRUPO * base +
+      PESO_DESEMPENHO * desempenho +
+      (2 / 10) * BONUS_CRAQUE_MAX -
+      (1 / 10) * PENAL_BAGRE_MAX
+    expect(r.overall).toBe(Math.round(esperado))
+  })
+
+  it('contador a zero, média nula ou ausente: nada muda no número', () => {
+    const referencia = calcularOverall(v1()).overall
+    for (const extra of [
+      {},
+      { post_rating_count: 0 },
+      { post_rating_avg: null, post_rating_count: 0 },
+      { post_rating_avg: 4.5, post_rating_count: 0 }, // dados a meio
+      { post_rating_avg: null, post_rating_count: 3 }, // idem, ao contrário
+    ]) {
+      const r = calcularOverall(v1(extra))
+      expect(r.versao).toBe(1)
+      expect(r.overall).toBe(referencia)
+    }
+  })
+
+  it('a primeira avaliação passa o jogador para a v2', () => {
+    const r = calcularOverall(v1({ post_rating_avg: 4, post_rating_count: 1 }))
+    expect(r.versao).toBe(2)
+    expect(r.versao).toBe(OVERALL_VERSION)
+    expect(r.pesos).toEqual({
+      grupo: PESO_GRUPO_V2,
+      desempenho: PESO_DESEMPENHO_V2,
+      posJogo: PESO_POS_JOGO_V2,
+    })
+    expect(r.posJogoProvisorio).toBe(true) // uma só avaliação ainda não é média
+  })
+
+  it('aceita snake_case e camelCase (perfil ou linha de rankings)', () => {
+    const a = calcularOverall(v1({ post_rating_avg: 4, post_rating_count: 8 }))
+    const b = calcularOverall(v1({ postRatingAvg: 4, postRatingCount: 8 }))
+    expect(a.overall).toBe(b.overall)
+  })
+
+  it('a média em texto (numeric do Postgres) conta na mesma', () => {
+    const a = calcularOverall(v1({ post_rating_avg: '4.00', post_rating_count: 8 }))
+    const b = calcularOverall(v1({ post_rating_avg: 4, post_rating_count: 8 }))
+    expect(a.overall).toBe(b.overall)
+  })
+})
+
+describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
+  // O exemplo do pedido: grupo 82, campo 76, pós-jogo 88.
+  it('o exemplo do pedido dá as parcelas anunciadas', () => {
+    const r = calcularOverall({
+      avg: 4.1, // × 20 = 82
+      matches: 10,
+      goals: 15,
+      assists: 7.8, // (15+7.8)/10 = 2,28 por jogo → 76
+      craques: 0,
+      bagres: 0,
+      post_rating_avg: 4.4, // 4,4/5 = 88
+      post_rating_count: 12,
+    })
+    expect(r.base).toBeCloseTo(82, 6)
+    expect(r.desempenho).toBeCloseTo(76, 6)
+    expect(r.posJogo).toBeCloseTo(88, 6)
+    expect(r.overallBase).toBeCloseTo(82 * 0.5 + 76 * 0.25 + 88 * 0.25, 6)
+    expect(r.overall).toBe(82)
+  })
+
+  it('a avaliação pós-jogo mexe no overall na proporção certa', () => {
+    const perfil = { avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0 }
+    const cincoEstrelas = calcularOverall({ ...perfil, post_rating_avg: 5, post_rating_count: 6 })
+    const zeroEstrelas = calcularOverall({ ...perfil, post_rating_avg: 0, post_rating_count: 6 })
+    expect(cincoEstrelas.overall - zeroEstrelas.overall).toBe(25)
+  })
+
+  it('o bónus de craque e o desconto de bagre continuam por cima da base', () => {
+    const semPremios = calcularOverall({
+      avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0,
+      post_rating_avg: 4, post_rating_count: 5,
+    })
+    const comPremios = calcularOverall({
+      avg: 4, matches: 10, goals: 10, assists: 5, craques: 10, bagres: 0,
+      post_rating_avg: 4, post_rating_count: 5,
+    })
+    expect(comPremios.overall - semPremios.overall).toBe(BONUS_CRAQUE_MAX)
+    expect(comPremios.bonusCraque).toBe(BONUS_CRAQUE_MAX)
+  })
+
+  it('continua limitado a 1–99 e arredondado', () => {
+    const teto = calcularOverall({
+      avg: 5, matches: 10, goals: 40, assists: 20, craques: 10, bagres: 0,
+      post_rating_avg: 5, post_rating_count: 10,
+    })
+    const chao = calcularOverall({
+      avg: 0, matches: 10, goals: 0, assists: 0, craques: 0, bagres: 10,
+      post_rating_avg: 0, post_rating_count: 10,
+    })
+    expect(teto.overall).toBe(99)
+    expect(chao.overall).toBe(1)
+    expect(Number.isInteger(teto.overall)).toBe(true)
+  })
+
+  it('sem notas do grupo, a parcela em falta NÃO vale zero — os pesos renormalizam', () => {
+    const r = calcularOverall({
+      avg: null, matches: 4, goals: 4, assists: 2, craques: 0, bagres: 0,
+      post_rating_avg: 4, post_rating_count: 4,
+    })
+    const desempenho = Math.min(6 / 4 / 3, 1) * 100
+    const posJogo = 80
+    const esperado =
+      (desempenho * PESO_DESEMPENHO_V2 + posJogo * PESO_POS_JOGO_V2) /
+      (PESO_DESEMPENHO_V2 + PESO_POS_JOGO_V2)
+    expect(r.overallBase).toBeCloseTo(esperado, 6)
+    expect(r.provisorio).toBe(true)
+  })
+
+  it('avaliado sem nenhuma rodada de campo vale pelo grupo e pelos companheiros', () => {
+    const r = calcularOverall({
+      avg: 4, matches: 0, goals: 0, assists: 0, craques: 0, bagres: 0,
+      post_rating_avg: 3, post_rating_count: 2,
+    })
+    // 80 e 60, sem a parcela de desempenho a puxar para baixo
+    expect(r.overallBase).toBeCloseTo((80 * 0.5 + 60 * 0.25) / 0.75, 6)
+    expect(r.overall).toBeGreaterThan(60)
+  })
+
+  it('uma avaliação é provisória, duas já não', () => {
+    const uma = calcularOverall({ avg: 4, matches: 3, goals: 1, assists: 1, post_rating_avg: 4, post_rating_count: 1 })
+    const duas = calcularOverall({ avg: 4, matches: 3, goals: 1, assists: 1, post_rating_avg: 4, post_rating_count: 2 })
+    expect(uma.posJogoProvisorio).toBe(true)
+    expect(duas.posJogoProvisorio).toBe(false)
   })
 })
 
