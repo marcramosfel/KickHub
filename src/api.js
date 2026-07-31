@@ -47,6 +47,15 @@ const ERROS = {
   SEMRESULTADO: 'Ainda não há resultado preenchido para publicar.',
   RESPUBLICADO: 'O resultado deste jogo já está publicado.',
   JOGOCANCELADO: 'Este jogo foi cancelado — não recebe resultado.',
+  // avaliação pós-jogo e elegibilidade de craque/bagre (migração 0023)
+  VOTACAOFECHADA: 'A votação deste jogo ainda não abriu — falta publicar o resultado.',
+  CRAQUEPERDEDOR: 'Só quem venceu o jogo pode ser craque.',
+  BAGREVENCEDOR: 'Só quem perdeu o jogo pode ser bagre.',
+  VERSAOANTIGA: 'Este jogo é anterior à avaliação pós-jogo — só contam os jogos novos.',
+  AVFECHADA: 'A avaliação pós-jogo deste jogo está encerrada.',
+  ESTRELAS: 'As estrelas têm de ser um número inteiro de 0 a 5.',
+  SEMCOMPANHEIRO: 'Só podes avaliar quem jogou no teu time.',
+  SEMEQUIPAS: 'Este jogo não tem equipas registadas — não dá para avaliar companheiros.',
 }
 
 export class ApiError extends Error {
@@ -158,6 +167,26 @@ export const voteAward = (voterId, pin, matchId, craqueId, bagreId) =>
     p_craque: craqueId,
     p_bagre: bagreId,
   })
+
+// ---------- Avaliação pós-jogo (migração 0023) ----------
+// Jogos com a avaliação ABERTA em que este jogador jogou, já com os
+// companheiros de equipa e as notas que ele lhes deu (para o ecrã abrir
+// preenchido e ele poder corrigir enquanto a votação estiver aberta).
+export const getMyPostRatings = (voterId, pin) =>
+  rpc('get_my_post_ratings', { p_voter: voterId, p_pin: pin })
+
+// ratings: [{ player_id, stars: 0..5 }] — aceita avaliações parciais.
+export const submitPostMatchRatings = (voterId, pin, matchId, ratings) =>
+  rpc('submit_post_match_ratings', {
+    p_voter: voterId,
+    p_pin: pin,
+    p_match: matchId,
+    p_ratings: ratings,
+  })
+
+// O admin abre, encerra ou reabre a avaliação de um jogo.
+export const adminSetPostRatingStatus = (pw, matchId, aberta) =>
+  rpc('admin_set_post_rating_status', { p_pw: pw, p_match: matchId, p_open: !!aberta })
 
 // ---------- Admin ----------
 export const adminPending = (pw) => rpc('admin_pending', { p_pw: pw })

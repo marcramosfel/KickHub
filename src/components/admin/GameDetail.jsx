@@ -8,6 +8,7 @@ import {
   adminMatchActivity,
   adminPublishResult,
   adminSaveResult,
+  adminSetPostRatingStatus,
   adminSetPrimaryMedia,
   adminUpdatePost,
   getFeed,
@@ -24,7 +25,9 @@ import {
 import { calcularSequencias } from '../../lib/streaks'
 import { gerarResenhaResultado } from '../../lib/resenha'
 import { nomeDaEquipa, corDaEquipa } from '../../lib/substitutions'
+import { candidatosBagre, candidatosCraque, ladoVencedor, semLadosDefinidos } from '../../lib/awards'
 import Avatar from '../Avatar'
+import Stepper from './Stepper'
 import FootballPitch from '../FootballPitch'
 import ResenhaEditor from './ResenhaEditor'
 import { ErrorBox } from '../Ui'
@@ -73,35 +76,6 @@ function Timeline({ fase }) {
   )
 }
 
-const stepBtn = {
-  width: 26,
-  height: 26,
-  borderRadius: 8,
-  border: `1px solid ${colors.line}`,
-  background: '#0C1915',
-  color: colors.text,
-  fontSize: 15,
-  fontWeight: 700,
-  lineHeight: 1,
-  padding: 0,
-}
-
-function Stepper({ icon, label, value, onChange }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-      <span aria-hidden style={{ fontSize: 12 }}>{icon}</span>
-      <button type="button" aria-label={`Menos um em ${label}`} onClick={() => onChange(Math.max(0, value - 1))} style={stepBtn}>
-        −
-      </button>
-      <span style={{ width: 16, textAlign: 'center', fontWeight: 700, fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
-        {value}
-      </span>
-      <button type="button" aria-label={`Mais um em ${label}`} onClick={() => onChange(Math.min(99, value + 1))} style={stepBtn}>
-        +
-      </button>
-    </div>
-  )
-}
 
 // Uma publicação do feed deste jogo, com edição inline do título e do corpo.
 function PostDoJogo({ post, busy, onGuardar, onApagar }) {
@@ -233,6 +207,25 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
     }
   })
 
+  // ---------- quem pode ser craque e quem pode ser bagre ----------
+  // Lê o PLACAR QUE ESTÁ NO FORMULÁRIO, não o gravado: o admin muda o placar
+  // e as listas mudam à frente dele, antes de guardar. A escalação faz de
+  // lista de jogadores porque é ela que tem as equipas antes de haver stats.
+  const jogoDoFormulario = useMemo(
+    () => ({
+      score_a: form.scoreA,
+      score_b: form.scoreB,
+      players: escalacao.map((l) => ({ player_id: l.player_id, name: l.name, team: l.team })),
+    }),
+    [form.scoreA, form.scoreB, escalacao],
+  )
+  const elegiveisCraque = candidatosCraque(jogoDoFormulario)
+  const elegiveisBagre = candidatosBagre(jogoDoFormulario)
+  const semLados = semLadosDefinidos(jogoDoFormulario)
+  const escolhaInvalida =
+    (form.craqueId && !elegiveisCraque.some((l) => l.player_id === form.craqueId)) ||
+    (form.bagreId && !elegiveisBagre.some((l) => l.player_id === form.bagreId))
+
   const setStat = (id, campo, valor) =>
     setForm((f) => ({ ...f, stats: { ...f.stats, [id]: { ...f.stats[id], [campo]: valor } } }))
   const setGk = (id, campo, valor) =>
@@ -358,6 +351,16 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
       return novo
     }, 'Resultado publicado! 🎉')
   }
+
+  // ---------- avaliação pós-jogo ----------
+  const posJogoAberta = jogo?.post_rating_status === 'OPEN'
+  const mudarPosJogo = (abrir) =>
+    correr(
+      () => adminSetPostRatingStatus(pw, jogo.id, abrir),
+      abrir
+        ? 'Avaliação pós-jogo aberta — o pessoal já pode dar as estrelas.'
+        : 'Avaliação pós-jogo encerrada. As notas ficam como estão.',
+    )
 
   const cancelarJogo = () =>
     correr(async () => {
@@ -530,7 +533,10 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
               : `🏆 Vencem os ${form.scoreA > form.scoreB ? nomeDaEquipa('A') : nomeDaEquipa('B')}`}
           </p>
 
-          {/* gols e assistências por jogador */}
+          {/* Gols e assistências por jogador. As duas equipas ficam lado a lado
+              quando há largura para isso: são listas independentes, e empilhá-las
+              obrigava a rolar o dobro para preencher um resultado. */}
+          <div className="pb-split" style={{ '--pb-split-min': '400px' }}>
           {['A', 'B'].map((lado) => {
             const lista = escalacao.filter((l) => l.team === lado && !l.is_goalkeeper)
             if (!lista.length) return null
@@ -565,6 +571,7 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
               </div>
             )
           })}
+          </div>
 
           {/* goleiros */}
           {goleiros.length > 0 && (
@@ -572,6 +579,7 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
               <div style={{ fontSize: 12, color: colors.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
                 🧤 Goleiros
               </div>
+              <div className="pb-split" style={{ '--pb-split-min': '400px' }}>
               {goleiros.map((g) => (
                 <div
                   key={g.player_id}
@@ -595,15 +603,20 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
                   />
                 </div>
               ))}
+              </div>
             </div>
           )}
 
-          {/* craque e bagre — a votação decide; isto é a correção do admin */}
+          {/* craque e bagre — a votação decide; isto é a correção do admin.
+              As listas seguem a MESMA regra da votação: craque entre os
+              vencedores, bagre entre os derrotados. Corrigir à mão o que a
+              votação proíbe era o buraco por onde a regra fugia — e o
+              servidor recusa na mesma (CRAQUEPERDEDOR / BAGREVENCEDOR). */}
           <div className="pb-cards" style={{ gap: 10, marginBottom: 12 }}>
             {[
-              { campo: 'craqueId', rotulo: '👑 Craque (correção)', id: 'craque-sel' },
-              { campo: 'bagreId', rotulo: '🐟 Bagre (correção)', id: 'bagre-sel' },
-            ].map(({ campo, rotulo, id }) => (
+              { campo: 'craqueId', rotulo: '👑 Craque (correção)', id: 'craque-sel', lista: elegiveisCraque },
+              { campo: 'bagreId', rotulo: '🐟 Bagre (correção)', id: 'bagre-sel', lista: elegiveisBagre },
+            ].map(({ campo, rotulo, id, lista }) => (
               <div key={campo}>
                 <label style={styles.label} htmlFor={id}>
                   {rotulo}
@@ -615,7 +628,7 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
                   onChange={(e) => setForm((f) => ({ ...f, [campo]: e.target.value }))}
                 >
                   <option value="">— a votação decide —</option>
-                  {escalacao.map((l) => (
+                  {lista.map((l) => (
                     <option key={l.player_id} value={l.player_id}>
                       {l.name}
                     </option>
@@ -627,7 +640,16 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
           <p style={{ ...styles.mutedText, fontSize: 11, marginTop: -6, marginBottom: 12 }}>
             O craque e o bagre continuam a ser decididos pela votação do grupo. Preenche isto só
             para desempatar ou corrigir — e fica registado no histórico do jogo.
+            {semLados
+              ? ' Sem vencedor definido no placar, concorre toda a gente.'
+              : ` Com este placar, só os ${nomeDaEquipa(ladoVencedor({ score_a: form.scoreA, score_b: form.scoreB }))} concorrem a craque.`}
           </p>
+          {escolhaInvalida && (
+            <p style={{ ...styles.errorText, marginTop: -6, marginBottom: 12 }}>
+              A correção escolhida já não é válida para este placar — o servidor vai recusá-la.
+              Escolhe outra pessoa (ou deixa a votação decidir).
+            </p>
+          )}
 
           <label style={styles.label} htmlFor="obs-jogo">
             Observações (opcional)
@@ -667,6 +689,57 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
                 {busy ? 'A publicar…' : '📢 Publicar resultado'}
               </button>
             )}
+          </div>
+        </Seccao>
+      )}
+
+      {/* ---------- avaliação pós-jogo ---------- */}
+      {/* Abre sozinha ao publicar o resultado; isto é para encerrar quando já
+          ninguém vota (as notas ficam trancadas) ou reabrir para os atrasados.
+          Só existe em jogos da versão nova da fórmula — o passado não se
+          reavalia, e a base recusa (VERSAOANTIGA) se se insistir. */}
+      {jogo.result_status === 'PUBLISHED' && jogo.overall_version === 2 && (
+        <Seccao titulo="Avaliação pós-jogo" tom={posJogoAberta ? colors.teamA : undefined}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={chip(posJogoAberta ? colors.teamA : colors.muted, posJogoAberta ? `${colors.teamA}1A` : 'transparent')}>
+              <span aria-hidden>{posJogoAberta ? '🟢' : '🔒'}</span>{' '}
+              {posJogoAberta ? 'Aberta' : 'Encerrada'}
+            </span>
+            <span style={{ fontSize: 13, color: colors.muted }}>
+              {jogo.post_rating_voters || 0} de {escalacao.length || '—'} já avaliaram ·{' '}
+              {jogo.post_rating_total || 0} notas dadas
+            </span>
+          </div>
+          <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
+            Cada jogador dá 0 a 5 estrelas aos companheiros da sua equipa. As notas são anónimas
+            (só sai a média) e valem 25% do overall. Enquanto estiver aberta podem corrigir;
+            depois de encerrada ninguém mexe.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <button
+              type="button"
+              disabled={busy || posJogoAberta}
+              onClick={() => mudarPosJogo(true)}
+              style={
+                busy || posJogoAberta
+                  ? disabled({ ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' })
+                  : { ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' }
+              }
+            >
+              {jogo.post_rating_closed_at ? '🔓 Reabrir avaliação' : '🟢 Abrir avaliação'}
+            </button>
+            <button
+              type="button"
+              disabled={busy || !posJogoAberta}
+              onClick={() => mudarPosJogo(false)}
+              style={
+                busy || !posJogoAberta
+                  ? disabled({ ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' })
+                  : { ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' }
+              }
+            >
+              🔒 Encerrar avaliação
+            </button>
           </div>
         </Seccao>
       )}
