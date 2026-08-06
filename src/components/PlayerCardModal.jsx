@@ -110,6 +110,7 @@ export default function PlayerCardModal({
   sequencias,
   totalRodadas = 0,
   session,
+  onPedirPin,
   onFechar,
   onVerPerfil,
   onAtualizado,
@@ -163,14 +164,25 @@ export default function PlayerCardModal({
     }
   }
 
-  const escolherCard = (cardId) =>
+  // Numa sessão vinda do "lembrar-me" não há PIN em memória (o token só
+  // autoriza ler e votar) — pede-se uma vez, em vez de falhar com um erro
+  // de credenciais que não faz sentido a quem não escreveu nenhum PIN.
+  const comPin = async (motivo) => session.pin || (await onPedirPin?.(motivo)) || null
+
+  const escolherCard = async (cardId) => {
+    const pin = await comPin('Vais escolher o teu card principal.')
+    if (!pin) return
     guardar(
-      () => setMyPrimaryCard(session.id, session.pin, cardId),
+      () => setMyPrimaryCard(session.id, pin, cardId),
       cardId ? 'Card principal atualizado!' : 'Voltou ao automático.'
     )
+  }
 
-  const guardarApelido = () =>
-    guardar(() => setMyNickname(session.id, session.pin, apelido), 'Apelido guardado!')
+  const guardarApelido = async () => {
+    const pin = await comPin('Vais mudar o teu apelido.')
+    if (!pin) return
+    guardar(() => setMyNickname(session.id, pin, apelido), 'Apelido guardado!')
+  }
 
   const partilhar = async () => {
     avisar('A gerar…')

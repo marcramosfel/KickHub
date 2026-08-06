@@ -129,6 +129,7 @@ export default function HomeScreen({
   loading,
   error,
   onVotar,
+  onPedirPin,
   onRate,
   onProfile,
   onNavigate,
@@ -169,10 +170,15 @@ export default function HomeScreen({
     e.target.value = ''
     if (!file) return
     setPhotoErr('')
+    // Sessão vinda do "lembrar-me" não tem PIN em memória — trocar a foto
+    // exige-o, e sem este pedido a chamada falhava com "Nome ou PIN
+    // incorretos" a quem nunca escreveu nenhum PIN.
+    const pin = session.pin || (await onPedirPin?.('Vais trocar a tua foto.'))
+    if (!pin) return
     setSavingPhoto(true)
     try {
       const dataUrl = await fileToDataURL(file)
-      await updatePhoto(session.id, session.pin, dataUrl)
+      await updatePhoto(session.id, pin, dataUrl)
       await onRecarregar?.()
     } catch (err) {
       setPhotoErr(err.message)

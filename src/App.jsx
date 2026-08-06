@@ -37,6 +37,7 @@ import LoginScreen from './components/LoginScreen'
 import NextMatch from './components/NextMatch'
 import PlayerCardModal from './components/PlayerCardModal'
 import PlayerProfile from './components/PlayerProfile'
+import PinPrompt from './components/PinPrompt'
 import PlayersScreen from './components/PlayersScreen'
 import PositionSetupScreen from './components/PositionSetupScreen'
 import QuickLogin from './components/QuickLogin'
@@ -310,7 +311,37 @@ export default function App() {
       setDeviceToken(token)
       guardarToken(token)
     }
-    handleLogin(s)
+    handleLogin(token ? { ...s, token } : s)
+  }
+
+  // ---------- pedir o PIN a meio da sessão ----------
+  //
+  // Quem entrou pelo "lembrar-me" tem sessão sem PIN: o token autoriza ler e
+  // votar, e mais nada. As ações que mexem na conta (foto, PIN, card,
+  // posições) continuam a exigi-lo — e sem isto falhavam com "Nome ou PIN
+  // incorretos", uma mensagem sem sentido para quem nunca escreveu nenhum.
+  //
+  // `pedirPin` devolve uma promessa: quem precisa do PIN faz
+  // `session.pin || await pedirPin(motivo)` e desiste se vier `null`.
+  const resolverPinRef = useRef(null)
+  const [pedidoDePin, setPedidoDePin] = useState(null)
+
+  const pedirPin = useCallback(
+    (motivo) =>
+      new Promise((resolve) => {
+        resolverPinRef.current = resolve
+        setPedidoDePin({ motivo })
+      }),
+    []
+  )
+
+  const fecharPedidoDePin = (pin) => {
+    setPedidoDePin(null)
+    // O PIN passa a viver em memória, como em qualquer outra sessão — e só
+    // aí. Quem chamou recebe-o pela promessa e não espera pelo estado.
+    if (pin) setSession((s) => ({ ...s, pin }))
+    resolverPinRef.current?.(pin || null)
+    resolverPinRef.current = null
   }
 
   const irParaVotacao = (matchId) => {
@@ -395,6 +426,7 @@ export default function App() {
     return (
       <PositionSetupScreen
         session={session}
+        onPedirPin={pedirPin}
         onLogout={handleLogout}
         onDone={(pos) => {
           setSession((s) => ({ ...s, ...pos }))
@@ -409,6 +441,7 @@ export default function App() {
     return (
       <RateScreen
         session={session}
+        onPedirPin={pedirPin}
         onDone={() => {
           setSession({ ...session, voted: true })
           setView('home')
@@ -481,6 +514,7 @@ export default function App() {
           loading={carregando}
           error={erro}
           onVotar={irParaVotacao}
+          onPedirPin={pedirPin}
           onRate={() => setView('rate')}
           onProfile={abrirCard}
           onNavigate={navegar}
@@ -548,9 +582,19 @@ export default function App() {
           sequencias={sequencias}
           totalRodadas={dados?.matches?.length || 0}
           session={session}
+          onPedirPin={pedirPin}
           onFechar={() => setCardId(null)}
           onVerPerfil={abrirPerfil}
           onAtualizado={carregar}
+        />
+      )}
+
+      {pedidoDePin && (
+        <PinPrompt
+          nome={session.name}
+          motivo={pedidoDePin.motivo}
+          onConfirmar={fecharPedidoDePin}
+          onCancelar={() => fecharPedidoDePin(null)}
         />
       )}
     </AppShell>

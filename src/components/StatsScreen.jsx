@@ -233,9 +233,12 @@ export default function StatsScreen({
     Promise.all([
       carregarStats(periodo),
       getMatches(),
-      // não-fatal: sem a 0025 aplicada o atalho simplesmente não aparece,
-      // em vez de deitar abaixo o histórico todo
-      getMyOpenVotes(session.id, session.pin).catch(() => []),
+      // O token entra aqui porque uma sessão vinda do "lembrar-me" não tem
+      // PIN: sem ele a chamada devolvia CRED e o atalho para votar
+      // desaparecia justamente a quem entrou pelo link.
+      // Não-fatal na mesma: sem a 0025 aplicada o atalho não aparece, em vez
+      // de deitar abaixo o histórico todo.
+      getMyOpenVotes(session.id, session.pin, session.token).catch(() => []),
     ])
       .then(([, m, p]) => {
         setMatches(m || [])

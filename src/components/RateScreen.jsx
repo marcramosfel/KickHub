@@ -10,7 +10,7 @@ const labelColor = (v) => (v <= 1 ? colors.error : v === 2 ? colors.teamA : v ==
 
 // Avaliação: dá nota a cada jogador que ainda não avaliaste. Aparece
 // sempre que entram jogadores novos (ou o admin reinicia as avaliações).
-export default function RateScreen({ session, onDone, onSkip }) {
+export default function RateScreen({ session, onPedirPin, onDone, onSkip }) {
   const [others, setOthers] = useState(null) // jogadores que faltam avaliar
   const [scores, setScores] = useState({}) // { [playerId]: 0..5 }
   const [error, setError] = useState('')
@@ -75,9 +75,14 @@ export default function RateScreen({ session, onDone, onSkip }) {
   const handleSubmit = async () => {
     if (!complete || busy) return
     setError('')
+    // Sessão vinda do "lembrar-me" não traz PIN em memória e as avaliações
+    // exigem-no — pede-se aqui, já com o trabalho todo feito, em vez de
+    // falhar no envio e perder as notas.
+    const pin = session.pin || (await onPedirPin?.('Vais enviar as tuas avaliações.'))
+    if (!pin) return
     setBusy(true)
     try {
-      await submitRatings(session.id, session.pin, scores)
+      await submitRatings(session.id, pin, scores)
       onDone()
     } catch (err) {
       setError(err.message)

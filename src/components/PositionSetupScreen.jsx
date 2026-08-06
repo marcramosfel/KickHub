@@ -13,7 +13,7 @@ import { colors, fonts, styles, disabled } from '../theme'
 // disto só um administrador altera (e o servidor recusa, não é só o botão que
 // fica desativado).
 
-export default function PositionSetupScreen({ session, onDone, onLogout }) {
+export default function PositionSetupScreen({ session, onPedirPin, onDone, onLogout }) {
   const [principal, setPrincipal] = useState(null)
   const [secundaria, setSecundaria] = useState(null)
   const [aceitaOutras, setAceitaOutras] = useState(true)
@@ -44,10 +44,14 @@ export default function PositionSetupScreen({ session, onDone, onLogout }) {
       setErro('Escolhe pelo menos a posição principal.')
       return
     }
+    // Sessão vinda do "lembrar-me" não traz PIN em memória — gravar a
+    // posição exige-o, e é uma escolha que só se faz uma vez.
+    const pin = session.pin || (await onPedirPin?.('Vais gravar a tua posição.'))
+    if (!pin) return
     setBusy(true)
     setErro('')
     try {
-      await setMyPositions(session.id, session.pin, principal, secundaria, aceitaOutras)
+      await setMyPositions(session.id, pin, principal, secundaria, aceitaOutras)
       onDone({
         primary_position: principal,
         secondary_position: secundaria,
