@@ -36,6 +36,19 @@ export const PESO_DESEMPENHO_V2 = 0.25
 export const PESO_POS_JOGO_V2 = 0.25
 export const ESTRELAS_MAX = 5
 
+// Confiança na avaliação dos companheiros.
+//
+// Sem isto, UMA estrela valia os 25% inteiros: bastava um 5★ de um amigo
+// para mexer um quarto do overall de alguém. Com a participação baixa que
+// motivou este redesenho, isso não é uma parcela — é ruído com peso.
+//
+// A parcela cresce com o número de avaliações recebidas até um jogo inteiro
+// de companheiros (6). Abaixo disso o peso é proporcional e o que sobra é
+// redistribuído pelas outras parcelas — não é castigo, é dizer que ainda não
+// se sabe o suficiente. É o mesmo mecanismo que o overall de goleiro já usa
+// com `RODADAS_CONFIANCA`.
+export const AVALIACOES_CONFIANCA = 6
+
 export const PARTICIPACOES_TOPO = 3 // gols + assistências por jogo que valem 100
 // Os prémios contam pela TAXA, não pelo total: craque em todas as rodadas
 // vale o máximo, craque numa de vinte vale quase nada. Assim quem joga há
@@ -82,6 +95,10 @@ export function calcularOverall(perfil) {
   const posJogo = temPosJogo ? (estrelas / ESTRELAS_MAX) * 100 : null
   const versao = temPosJogo ? 2 : 1
 
+  // Quanto é que a parcela dos companheiros já vale, de 0 a 1.
+  const confiancaPosJogo = temPosJogo ? Math.min(avaliacoes / AVALIACOES_CONFIANCA, 1) : 0
+  const pesoPosJogo = PESO_POS_JOGO_V2 * confiancaPosJogo
+
   const partes = {
     base,
     desempenho,
@@ -94,11 +111,13 @@ export function calcularOverall(perfil) {
     estrelas,
     avaliacoes,
     posJogo,
-    // uma única avaliação ainda não é uma média — a UI diz que é provisória
-    posJogoProvisorio: temPosJogo && avaliacoes === 1,
+    confiancaPosJogo,
+    // ainda sem avaliações que cheguem para a parcela valer por inteiro —
+    // a UI diz que o número é provisório
+    posJogoProvisorio: temPosJogo && avaliacoes < AVALIACOES_CONFIANCA,
     pesos:
       versao === 2
-        ? { grupo: PESO_GRUPO_V2, desempenho: PESO_DESEMPENHO_V2, posJogo: PESO_POS_JOGO_V2 }
+        ? { grupo: PESO_GRUPO_V2, desempenho: PESO_DESEMPENHO_V2, posJogo: pesoPosJogo }
         : { grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 },
   }
 
@@ -132,10 +151,13 @@ export function calcularOverall(perfil) {
   // ---------- v2: 50% grupo + 25% campo + 25% companheiros ----------
   // Média ponderada só com as parcelas que EXISTEM. Um jogador sem notas do
   // grupo (ou sem rodadas de campo) não leva zero na parcela em falta: ela
-  // sai da conta e os pesos das outras são renormalizados. Com as três
-  // presentes — o caso normal — isto é exatamente 50/25/25, porque o
-  // divisor dá 1.
-  const parcelas = [[posJogo, PESO_POS_JOGO_V2]]
+  // sai da conta e os pesos das outras são renormalizados.
+  //
+  // O peso dos companheiros é o dos 25% JÁ MULTIPLICADO pela confiança: com
+  // uma avaliação pesa ~4%, com seis pesa os 25% cheios. A renormalização
+  // trata do resto — o que a parcela ainda não vale vai para as outras, em
+  // vez de puxar o número para baixo por falta de dados.
+  const parcelas = [[posJogo, pesoPosJogo]]
   if (base != null) parcelas.push([base, PESO_GRUPO_V2])
   if (matches > 0) parcelas.push([desempenho, PESO_DESEMPENHO_V2])
 

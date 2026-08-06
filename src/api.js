@@ -56,6 +56,15 @@ const ERROS = {
   ESTRELAS: 'As estrelas têm de ser um número inteiro de 0 a 5.',
   SEMCOMPANHEIRO: 'Só podes avaliar quem jogou no teu time.',
   SEMEQUIPAS: 'Este jogo não tem equipas registadas — não dá para avaliar companheiros.',
+  // formato do jogo e rodízio de goleiro (migração 0024)
+  FORMATOINVALIDO: 'Esse formato de jogo não existe.',
+  TAMANHOEQUIPA: 'O número de jogadores não bate certo com o formato escolhido.',
+  ORDEMRODIZIO: 'A ordem do rodízio tem de cobrir todos os jogadores da equipa.',
+  SEMRODIZIO: 'Este jogo não tem rodízio de goleiro.',
+  // votação com prazo (migração 0025)
+  PRAZOVOTACAO: 'A votação desta rodada já fechou.',
+  VOTACAOREVISAO: 'Esta votação está em revisão pelo admin — aguarda o resultado final.',
+  TOKENINVALIDO: 'Esta ligação expirou. Entra com o teu PIN.',
 }
 
 export class ApiError extends Error {
@@ -65,9 +74,19 @@ export class ApiError extends Error {
   }
 }
 
+// Códigos do mais comprido para o mais curto.
+//
+// A procura é por `includes`, e há códigos que são sufixo de outros:
+// `FORMATOINVALIDO` contém `INVALIDO`, `TAMANHOEQUIPA` contém `EQUIPA`. Pela
+// ordem de declaração ganhava o mais curto e o admin lia uma mensagem sobre
+// craques quando o problema era o formato do jogo. Ordenar por comprimento
+// faz sempre ganhar o código mais específico — e resolve a classe toda, não
+// só os casos de hoje.
+const CODIGOS = Object.keys(ERROS).sort((a, b) => b.length - a.length)
+
 function traduz(error) {
   const msg = error?.message || ''
-  for (const codigo of Object.keys(ERROS)) {
+  for (const codigo of CODIGOS) {
     if (msg.includes(codigo)) return new ApiError(ERROS[codigo], codigo)
   }
   // PGRST202 = a função não existe no Postgres. Na prática significa sempre a
@@ -188,6 +207,103 @@ export const submitPostMatchRatings = (voterId, pin, matchId, ratings) =>
 export const adminSetPostRatingStatus = (pw, matchId, aberta) =>
   rpc('admin_set_post_rating_status', { p_pw: pw, p_match: matchId, p_open: !!aberta })
 
+// ---------- Votação da rodada (migração 0025) ----------
+//
+// Uma cédula só: estrelas nos companheiros + craque + bagre, numa leitura e
+// num envio. `token` é o do dispositivo ("lembrar-me neste telemóvel") e
+// dispensa o PIN — quando existe, `pin` vai a null.
+
+// Tudo o que o ecrã de votação precisa, numa chamada.
+export const getRoundBallot = (voterId, pin, matchId, token = null) =>
+  rpc('get_round_ballot', {
+    p_voter: voterId,
+    p_pin: token ? null : pin,
+    p_match: matchId,
+    p_token: token,
+  })
+
+// Aceita votos parciais: só estrelas, só craque/bagre, ou tudo.
+// ratings: [{ player_id, stars: 0..5 }]
+export const submitRoundVote = (voterId, pin, matchId, v = {}, token = null) =>
+  rpc('submit_round_vote', {
+    p_voter: voterId,
+    p_pin: token ? null : pin,
+    p_match: matchId,
+    p_craque: v.craqueId || null,
+    p_bagre: v.bagreId || null,
+    p_ratings: v.ratings || null,
+    p_token: token,
+  })
+
+// Rodadas em que joguei com a votação aberta, e o que me falta em cada uma.
+// Alimenta a faixa de lembrete.
+export const getMyOpenVotes = (voterId, pin, token = null) =>
+  rpc('get_my_open_votes', { p_voter: voterId, p_pin: token ? null : pin, p_token: token })
+
+// ---------- Sessão por dispositivo (migração 0025) ----------
+//
+// O que fica guardado no telemóvel é este token, NUNCA o PIN. Autoriza ler e
+// votar; trocar PIN, trocar foto e entrar no admin continuam a exigir o PIN.
+export const issueDeviceToken = (id, pin, label = null) =>
+  rpc('issue_device_token', { p_id: id, p_pin: pin, p_label: label })
+
+export const loginWithDevice = (token) => rpc('login_with_device', { p_token: token })
+
+export const revokeDevice = (token) => rpc('revoke_device', { p_token: token })
+
+export const adminRevokeDevices = (pw, playerId) =>
+  rpc('admin_revoke_devices', { p_pw: pw, p_id: playerId })
+
+// ---------- Encerrar o jogo e gerir a votação (migração 0025) ----------
+//
+// `adminCloseGame` é o botão único: grava o resultado, publica-o, abre a
+// votação com prazo e cria o post do feed — tudo numa transação.
+export const adminCloseGame = (pw, matchId, r) =>
+  rpc('admin_close_game', {
+    p_pw: pw,
+    p_match: matchId,
+    p_score_a: r.scoreA,
+    p_score_b: r.scoreB,
+    p_stats: r.stats,
+    p_gk_stats: r.gkStats || null,
+    p_notes: r.notes || null,
+    p_resenha: r.resenha || null,
+    p_deadline: r.deadline || null,
+  })
+
+// Mexer no prazo, no quórum ou no estado (reabrir, pôr em revisão, fechar).
+export const adminSetVoting = (pw, matchId, v = {}) =>
+  rpc('admin_set_voting', {
+    p_pw: pw,
+    p_match: matchId,
+    p_status: v.status || null,
+    p_deadline: v.deadline || null,
+    p_quorum: v.quorum ?? null,
+  })
+
+// Todos os números da votação para o ecrã de revisão (as estrelas só como
+// médias — nem o admin vê quem deu que nota).
+export const adminVotingReview = (pw, matchId) =>
+  rpc('admin_voting_review', { p_pw: pw, p_match: matchId })
+
+// Confirma o resultado final. craque/bagre a null = aceitar quem a votação
+// elegeu.
+export const adminFinalizeVoting = (pw, matchId, craqueId = null, bagreId = null) =>
+  rpc('admin_finalize_voting', {
+    p_pw: pw,
+    p_match: matchId,
+    p_craque: craqueId,
+    p_bagre: bagreId,
+  })
+
+// ---------- Rodízio de goleiro (migração 0024) ----------
+// O jogador diz se aceita ir à baliza quando o rodízio lhe calhar.
+export const setMyGkRotation = (id, pin, ok) =>
+  rpc('set_my_gk_rotation', { p_id: id, p_pin: pin, p_ok: !!ok })
+
+export const adminSetGkRotation = (pw, playerId, ok) =>
+  rpc('admin_set_gk_rotation', { p_pw: pw, p_id: playerId, p_ok: !!ok })
+
 // ---------- Admin ----------
 export const adminPending = (pw) => rpc('admin_pending', { p_pw: pw })
 
@@ -286,6 +402,9 @@ export const adminPositionHistory = (pw, playerId) =>
 // O próximo jogo publicado, com a escalação já sorteada. Público.
 export const getNextMatch = () => rpc('get_next_match')
 
+// `gkMode` ('FIXED' | 'ROTATING'), `teamSize` (5–8) e `rotationMinutes`
+// definem o FORMATO do jogo (migração 0024). Sem eles o servidor assume o
+// de sempre: goleiros fixos, 7×7.
 export const adminSaveSchedule = (pw, id, m) =>
   rpc('admin_save_schedule', {
     p_pw: pw,
@@ -293,6 +412,9 @@ export const adminSaveSchedule = (pw, id, m) =>
     p_kickoff: m.kickoffAt,
     p_location: m.location || null,
     p_map_url: m.mapUrl || null,
+    p_gk_mode: m.gkMode || 'FIXED',
+    p_team_size: m.teamSize || 7,
+    p_gk_rotation_minutes: m.rotationMinutes || null,
   })
 
 // lineup: [{ player_id, team, assigned_position, preferred_position,

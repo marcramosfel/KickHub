@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  AVALIACOES_CONFIANCA,
   BONUS_CRAQUE_MAX,
   OVERALL_VERSION,
   PENAL_BAGRE_MAX,
@@ -74,11 +75,12 @@ describe('versão da fórmula', () => {
     const r = calcularOverall(v1({ post_rating_avg: 4, post_rating_count: 1 }))
     expect(r.versao).toBe(2)
     expect(r.versao).toBe(OVERALL_VERSION)
-    expect(r.pesos).toEqual({
-      grupo: PESO_GRUPO_V2,
-      desempenho: PESO_DESEMPENHO_V2,
-      posJogo: PESO_POS_JOGO_V2,
-    })
+    expect(r.pesos.grupo).toBe(PESO_GRUPO_V2)
+    expect(r.pesos.desempenho).toBe(PESO_DESEMPENHO_V2)
+    // A versão muda logo à primeira avaliação, mas o PESO dela ainda não: é
+    // a confiança que o segura, senão um voto isolado valia um quarto do
+    // overall de alguém.
+    expect(r.pesos.posJogo).toBeCloseTo(PESO_POS_JOGO_V2 / AVALIACOES_CONFIANCA, 6)
     expect(r.posJogoProvisorio).toBe(true) // uma só avaliação ainda não é média
   })
 
@@ -125,11 +127,11 @@ describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
   it('o bónus de craque e o desconto de bagre continuam por cima da base', () => {
     const semPremios = calcularOverall({
       avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0,
-      post_rating_avg: 4, post_rating_count: 5,
+      post_rating_avg: 4, post_rating_count: 6,
     })
     const comPremios = calcularOverall({
       avg: 4, matches: 10, goals: 10, assists: 5, craques: 10, bagres: 0,
-      post_rating_avg: 4, post_rating_count: 5,
+      post_rating_avg: 4, post_rating_count: 6,
     })
     expect(comPremios.overall - semPremios.overall).toBe(BONUS_CRAQUE_MAX)
     expect(comPremios.bonusCraque).toBe(BONUS_CRAQUE_MAX)
@@ -152,7 +154,7 @@ describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
   it('sem notas do grupo, a parcela em falta NÃO vale zero — os pesos renormalizam', () => {
     const r = calcularOverall({
       avg: null, matches: 4, goals: 4, assists: 2, craques: 0, bagres: 0,
-      post_rating_avg: 4, post_rating_count: 4,
+      post_rating_avg: 4, post_rating_count: AVALIACOES_CONFIANCA,
     })
     const desempenho = Math.min(6 / 4 / 3, 1) * 100
     const posJogo = 80
@@ -166,18 +168,67 @@ describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
   it('avaliado sem nenhuma rodada de campo vale pelo grupo e pelos companheiros', () => {
     const r = calcularOverall({
       avg: 4, matches: 0, goals: 0, assists: 0, craques: 0, bagres: 0,
-      post_rating_avg: 3, post_rating_count: 2,
+      post_rating_avg: 3, post_rating_count: AVALIACOES_CONFIANCA,
     })
     // 80 e 60, sem a parcela de desempenho a puxar para baixo
     expect(r.overallBase).toBeCloseTo((80 * 0.5 + 60 * 0.25) / 0.75, 6)
     expect(r.overall).toBeGreaterThan(60)
   })
+})
 
-  it('uma avaliação é provisória, duas já não', () => {
-    const uma = calcularOverall({ avg: 4, matches: 3, goals: 1, assists: 1, post_rating_avg: 4, post_rating_count: 1 })
-    const duas = calcularOverall({ avg: 4, matches: 3, goals: 1, assists: 1, post_rating_avg: 4, post_rating_count: 2 })
-    expect(uma.posJogoProvisorio).toBe(true)
-    expect(duas.posJogoProvisorio).toBe(false)
+// ---------------------------------------------------------------- confiança
+//
+// A regra que trava o "5★ do melhor amigo": a parcela dos companheiros só
+// vale os 25% inteiros a partir de AVALIACOES_CONFIANCA avaliações. Abaixo
+// disso pesa proporcionalmente e o resto é redistribuído.
+describe('confiança na avaliação pós-jogo', () => {
+  const perfil = { avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0 }
+
+  it('uma avaliação isolada quase não mexe no overall', () => {
+    const semNada = calcularOverall(perfil)
+    const umCinco = calcularOverall({ ...perfil, post_rating_avg: 5, post_rating_count: 1 })
+    // com o peso cheio a diferença passaria dos 5 pontos; com confiança de
+    // 1/6 fica num ponto ou dois
+    expect(Math.abs(umCinco.overall - semNada.overall)).toBeLessThanOrEqual(2)
+  })
+
+  it('o peso cresce até AVALIACOES_CONFIANCA e pára aí', () => {
+    const pesoCom = (n) =>
+      calcularOverall({ ...perfil, post_rating_avg: 5, post_rating_count: n }).pesos.posJogo
+    expect(pesoCom(1)).toBeCloseTo(PESO_POS_JOGO_V2 / AVALIACOES_CONFIANCA, 6)
+    expect(pesoCom(3)).toBeCloseTo((PESO_POS_JOGO_V2 * 3) / AVALIACOES_CONFIANCA, 6)
+    expect(pesoCom(AVALIACOES_CONFIANCA)).toBeCloseTo(PESO_POS_JOGO_V2, 6)
+    // não passa dos 25% por muitas avaliações que haja
+    expect(pesoCom(40)).toBeCloseTo(PESO_POS_JOGO_V2, 6)
+  })
+
+  it('a confiança é monótona: mais avaliações nunca reduzem o peso', () => {
+    let anterior = -1
+    for (let n = 1; n <= 10; n++) {
+      const p = calcularOverall({ ...perfil, post_rating_avg: 4, post_rating_count: n })
+      expect(p.pesos.posJogo).toBeGreaterThanOrEqual(anterior)
+      anterior = p.pesos.posJogo
+    }
+  })
+
+  it('é provisório até haver avaliações que cheguem', () => {
+    const poucas = calcularOverall({ ...perfil, post_rating_avg: 4, post_rating_count: 2 })
+    const bastantes = calcularOverall({
+      ...perfil,
+      post_rating_avg: 4,
+      post_rating_count: AVALIACOES_CONFIANCA,
+    })
+    expect(poucas.posJogoProvisorio).toBe(true)
+    expect(poucas.confiancaPosJogo).toBeCloseTo(2 / AVALIACOES_CONFIANCA, 6)
+    expect(bastantes.posJogoProvisorio).toBe(false)
+    expect(bastantes.confiancaPosJogo).toBe(1)
+  })
+
+  it('sem avaliação nenhuma continua na v1, com peso zero', () => {
+    const r = calcularOverall(perfil)
+    expect(r.versao).toBe(1)
+    expect(r.pesos.posJogo).toBe(0)
+    expect(r.confiancaPosJogo).toBe(0)
   })
 })
 

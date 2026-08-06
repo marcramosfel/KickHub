@@ -23,6 +23,7 @@
 // mas continua a ser reproduzível a partir do ID do jogo.
 
 import { FIELD_SLOTS, PENALIZACAO, PLAYER_TYPE, penalizacaoDe } from './positions.js'
+import { lugaresDe, TAMANHO_PADRAO } from './formacoes.js'
 import { baralhar, criarRandom, escolher } from './seed.js'
 
 // Quem ainda não tem overall entra como médio: 0 fazia dele um peso morto que
@@ -143,25 +144,26 @@ export function avaliarEquilibrio(strengthA, strengthB) {
   return { diff, balancePct, balanceLevel, balanceLabel }
 }
 
-const custoDe = (sA, sB, penalizacao) =>
+const custoDe = (sA, sB, penalizacao, porEquipa = JOGADORES_POR_EQUIPA) =>
   Math.abs(sA - sB) * PESO_DIFERENCA +
   penalizacao * PESO_PENALIZACAO +
-  Math.abs(sA / JOGADORES_POR_EQUIPA - sB / JOGADORES_POR_EQUIPA) * PESO_MEDIA
+  Math.abs(sA / porEquipa - sB / porEquipa) * PESO_MEDIA
 
 // ---------------------------------------------------------------- combinatória
 
-// Divisões dos 12 jogadores de campo em 6 + 6, com o índice 0 sempre na
-// equipa A (equipas trocadas são o mesmo sorteio → 462 em vez de 924).
-function divisoesDeCampo() {
+// Divisões de `total` jogadores em duas metades de `porEquipa`, com o índice
+// 0 sempre na equipa A (equipas trocadas são o mesmo sorteio → 462 em vez de
+// 924 no caso 12 → 6+6).
+function divisoesDeCampo(total = N_CAMPO, porEquipa = POR_EQUIPA) {
   const out = []
-  const restantes = POR_EQUIPA - 1
+  const restantes = porEquipa - 1
   const escolha = new Array(restantes)
   const passo = (inicio, k) => {
     if (k === restantes) {
       out.push([0, ...escolha])
       return
     }
-    const limite = N_CAMPO - (restantes - k)
+    const limite = total - (restantes - k)
     for (let i = inicio; i <= limite; i++) {
       escolha[k] = i
       passo(i + 1, k + 1)
@@ -171,17 +173,26 @@ function divisoesDeCampo() {
   return out
 }
 
-// As divisões só dependem de N_CAMPO, não dos jogadores: calculam-se uma vez
-// e reaproveitam-se em todos os sorteios (são 462 arrays por chamada).
-// Nunca são mutadas — `indicesA` só é lido.
-const DIVISOES = divisoesDeCampo()
+// As divisões só dependem dos tamanhos, não dos jogadores: calculam-se uma
+// vez por formato e reaproveitam-se em todos os sorteios. Nunca são mutadas —
+// `indicesA` só é lido.
+const CACHE_DIVISOES = new Map()
+function divisoesEmCache(total, porEquipa) {
+  const chave = `${total}:${porEquipa}`
+  let d = CACHE_DIVISOES.get(chave)
+  if (!d) {
+    d = divisoesDeCampo(total, porEquipa)
+    CACHE_DIVISOES.set(chave, d)
+  }
+  return d
+}
 
-// Algoritmo húngaro (Munkres) para uma matriz quadrada 6×6 de penalizações.
-// Devolve, para cada jogador, o índice do lugar em FIELD_SLOTS, e o total.
-// É exacto: nenhuma outra distribuição destes 6 jogadores por estes 6 lugares
-// tem penalização menor.
-function atribuicaoOtima(jogadores) {
-  return hungaro(jogadores.map((j) => FIELD_SLOTS.map((slot) => penalizacaoDe(j, slot))))
+// Algoritmo húngaro (Munkres) para uma matriz quadrada n×n de penalizações.
+// Devolve, para cada jogador, o índice do lugar, e o total. É exacto: nenhuma
+// outra distribuição destes n jogadores por estes n lugares tem penalização
+// menor.
+function atribuicaoOtima(jogadores, slots = FIELD_SLOTS) {
+  return hungaro(jogadores.map((j) => slots.map((slot) => penalizacaoDe(j, slot))))
 }
 
 // Atribuição que dá prioridade a quem é melhor: o custo de cada lugar é a
@@ -191,10 +202,10 @@ function atribuicaoOtima(jogadores) {
 // como agradar a toda a gente: os melhores ficam onde jogam, os outros
 // ocupam o que sobra — e o empate entre lugares equivalentes desempata ao
 // acaso (semeado), para não ser sempre o mesmo a calhar mal.
-function atribuicaoPorQualidade(jogadores, random) {
+function atribuicaoPorQualidade(jogadores, random, slots = FIELD_SLOTS) {
   return hungaro(
     jogadores.map((j) =>
-      FIELD_SLOTS.map(
+      slots.map(
         (slot) => penalizacaoDe(j, slot) * (j.overall || OVERALL_NEUTRO) + random() * 0.5
       )
     )
@@ -203,7 +214,9 @@ function atribuicaoPorQualidade(jogadores, random) {
 
 // Algoritmo húngaro sobre uma matriz de custos n×n já construída.
 function hungaro(c) {
-  const n = FIELD_SLOTS.length
+  // O n vem da matriz e não de FIELD_SLOTS: é o mesmo algoritmo a servir o
+  // 6×6 do 2-3-1, o 5×5 do 2-2-1 e o (tamanho)×(tamanho) do rodízio.
+  const n = c.length
 
   // Índices 1..n; a coluna 0 é a sentinela do caminho aumentante.
   const u = new Array(n + 1).fill(0)
@@ -262,30 +275,32 @@ function hungaro(c) {
 
 // ---------------------------------------------------------------- montagem
 
-function montarEquipa(goleiro, porSlot) {
+function montarEquipa(goleiro, porSlot, lugares = FIELD_SLOTS) {
   const gk = { ...goleiro, assignedPosition: 'GK', isGoalkeeper: true }
   const slots = {}
   let penalidade = 0
   let strength = gk.overall
-  for (const slot of FIELD_SLOTS) {
+  for (const slot of lugares) {
     const j = porSlot[slot]
     slots[slot] = { ...j, assignedPosition: slot, isGoalkeeper: false }
     penalidade += penalizacaoDe(j, slot)
     strength += j.overall
   }
+  const porEquipa = lugares.length + 1
   return {
     goalkeeper: gk,
     slots,
-    jogadores: [gk, ...FIELD_SLOTS.map((slot) => slots[slot])],
+    lugares,
+    jogadores: [gk, ...lugares.map((slot) => slots[slot])],
     strength,
-    avg: strength / JOGADORES_POR_EQUIPA,
+    avg: strength / porEquipa,
     penalidade,
   }
 }
 
 function forasDe(equipa, team) {
   const out = []
-  for (const slot of FIELD_SLOTS) {
+  for (const slot of equipa.lugares || FIELD_SLOTS) {
     const j = equipa.slots[slot]
     const c = classificar(j, slot)
     if (!c) continue
@@ -302,9 +317,11 @@ function forasDe(equipa, team) {
   return out
 }
 
-// Os goleiros ficam de fora de `outOfPosition`: foram escolhidos como
-// goleiros, não foram empurrados para ali pelo sorteio.
-function montarResultado(equipaA, equipaB, seed) {
+// Os goleiros ficam de fora de `outOfPosition`: no modo de goleiros fixos
+// foram escolhidos como goleiros, não foram empurrados para ali pelo sorteio.
+// No rodízio isso deixa de ser verdade — quem começa no gol é um jogador de
+// linha — e por isso vai à parte, em `goleirosImprovisados`.
+function montarResultado(equipaA, equipaB, seed, extra = {}) {
   const penalidadeTotal = equipaA.penalidade + equipaB.penalidade
   const semOverall = []
   for (const [team, equipa] of [
@@ -315,6 +332,7 @@ function montarResultado(equipaA, equipaB, seed) {
       if (j.overallEstimado) semOverall.push({ playerId: j.id, name: j.name, team })
     }
   }
+  const lugares = equipaA.lugares || FIELD_SLOTS
   return {
     teamA: equipaA,
     teamB: equipaB,
@@ -322,8 +340,12 @@ function montarResultado(equipaA, equipaB, seed) {
     outOfPosition: [...forasDe(equipaA, 'A'), ...forasDe(equipaB, 'B')],
     semOverall,
     penalidadeTotal,
-    custo: custoDe(equipaA.strength, equipaB.strength, penalidadeTotal),
+    custo: custoDe(equipaA.strength, equipaB.strength, penalidadeTotal, lugares.length + 1),
     seed: seed ?? null,
+    lugares,
+    tamanho: lugares.length + 1,
+    gkMode: 'FIXED',
+    ...extra,
   }
 }
 
@@ -333,20 +355,38 @@ function desmontar(resultado) {
   return {
     A: { gk: resultado.teamA.goalkeeper, slots: { ...resultado.teamA.slots } },
     B: { gk: resultado.teamB.goalkeeper, slots: { ...resultado.teamB.slots } },
+    lugares: resultado.lugares || FIELD_SLOTS,
+    // metadados que têm de sobreviver a uma troca à mão
+    gkMode: resultado.gkMode || 'FIXED',
+    rodizio: resultado.rodizio
+      ? { A: [...resultado.rodizio.A], B: [...resultado.rodizio.B] }
+      : null,
+    rotacaoMinutos: resultado.rotacaoMinutos ?? null,
   }
 }
 
 const remontar = (base, seed) =>
-  montarResultado(montarEquipa(base.A.gk, base.A.slots), montarEquipa(base.B.gk, base.B.slots), seed)
+  montarResultado(
+    montarEquipa(base.A.gk, base.A.slots, base.lugares),
+    montarEquipa(base.B.gk, base.B.slots, base.lugares),
+    seed,
+    {
+      gkMode: base.gkMode,
+      rodizio: base.rodizio,
+      rotacaoMinutos: base.rotacaoMinutos,
+      goleirosImprovisados: base.gkMode === 'ROTATING' ? improvisadosDe(base) : [],
+    }
+  )
 
 function localizar(resultado, id) {
+  const lugares = resultado?.lugares || FIELD_SLOTS
   for (const team of ['A', 'B']) {
     const equipa = team === 'A' ? resultado?.teamA : resultado?.teamB
     if (!equipa) continue
     if (equipa.goalkeeper?.id === id) {
       return { team, slot: 'GK', jogador: equipa.goalkeeper, isGoalkeeper: true }
     }
-    for (const slot of FIELD_SLOTS) {
+    for (const slot of lugares) {
       if (equipa.slots?.[slot]?.id === id) {
         return { team, slot, jogador: equipa.slots[slot], isGoalkeeper: false }
       }
@@ -357,9 +397,14 @@ function localizar(resultado, id) {
 
 // ---------------------------------------------------------------- API
 
-export function sortearEquipas({ goalkeepers, fieldPlayers, seed } = {}) {
+export function sortearEquipas({ goalkeepers, fieldPlayers, seed, tamanho = TAMANHO_PADRAO } = {}) {
+  const lugares = lugaresDe(tamanho)
+  const porEquipa = lugares.length
+  const nCampo = porEquipa * 2
+  const jogadoresPorEquipa = porEquipa + 1
+
   const gks = validarLote(goalkeepers, N_GOLEIROS, 'GOLEIROS', 'goleiros').map(normalizar)
-  const campo = validarLote(fieldPlayers, N_CAMPO, 'CAMPO', 'jogadores de campo').map(normalizar)
+  const campo = validarLote(fieldPlayers, nCampo, 'CAMPO', 'jogadores de campo').map(normalizar)
 
   const todos = [...gks, ...campo]
   // Sem esta verificação, dois jogadores sem `id` pareciam o mesmo jogador
@@ -382,12 +427,12 @@ export function sortearEquipas({ goalkeepers, fieldPlayers, seed } = {}) {
   const configuracoes = []
   let melhor = Infinity
 
-  for (const indicesA of DIVISOES) {
+  for (const indicesA of divisoesEmCache(nCampo, porEquipa)) {
     const naA = new Set(indicesA)
     const jogA = indicesA.map((i) => campo[i])
     const jogB = campo.filter((_, i) => !naA.has(i))
-    const atribA = atribuicaoOtima(jogA)
-    const atribB = atribuicaoOtima(jogB)
+    const atribA = atribuicaoOtima(jogA, lugares)
+    const atribB = atribuicaoOtima(jogB, lugares)
     const penalizacao = atribA.total + atribB.total
     const somaA = jogA.reduce((s, j) => s + j.overall, 0)
     const somaB = jogB.reduce((s, j) => s + j.overall, 0)
@@ -397,7 +442,12 @@ export function sortearEquipas({ goalkeepers, fieldPlayers, seed } = {}) {
     for (let g = 0; g < N_GOLEIROS; g++) {
       const gkA = gks[g]
       const gkB = gks[N_GOLEIROS - 1 - g]
-      const custo = custoDe(somaA + gkA.overall, somaB + gkB.overall, penalizacao)
+      const custo = custoDe(
+        somaA + gkA.overall,
+        somaB + gkB.overall,
+        penalizacao,
+        jogadoresPorEquipa
+      )
       if (custo < melhor) melhor = custo
       configuracoes.push({ jogA, jogB, atribA, atribB, gkA, gkB, custo })
     }
@@ -409,22 +459,25 @@ export function sortearEquipas({ goalkeepers, fieldPlayers, seed } = {}) {
     random,
   )
 
-  const porSlot = (jogadores, atrib) => {
-    const mapa = {}
-    jogadores.forEach((j, i) => {
-      mapa[FIELD_SLOTS[atrib.slotDe[i]]] = j
-    })
-    return mapa
-  }
+  const mapaPorSlot = (jogadores, atrib) => porSlot(jogadores, atrib, lugares)
 
-  let A = montarEquipa(escolhida.gkA, porSlot(escolhida.jogA, escolhida.atribA))
-  let B = montarEquipa(escolhida.gkB, porSlot(escolhida.jogB, escolhida.atribB))
+  let A = montarEquipa(escolhida.gkA, mapaPorSlot(escolhida.jogA, escolhida.atribA), lugares)
+  let B = montarEquipa(escolhida.gkB, mapaPorSlot(escolhida.jogB, escolhida.atribB), lugares)
   // O primeiro jogador da lista ficou sempre na equipa A para cortar as
   // divisões a metade; uma moeda no fim evita que a ordem com que os nomes
   // chegaram decida quem é a equipa A e quem é a B.
   if (random() < 0.5) [A, B] = [B, A]
 
   return montarResultado(A, B, seed)
+}
+
+// Jogadores → { [slot]: jogador } a partir de uma atribuição do húngaro.
+function porSlot(jogadores, atrib, lugares = FIELD_SLOTS) {
+  const mapa = {}
+  jogadores.forEach((j, i) => {
+    mapa[lugares[atrib.slotDe[i]]] = j
+  })
+  return mapa
 }
 
 // Troca dois jogadores de lugar. Entre equipas ou dentro da mesma — quem entra
@@ -442,7 +495,9 @@ export function trocarJogadores(resultado, idA, idB) {
   if (a.isGoalkeeper !== b.isGoalkeeper) {
     throw erro(
       'TROCAGK',
-      'Um goleiro só pode trocar com o outro goleiro — o sorteio precisa de um em cada equipa.',
+      base.gkMode === 'ROTATING'
+        ? 'Quem começa no gol só troca com quem começa no gol da outra equipa. Para mudar quem vai à baliza, usa a ordem do rodízio.'
+        : 'Um goleiro só pode trocar com o outro goleiro — o sorteio precisa de um em cada equipa.',
     )
   }
 
@@ -455,6 +510,55 @@ export function trocarJogadores(resultado, idA, idB) {
     base[a.team].slots[a.slot] = base[b.team].slots[b.slot]
     base[b.team].slots[b.slot] = tmp
   }
+
+  // No rodízio, a VEZ pertence ao lugar na equipa, não à pessoa: quem chega
+  // herda a vez de quem saiu. Sem isto, trocar dois jogadores deixava uma
+  // equipa com duas vezes iguais e a outra com um buraco — a mesma regra que
+  // o trigger `preencher_gk_order` aplica na base de dados.
+  if (base.rodizio && a.team !== b.team) {
+    const iA = base.rodizio[a.team].indexOf(idA)
+    const iB = base.rodizio[b.team].indexOf(idB)
+    if (iA >= 0) base.rodizio[a.team][iA] = idB
+    if (iB >= 0) base.rodizio[b.team][iB] = idA
+  }
+
+  return remontar(base, resultado.seed)
+}
+
+// Muda quem começa no gol de uma equipa, no modo rodízio: `playerId` passa a
+// ser o primeiro da ordem e quem lá estava troca de vez com ele.
+//
+// Não mexe na COMPOSIÇÃO da equipa — o equilíbrio já foi decidido e não pode
+// ser afetado por esta escolha, que é precisamente o ponto do rodízio.
+export function definirInicioNoGol(resultado, team, playerId) {
+  if (resultado?.gkMode !== 'ROTATING' || !resultado.rodizio) {
+    throw erro('SEMRODIZIO', 'Este jogo não tem rodízio de goleiro.')
+  }
+  if (team !== 'A' && team !== 'B') {
+    throw erro('EQUIPA', `Equipa inválida: "${team}". Só existem "A" e "B".`)
+  }
+  const ordem = [...resultado.rodizio[team]]
+  const i = ordem.indexOf(playerId)
+  if (i < 0) throw erro('SEMJOGADOR', 'Esse jogador não está nesta equipa.')
+  if (i === 0) return resultado
+
+  const base = desmontar(resultado)
+  ordem[i] = ordem[0]
+  ordem[0] = playerId
+  base.rodizio[team] = ordem
+
+  // quem estava no gol vai para o lugar de campo do novo goleiro, e
+  // vice-versa — mais ninguém se mexe
+  const equipa = team === 'A' ? resultado.teamA : resultado.teamB
+  const slotDoNovo = (resultado.lugares || FIELD_SLOTS).find(
+    (s) => equipa.slots?.[s]?.id === playerId
+  )
+  if (slotDoNovo) {
+    const antigoGk = base[team].gk
+    base[team].gk = base[team].slots[slotDoNovo]
+    base[team].slots[slotDoNovo] = antigoGk
+  }
+
   return remontar(base, resultado.seed)
 }
 
@@ -464,7 +568,7 @@ export function moverParaSlot(resultado, playerId, team, slot) {
   if (team !== 'A' && team !== 'B') {
     throw erro('EQUIPA', `Equipa inválida: "${team}". Só existem "A" e "B".`)
   }
-  if (!FIELD_SLOTS.includes(slot)) {
+  if (!(resultado?.lugares || FIELD_SLOTS).includes(slot)) {
     throw erro('SLOT', `Lugar de campo inválido: "${slot}".`)
   }
   const onde = localizar(resultado, playerId)
@@ -484,6 +588,208 @@ export function moverParaSlot(resultado, playerId, team, slot) {
   return remontar(base, resultado.seed)
 }
 
+// ---------------------------------------------------------------- rodízio de goleiro
+//
+// Sem goleiros fixos: toda a gente é jogador de linha e um por equipa começa
+// no gol, com a baliza a rodar durante a partida. São 7 por equipa — as
+// mesmas 14 pessoas do formato de sempre. O que muda é COMO se equilibra.
+//
+// A regra que este bloco tem de garantir é uma só, e é a razão de existir:
+//
+//    >>> quem vai ao gol NÃO PODE influenciar o equilíbrio das equipas <<<
+//
+// A forma de o garantir sem heurísticas: no húngaro de cada equipa, a coluna
+// do GOLEIRO custa ZERO a toda a gente. Uma coluna de custo zero faz o
+// algoritmo escolher sozinho o jogador cuja ida à baliza custa menos e
+// distribuir optimamente os outros — ou seja, o total devolvido é o MÍNIMO
+// sobre todas as escolhas possíveis de goleiro. A qualidade posicional da
+// equipa deixa de depender de quem lá for parar, por construção.
+//
+// Só DEPOIS de as equipas estarem fechadas é que se escolhe quem começa, e
+// aí a régua é a justiça (§`ordemDoRodizio`), não o custo.
+
+// Custo estrutural de uma equipa: húngaro (tamanho)×(tamanho) com a coluna
+// do goleiro a zero.
+function penalizacaoEstrutural(jogadores, lugares) {
+  return hungaro(
+    jogadores.map((j) => [0, ...lugares.map((slot) => penalizacaoDe(j, slot))])
+  ).total
+}
+
+// Peso de cada critério da escolha de quem começa no gol. Estão aqui em vez
+// de literais no meio da conta porque são a política do grupo, não detalhe
+// de implementação: quem quiser mudar a ordem de prioridades muda isto.
+export const PESO_VEZES_NO_GOL = 100 // menos vezes = mais à frente
+export const PESO_TEMPO_DESDE = 5 // há mais tempo = mais à frente
+export const PESO_ATACANTE = 2 // desempate suave: o ATA é o último a descer
+export const DIAS_DESDE_MAX = 120 // um ano sem ir ao gol não vale 10× seis meses
+
+// Histórico de baliza no formato que o motor usa, a partir das linhas de
+// `get_players()`. Fica aqui (e não no componente) para o `new Date()` não
+// entrar no render — é a mesma razão que trouxe `faseDoJogo` para lifecycle.
+export function historicoDeGol(jogadores, hoje = new Date()) {
+  const mapa = {}
+  const agora = hoje instanceof Date ? hoje.getTime() : Date.now()
+  for (const j of jogadores || []) {
+    if (!j?.id) continue
+    const ultima = j.lastGkStart ?? j.last_gk_start ?? null
+    let dias = DIAS_DESDE_MAX
+    if (ultima) {
+      const t = new Date(ultima).getTime()
+      if (Number.isFinite(t)) dias = Math.min(Math.max((agora - t) / 86400000, 0), DIAS_DESDE_MAX)
+    }
+    mapa[j.id] = {
+      vezes: Number(j.gkStarts ?? j.gk_starts ?? 0) || 0,
+      dias,
+      aceita: (j.gkRotationOk ?? j.gk_rotation_ok) !== false,
+    }
+  }
+  return mapa
+}
+
+// A ordem do rodízio de uma equipa: o primeiro começa no gol, o segundo
+// entra a seguir, e por aí fora. Menor pontuação primeiro.
+//
+// Quem não aceita ir à baliza é uma PARTIÇÃO, não um peso. Com um peso —
+// por maior que fosse — havia sempre um histórico que o compensava: 1000 de
+// penalização contra 120 dias sem ir ao gol (−600) e algumas idas (+100
+// cada) e o que recusa voltava a saltar à frente de quem aceita. "Só vais ao
+// gol se não houver mais ninguém" é uma regra binária, e é assim que tem de
+// ser implementada.
+export function ordemDoRodizio(jogadores, historico, random) {
+  const h = historico || {}
+  return [...jogadores]
+    .map((j) => {
+      const info = h[j.id] || {}
+      return {
+        j,
+        aceita: info.aceita !== false,
+        score:
+          PESO_VEZES_NO_GOL * (Number(info.vezes) || 0) -
+          PESO_TEMPO_DESDE * (Number(info.dias) || 0) +
+          (j.primaryPosition === 'ST' ? PESO_ATACANTE : 0) +
+          // desempate semeado: sem isto, dois jogadores com o mesmo histórico
+          // ficavam sempre pela mesma ordem e era sempre o mesmo a começar
+          random(),
+      }
+    })
+    // quem aceita vem todo primeiro; dentro de cada grupo manda o histórico
+    .sort((a, b) => (a.aceita === b.aceita ? a.score - b.score : a.aceita ? -1 : 1))
+    .map((x) => x.j)
+}
+
+// Quem começa no gol sem ser goleiro registado. O admin tem de o saber antes
+// de publicar — no rodízio é o caso NORMAL, não uma exceção, mas continua a
+// ser informação (pode haver um goleiro no grupo que ninguém pensou em pôr).
+// Aceita tanto a estrutura desmontada (`.gk`) como as equipas montadas
+// (`.goalkeeper`): é chamada dos dois lados e falhar um deles devolvia uma
+// lista vazia em silêncio — o pior tipo de erro num aviso.
+function improvisadosDe(base) {
+  return ['A', 'B']
+    .map((team) => ({ team, gk: base?.[team]?.gk ?? base?.[team]?.goalkeeper }))
+    .filter(
+      ({ gk }) =>
+        gk && gk.playerType !== PLAYER_TYPE.GOALKEEPER && gk.primaryPosition !== 'GK'
+    )
+    .map(({ team, gk }) => ({ playerId: gk.id, name: gk.name, team }))
+}
+
+export function sortearEquipasRotativo({
+  jogadores,
+  seed,
+  historicoGol,
+  tamanho = TAMANHO_PADRAO,
+  rotacaoMinutos = null,
+} = {}) {
+  const lugares = lugaresDe(tamanho)
+  const porEquipa = lugares.length + 1 // com quem estiver no gol
+  const total = porEquipa * 2
+
+  const lista = validarLote(jogadores, total, 'CAMPO', 'jogadores de linha').map(normalizar)
+
+  const semId = lista.find((j) => j.id == null || j.id === '')
+  if (semId) {
+    throw erro('SEMJOGADOR', `"${semId.name || 'Um jogador'}" não tem id — recarrega a lista.`)
+  }
+  const vistos = new Set()
+  for (const j of lista) {
+    if (vistos.has(j.id)) {
+      throw erro('DUPLICADO', `"${j.name}" aparece mais do que uma vez na lista do sorteio.`, {
+        playerId: j.id,
+      })
+    }
+    vistos.add(j.id)
+  }
+
+  const random = criarRandom(seed ?? '')
+
+  // ---- FASE 1: equilibrar, sem olhar a quem vai ao gol ----
+  //
+  // A penalização estrutural de um conjunto de jogadores não depende da
+  // divisão em que ele aparece, e cada conjunto aparece em várias — daí a
+  // cache. Com 14 jogadores são 3432 conjuntos distintos, um húngaro 7×7
+  // cada: a mesma ordem de grandeza do sorteio de goleiros fixos.
+  const cache = new Map()
+  const estrutural = (indices, jogs) => {
+    const chave = indices.join(',')
+    let v = cache.get(chave)
+    if (v === undefined) {
+      v = penalizacaoEstrutural(jogs, lugares)
+      cache.set(chave, v)
+    }
+    return v
+  }
+
+  const configuracoes = []
+  let melhor = Infinity
+
+  for (const indicesA of divisoesEmCache(total, porEquipa)) {
+    const naA = new Set(indicesA)
+    const indicesB = []
+    for (let i = 0; i < total; i++) if (!naA.has(i)) indicesB.push(i)
+
+    const jogA = indicesA.map((i) => lista[i])
+    const jogB = indicesB.map((i) => lista[i])
+
+    const penalizacao = estrutural(indicesA, jogA) + estrutural(indicesB, jogB)
+    const somaA = jogA.reduce((s, j) => s + j.overall, 0)
+    const somaB = jogB.reduce((s, j) => s + j.overall, 0)
+    const custo = custoDe(somaA, somaB, penalizacao, porEquipa)
+
+    if (custo < melhor) melhor = custo
+    configuracoes.push({ jogA, jogB, custo })
+  }
+
+  const limiar = melhor + Math.max(melhor * MARGEM_RELATIVA, MARGEM_ABSOLUTA) + EPSILON
+  const escolhida = escolher(
+    configuracoes.filter((c) => c.custo <= limiar),
+    random
+  )
+
+  // ---- FASE 2: só agora, quem começa no gol ----
+  const montarLado = (jogs) => {
+    const ordem = ordemDoRodizio(jogs, historicoGol, random)
+    const gk = ordem[0]
+    const campo = jogs.filter((j) => j.id !== gk.id)
+    // os restantes distribuem-se optimamente pelos lugares de campo
+    const atrib = atribuicaoOtima(campo, lugares)
+    return { equipa: montarEquipa(gk, porSlot(campo, atrib, lugares), lugares), ordem }
+  }
+
+  let A = montarLado(escolhida.jogA)
+  let B = montarLado(escolhida.jogB)
+  if (random() < 0.5) [A, B] = [B, A]
+
+  const rodizio = { A: A.ordem.map((j) => j.id), B: B.ordem.map((j) => j.id) }
+
+  return montarResultado(A.equipa, B.equipa, seed, {
+    gkMode: 'ROTATING',
+    rodizio,
+    rotacaoMinutos,
+    goleirosImprovisados: improvisadosDe({ A: A.equipa, B: B.equipa }),
+  })
+}
+
 // ---------------------------------------------------------------- equipas já formadas
 //
 // Um rachão que sobe a jogo oficial já traz as duas equipas decididas — e
@@ -498,7 +804,7 @@ export function moverParaSlot(resultado, playerId, team, slot) {
 //     num rachão — sai à sorte;
 //   - campo: os melhores ficam na sua posição e quem sobra ocupa o resto
 //     (`atribuicaoPorQualidade`).
-export function escalarEquipasFixas({ equipas, seed } = {}) {
+export function escalarEquipasFixas({ equipas, seed, historicoGol } = {}) {
   const lista = Array.isArray(equipas) ? equipas : []
   if (lista.length !== 2) {
     throw erro('EQUIPAS', `A escalação 2-3-1 precisa de 2 equipas: há ${lista.length}.`)
@@ -531,14 +837,20 @@ export function escalarEquipasFixas({ equipas, seed } = {}) {
     const candidatos = jogadores.filter(
       (j) => j.playerType === PLAYER_TYPE.GOALKEEPER || j.primaryPosition === 'GK'
     )
-    const gk = escolher(candidatos.length ? candidatos : jogadores, random)
+    // Sem goleiro registado no time, quem vai à baliza saía À SORTE — e a
+    // sorte não tem memória: calhava ao mesmo duas semanas seguidas sem que
+    // nada no sistema o notasse. Passa a ser a mesma régua de justiça do
+    // rodízio (menos vezes, há mais tempo, e quem aceita ir).
+    const gk = candidatos.length
+      ? escolher(candidatos, random)
+      : ordemDoRodizio(jogadores, historicoGol, random)[0]
     const campo = jogadores.filter((j) => j.id !== gk.id)
     const atrib = atribuicaoPorQualidade(campo, random)
-    const porSlot = {}
+    const mapa = {}
     campo.forEach((j, i) => {
-      porSlot[FIELD_SLOTS[atrib.slotDe[i]]] = j
+      mapa[FIELD_SLOTS[atrib.slotDe[i]]] = j
     })
-    return montarEquipa(gk, porSlot)
+    return montarEquipa(gk, mapa)
   })
 
   // A ordem das equipas é a do rachão: o grupo já viu o "Time 1" e o
@@ -750,10 +1062,17 @@ export function paraLinhasDeEscalacao(resultado) {
   if (!resultado?.teamA?.jogadores || !resultado?.teamB?.jogadores) {
     throw erro('SEMESCALACAO', 'Ainda não há sorteio para gravar.')
   }
+  const rodizio = resultado.gkMode === 'ROTATING' ? resultado.rodizio : null
   const linhas = []
   for (const team of ['A', 'B']) {
     const equipa = team === 'A' ? resultado.teamA : resultado.teamB
+    const ordem = rodizio?.[team] || null
     for (const j of equipa.jogadores) {
+      // A vez no rodízio é a posição na ordem da equipa (1 = começa no gol).
+      // Vai gravada porque o histórico de quem foi ao gol muda com o tempo e
+      // recalcular a ordem mais tarde daria outra — a escalação publicada
+      // tem de continuar a dizer o que o grupo viu.
+      const vez = ordem ? ordem.indexOf(j.id) + 1 : 0
       linhas.push({
         player_id: j.id,
         team,
@@ -762,6 +1081,7 @@ export function paraLinhasDeEscalacao(resultado) {
         was_out_of_position: !j.isGoalkeeper && j.primaryPosition !== j.assignedPosition,
         overall_at_draw: j.overall,
         is_goalkeeper: !!j.isGoalkeeper,
+        gk_order: vez > 0 ? vez : null,
       })
     }
   }
