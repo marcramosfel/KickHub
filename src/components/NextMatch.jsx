@@ -5,6 +5,7 @@ import { nomeDaPosicao } from '../lib/positions'
 import { vantagem } from '../lib/substitutions'
 import Countdown from './Countdown'
 import FootballPitch from './FootballPitch'
+import RodizioTimeline from './RodizioTimeline'
 import AvisoDeDesistencias, { VantagemAtual } from './Substitutions'
 import { colors, fonts, styles, chip } from '../theme'
 
@@ -189,7 +190,7 @@ export function ForcaDasEquipas({ jogo }) {
 }
 
 // O bloco completo: campo + informações. Usado na Home e na página do jogo.
-export default function NextMatch({ jogo, onPlayerClick, compacto = false }) {
+export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false }) {
   const estado = useMemo(
     () => estadoDoJogo(jogo?.kickoff_at, new Date(), jogo?.status),
     [jogo?.kickoff_at, jogo?.status]
@@ -198,17 +199,32 @@ export default function NextMatch({ jogo, onPlayerClick, compacto = false }) {
   if (!jogo) return <SemProximoJogo compacto={compacto} />
 
   const temEscalacao = Array.isArray(jogo.lineup) && jogo.lineup.length > 0
+  const rodizio = jogo.gk_mode === 'ROTATING'
 
   return (
     <div className="pb-grid">
       <div className="pb-col-8 pb-col-md-12">
         <div className="pb-card" style={{ padding: 12 }}>
+          {rodizio && (
+            <p
+              style={{
+                ...styles.mutedText,
+                fontSize: 12,
+                textAlign: 'center',
+                marginBottom: 8,
+              }}
+            >
+              🔄 Goleiro rotativo — 🧤 marca quem <strong>inicia no gol</strong>
+              {jogo.gk_rotation_minutes ? `, troca a cada ${jogo.gk_rotation_minutes} min` : ''}
+            </p>
+          )}
           {temEscalacao ? (
             <FootballPitch
               lineup={jogo.lineup}
               showOverall
               interactive={!!onPlayerClick}
               onPlayerClick={onPlayerClick}
+              gkMode={jogo.gk_mode}
             />
           ) : (
             <div style={{ textAlign: 'center', padding: 30 }}>
@@ -231,6 +247,10 @@ export default function NextMatch({ jogo, onPlayerClick, compacto = false }) {
 
           {/* logo a seguir às forças: é a explicação delas */}
           <AvisoDeDesistencias jogo={jogo} />
+
+          {/* Antes da escalação: quem começa no gol é a primeira coisa que
+              o jogador quer saber ao abrir um sorteio com rodízio. */}
+          <RodizioTimeline jogo={jogo} meuId={meuId} compacto />
 
           {temEscalacao && (
             <div className="pb-card">
@@ -287,6 +307,14 @@ export default function NextMatch({ jogo, onPlayerClick, compacto = false }) {
                             </span>
                             <span className="pb-truncate" style={{ flex: 1 }}>
                               {l.name}
+                              {rodizio && l.gk_order === 1 && (
+                                <span
+                                  style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
+                                  title="Inicia no gol"
+                                >
+                                  🧤
+                                </span>
+                              )}
                               {l.substitute_for && (
                                 <span
                                   style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}

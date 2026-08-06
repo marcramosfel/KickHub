@@ -5,19 +5,32 @@ import {
   getGoalkeeperStats,
   getLatestMatch,
   getMatches,
-  getMyAwardVotes,
+  getMyOpenVotes,
   getNextMatch,
   getPendingRatings,
   getPlayers,
   getPlayerStats,
   getPublishedDraw,
+  loginWithDevice,
+  revokeDevice,
 } from './api'
 import { contarResultados, juntarEstatisticas } from './lib/ranking'
 import { calcularLiderancas } from './lib/achievements'
 import { calcularSequencias } from './lib/streaks'
 import { POSITION_STATUS } from './lib/positions'
+import { pendenciasReais } from './lib/voting'
+import {
+  ROTAS,
+  esquecerToken,
+  guardarToken,
+  lerHash,
+  lerToken,
+  limparHash,
+  navegarPara,
+} from './lib/router'
 import AdminScreen from './components/AdminScreen'
 import AppShell from './components/AppShell'
+import BallotScreen from './components/BallotScreen'
 import DrawsScreen from './components/DrawsScreen'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
@@ -26,9 +39,11 @@ import PlayerCardModal from './components/PlayerCardModal'
 import PlayerProfile from './components/PlayerProfile'
 import PlayersScreen from './components/PlayersScreen'
 import PositionSetupScreen from './components/PositionSetupScreen'
+import QuickLogin from './components/QuickLogin'
 import RankingScreen from './components/RankingScreen'
 import RateScreen from './components/RateScreen'
 import StatsScreen from './components/StatsScreen'
+import VotingBanner from './components/VotingBanner'
 import { colors, styles } from './theme'
 
 // As páginas que vivem dentro da casca com navegação.
@@ -38,6 +53,14 @@ export default function App() {
   // Sessão do jogador: { id, name, is_admin, voted, pin, ...posições } — só em memória.
   const [session, setSession] = useState(null)
   const [view, setView] = useState('auth')
+  // Token do dispositivo ("lembrar-me"): autoriza ler e votar, nada mais.
+  // Fica no estado porque as chamadas de votação o preferem ao PIN — que
+  // continua a não ser guardado em lado nenhum.
+  const [deviceToken, setDeviceToken] = useState(() => lerToken())
+  // Rota do URL. É isto que faz um link do WhatsApp abrir na cédula em vez
+  // de morrer no ecrã de login.
+  const [rota, setRota] = useState(() => lerHash())
+  const [aRestaurar, setARestaurar] = useState(() => Boolean(lerToken()))
   const [profileId, setProfileId] = useState(null)
   // jogador cujo card está aberto por cima do ecrã (null = nenhum)
   const [cardId, setCardId] = useState(null)
@@ -55,6 +78,7 @@ export default function App() {
   // recarregamento que faz falta é pedido à mão nesses sítios.
   const sessionId = session?.id || null
   const sessionPin = session?.pin || null
+  const sessionToken = deviceToken || null
 
   // Token da carga mais recente. O guarda `vivo` só cobre o efeito (que tem
   // cleanup); `carregar` também é chamado à mão — trocar a foto, acabar de
@@ -70,7 +94,7 @@ export default function App() {
     try {
       // Só `getPlayers` é obrigatório. Tudo o resto degrada: sem uma migração
       // aplicada, a secção respetiva desaparece em vez de a app rebentar.
-      const [players, playerStats, gkStats, matches, proximo, latest, draw, myVotes, pending, feed] =
+      const [players, playerStats, gkStats, matches, proximo, latest, draw, porVotar, pending, feed] =
         await Promise.all([
           getPlayers(),
           getPlayerStats().catch(() => []),
@@ -79,7 +103,11 @@ export default function App() {
           getNextMatch().catch(() => undefined),
           getLatestMatch().catch(() => undefined),
           getPublishedDraw().catch(() => null),
-          getMyAwardVotes(sessionId, sessionPin).catch(() => []),
+          // O que este jogador ainda tem por votar (0025), já com o prazo.
+          // Substitui a contagem antiga, que só olhava para o craque/bagre e
+          // ignorava por completo a avaliação por estrelas — era por isso que
+          // metade da votação não tinha aviso nenhum.
+          getMyOpenVotes(sessionId, sessionPin, sessionToken).catch(() => []),
           getPendingRatings(sessionId, sessionPin).catch(() => null),
           // sem a migração 0020 simplesmente não há feed — a Home segue igual.
           // 12 posts (~1 mês de pelada): os de resultado trazem a foto em
@@ -89,7 +117,6 @@ export default function App() {
 
       if (!vivo.atual || token !== cargaRef.current) return
       const rodadas = matches || []
-      const votados = myVotes || []
       setDados({
         players: players || [],
         playerStats: playerStats || [],
@@ -100,18 +127,15 @@ export default function App() {
         draw,
         feed: feed || [],
         pendingRatings: pending,
-        pendingVotes: rodadas.filter(
-          (m) =>
-            m.players.length >= 3 &&
-            m.players.some((p) => p.player_id === sessionId) &&
-            !votados.includes(m.id)
-        ).length,
+        // só o que tem mesmo alguma coisa por fazer: a rodada continuar
+        // aberta não é razão para avisar quem já votou em tudo
+        porVotar: pendenciasReais(porVotar),
       })
       setErro('')
     } catch (err) {
       if (vivo.atual && token === cargaRef.current) setErro(err.message)
     }
-  }, [sessionId, sessionPin])
+  }, [sessionId, sessionPin, sessionToken])
 
   useEffect(() => {
     const vivo = { atual: true }
@@ -122,6 +146,50 @@ export default function App() {
       vivo.atual = false
     }
   }, [carregar])
+
+  // ---------- rota e sessão guardada ----------
+
+  // Ouvir o hash é o que faz o botão "voltar" do browser funcionar e o que
+  // apanha os links abertos com a app já aberta.
+  useEffect(() => {
+    const aoMudar = () => setRota(lerHash())
+    window.addEventListener('hashchange', aoMudar)
+    return () => window.removeEventListener('hashchange', aoMudar)
+  }, [])
+
+  // Token guardado → sessão, sem pedir o PIN. Corre uma vez, no arranque.
+  //
+  // O token não traz PIN nenhum: a sessão que sai daqui pode ler e votar,
+  // mas as ações que exigem PIN (trocar PIN, trocar foto) continuam a pedi-lo
+  // — é o servidor que o garante, não este ecrã.
+  useEffect(() => {
+    // Sem token não há nada a restaurar — e `aRestaurar` já nasceu a false
+    // pelo mesmo `lerToken()` no inicializador do estado.
+    const token = lerToken()
+    if (!token) return undefined
+    let vivo = true
+    loginWithDevice(token)
+      .then((s) => {
+        if (!vivo) return
+        setSession({ ...s, pin: null, token })
+        setDeviceToken(token)
+        setAvisoPosicao('')
+        setView(s.position_status === POSITION_STATUS.NOT_SELECTED ? 'positions' : 'home')
+      })
+      .catch(() => {
+        // token expirado ou revogado: apagar e seguir para o login normal,
+        // em vez de deixar o jogador preso num erro que não sabe resolver
+        if (!vivo) return
+        esquecerToken()
+        setDeviceToken(null)
+      })
+      .finally(() => {
+        if (vivo) setARestaurar(false)
+      })
+    return () => {
+      vivo = false
+    }
+  }, [])
 
   // Jogadores com overall, posições e resultados — calculado num só sítio para
   // todos os ecrãs verem exatamente os mesmos números.
@@ -218,16 +286,103 @@ export default function App() {
 
   const handleLogout = () => {
     cargaRef.current += 1 // idem: nada do que estava a caminho pode escrever agora
+    // Sair tem de fechar mesmo a porta: sem revogar o token, a próxima
+    // abertura entrava outra vez sozinha e "sair" não queria dizer nada.
+    const token = deviceToken
+    if (token) revokeDevice(token).catch(() => {})
+    esquecerToken()
+    setDeviceToken(null)
     setSession(null)
     setDados(null)
     setProfileId(null)
     setVoltarDoPerfil('home')
     setAvisoPosicao('')
     setErro('')
+    limparHash()
+    setRota({ rota: null, id: null })
     setView('auth')
   }
 
+  // Entrar pela via rápida (a partir de um link). O token, quando existe, já
+  // foi guardado pelo QuickLogin — aqui só entra no estado.
+  const handleQuickLogin = (s, token) => {
+    if (token) {
+      setDeviceToken(token)
+      guardarToken(token)
+    }
+    handleLogin(s)
+  }
+
+  const irParaVotacao = (matchId) => {
+    if (!matchId) return
+    navegarPara(ROTAS.VOTAR, matchId)
+  }
+
+  const sairDaVotacao = () => {
+    limparHash()
+    setRota({ rota: null, id: null })
+    // Votar não exige ter posição escolhida (e ainda bem — obrigar a isso
+    // antes de votar era mais um passo entre o link e o voto). Mas quem
+    // entrou pelo link sem posição não pode ficar com o ecrã obrigatório
+    // saltado só por ter vindo por aqui.
+    setView(session?.position_status === POSITION_STATUS.NOT_SELECTED ? 'positions' : 'home')
+    carregar()
+  }
+
   // ---------- ecrãs fora da casca ----------
+
+  // Enquanto se tenta restaurar a sessão guardada, não se pode mostrar o
+  // login: o ecrã piscava e o jogador começava a escrever o nome mesmo a
+  // tempo de a sessão aparecer por baixo dos dedos.
+  if (aRestaurar) {
+    return (
+      <div style={{ ...styles.page, display: 'grid', placeItems: 'center' }}>
+        <p style={styles.mutedText}>A entrar…</p>
+      </div>
+    )
+  }
+
+  // ---------- rota /votar/:id ----------
+  // É a razão de existir do router: um link do WhatsApp abre AQUI.
+  if (rota.rota === ROTAS.VOTAR && rota.id) {
+    if (!session) {
+      return (
+        <QuickLogin
+          motivo="Escolhe o teu nome para votar nesta rodada."
+          onEntrar={handleQuickLogin}
+          onCancelar={() => {
+            limparHash()
+            setRota({ rota: null, id: null })
+          }}
+        />
+      )
+    }
+    return (
+      <BallotScreen
+        session={session}
+        matchId={rota.id}
+        token={deviceToken}
+        onSair={sairDaVotacao}
+        onVotado={carregar}
+      />
+    )
+  }
+  // ---------- rota /jogo/:id ----------
+  // Vem do "ver o resultado" no fim da votação e das partilhas do feed. Cai
+  // no histórico já aberto naquela rodada.
+  if (rota.rota === ROTAS.JOGO && rota.id && session) {
+    return (
+      <StatsScreen
+        session={session}
+        initialTab="rodadas"
+        initialMatchId={rota.id}
+        navToken={navToken}
+        onBack={sairDaVotacao}
+        onProfile={abrirCard}
+      />
+    )
+  }
+
   if (view === 'admin') {
     return <AdminScreen onExit={() => setView(session ? 'home' : 'auth')} />
   }
@@ -270,7 +425,7 @@ export default function App() {
   // vazio. Sem perfil escolhido, o perfil é o próprio.
   const perfilId = view === 'profile' ? profileId || session.id : null
 
-  const avisos = avisoPosicao ? (
+  const avisoDaPosicao = avisoPosicao ? (
     <div className="pb-container" style={{ paddingTop: 12 }}>
       <div
         role="status"
@@ -290,6 +445,16 @@ export default function App() {
       </div>
     </div>
   ) : null
+
+  // A faixa da votação vem PRIMEIRO e é fixa: é o lembrete que faltava por
+  // completo (a avaliação por estrelas não tinha aviso nenhum) e o que
+  // decide se o voto acontece ou não.
+  const avisos = (
+    <>
+      <VotingBanner pendencias={dados?.porVotar} onVotar={irParaVotacao} />
+      {avisoDaPosicao}
+    </>
+  )
 
   return (
     <AppShell
@@ -311,10 +476,11 @@ export default function App() {
           draw={dados?.draw}
           latestMatch={dados?.latestMatch}
           totalRodadas={dados?.matches?.length || 0}
-          pendingVotes={dados?.pendingVotes || 0}
+          porVotar={dados?.porVotar || []}
           faltamAvaliar={faltamAvaliar}
           loading={carregando}
           error={erro}
+          onVotar={irParaVotacao}
           onRate={() => setView('rate')}
           onProfile={abrirCard}
           onNavigate={navegar}
@@ -328,7 +494,11 @@ export default function App() {
           <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 14 }}>
             Próximo jogo <span style={{ color: colors.grass }}>📅</span>
           </h1>
-          <NextMatch jogo={dados?.proximoJogo} onPlayerClick={(j) => abrirCard(j.id)} />
+          <NextMatch
+            jogo={dados?.proximoJogo}
+            meuId={session.id}
+            onPlayerClick={(j) => abrirCard(j.id)}
+          />
         </>
       )}
 

@@ -7,46 +7,61 @@ import {
   adminSetPositions,
 } from '../../api'
 import {
+  definirInicioNoGol,
   escalarEquipasFixas,
+  historicoDeGol,
   moverParaSlot,
   paraLinhasDeEscalacao,
   sortearEquipas,
+  sortearEquipasRotativo,
   trocarJogadores,
-  N_CAMPO,
   N_GOLEIROS,
 } from '../../lib/drawEngine'
-import {
-  ETIQUETA_STATUS,
-  FIELD_SLOTS,
-  nomeDaPosicao,
-  PLAYER_TYPE,
-  POSITION_STATUS,
-  siglaDaPosicao,
-} from '../../lib/positions'
+import { GK_MODE, elencoNecessario, formacaoDe, lugaresDe } from '../../lib/formacoes'
+import { ETIQUETA_STATUS, nomeDaPosicao, PLAYER_TYPE } from '../../lib/positions'
 import { formatarDataDoJogo } from '../../lib/countdown'
 import { calcularLiderancas } from '../../lib/achievements'
 import { calcularSequencias } from '../../lib/streaks'
 import { gerarResenhaSorteio } from '../../lib/resenha'
+import { copiarTexto, partilharTexto, resumoSorteio } from '../../lib/share'
 import Avatar from '../Avatar'
 import FootballPitch from '../FootballPitch'
+import FormatoPicker from './FormatoPicker'
+import RodizioPanel from './RodizioPanel'
 import ResenhaEditor from './ResenhaEditor'
 import { ErrorBox } from '../Ui'
 import { colors, fonts, styles, chip, disabled } from '../../theme'
 
 // Criação de um jogo, passo a passo.
 //
-// O fluxo é longo de propósito: entre marcar a data e publicar o sorteio há
-// decisões que não se desfazem (publicar fixa as equipas), por isso cada passo
-// valida o seu e só deixa avançar quando está bom.
+// Eram SETE passos para três decisões reais. O passo 4 (verificar posições)
+// era só um ecrã de avisos e o passo 5 era um botão sozinho a ocupar um ecrã
+// inteiro. Ficam quatro:
+//
+//   1. O jogo      — quando, onde e em que FORMATO (a decisão que faltava)
+//   2. Quem joga   — uma lista só, com os avisos resolvíveis em linha
+//   3. Sorteio     — o campo, o equilíbrio, o rodízio e os ajustes à mão
+//   4. Publicar    — resumo, resenha e partilha num toque
+//
+// O formato vem PRIMEIRO de propósito. É ele que decide quantas pessoas são
+// precisas e se há goleiros a marcar; escolhê-lo depois obrigava a invalidar
+// a seleção já feita e a mostrar erros do género "escolheste 12, agora são
+// 14". Assim o passo 2 nasce com o contador certo e o erro é impossível.
 
 const PASSOS = [
-  { id: 1, titulo: 'Informações do jogo' },
-  { id: 2, titulo: 'Escolher goleiros' },
-  { id: 3, titulo: 'Confirmar jogadores de campo' },
-  { id: 4, titulo: 'Verificar posições' },
-  { id: 5, titulo: 'Sorteio automático' },
-  { id: 6, titulo: 'Rever equilíbrio' },
-  { id: 7, titulo: 'Publicar' },
+  { id: 1, titulo: 'O jogo' },
+  { id: 2, titulo: 'Quem joga' },
+  { id: 3, titulo: 'Sorteio' },
+  { id: 4, titulo: 'Publicar' },
+]
+
+// Numa conversão de rachão os passos 2 e 3 quase não existem: as equipas
+// vêm feitas e só se distribuem posições. Contar "passo 3 de 4" num fluxo de
+// três ecrãs seria mentir ao admin sobre o que falta.
+const PASSOS_CONVERSAO = [
+  { id: 1, titulo: 'O jogo' },
+  { id: 3, titulo: 'Rever escalação' },
+  { id: 4, titulo: 'Publicar' },
 ]
 
 const NIVEL_COR = {
@@ -66,15 +81,6 @@ const paraLocal = (iso) => {
   const p = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
-
-// Numa conversão os passos 2 a 5 não existem: as equipas vêm do rachão e as
-// posições são atribuídas sozinhas. Contar "passo 6 de 7" num fluxo de três
-// ecrãs seria mentir ao admin sobre o que falta.
-const PASSOS_CONVERSAO = [
-  { id: 1, titulo: 'Informações do jogo' },
-  { id: 6, titulo: 'Rever escalação' },
-  { id: 7, titulo: 'Publicar' },
-]
 
 function Progresso({ passo, conversao }) {
   const lista = conversao ? PASSOS_CONVERSAO : PASSOS
@@ -118,7 +124,7 @@ function Progresso({ passo, conversao }) {
   )
 }
 
-function Aviso({ tom = 'aviso', children }) {
+function Aviso({ tom = 'aviso', children, acao }) {
   const cor = tom === 'erro' ? colors.error : tom === 'ok' ? colors.grass : colors.teamA
   return (
     <div
@@ -138,7 +144,8 @@ function Aviso({ tom = 'aviso', children }) {
       <span aria-hidden style={{ flexShrink: 0 }}>
         {tom === 'erro' ? '⛔' : tom === 'ok' ? '✅' : '⚠️'}
       </span>
-      <span>{children}</span>
+      <span style={{ flex: 1 }}>{children}</span>
+      {acao}
     </div>
   )
 }
@@ -195,10 +202,7 @@ function LinhaJogador({ j, marcado, onToggle, extra, desativado }) {
 }
 
 // `conversao` (duas listas de ids) chega quando um rachão sobe a jogo
-// oficial. Nesse caso as equipas já estão decididas — e o rachão foi
-// provavelmente usado por não haver dois goleiros fixos nesse dia — por isso
-// o assistente salta a escolha de goleiros e de jogadores: marca-se a data e
-// vai-se direto rever a escalação, com as posições já distribuídas.
+// oficial: as equipas já estão decididas e só se distribuem as posições.
 export default function MatchWizard({ pw, jogadores, matches, conversao, onDadosAlterados }) {
   const [passo, setPasso] = useState(1)
   const [jogo, setJogo] = useState(null) // rascunho guardado no servidor
@@ -206,43 +210,35 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
   const [erro, setErro] = useState('')
   const [busy, setBusy] = useState(false)
   const [aviso, setAviso] = useState('')
-  // sem a migração 0016 nenhuma destas funções existe no Supabase e o erro que
-  // chega é o genérico de ligação — sem isto o admin não sabe o que lhe falta
   const [faltaMigracao, setFaltaMigracao] = useState(false)
 
-  // passo 1
+  // passo 1 — quando, onde e formato
   const [quando, setQuando] = useState('')
   const [local, setLocal] = useState('Browns Sports Resort')
   const [mapa, setMapa] = useState('')
+  const [gkMode, setGkMode] = useState(GK_MODE.FIXED)
+  const [tamanho, setTamanho] = useState(7)
+  const [rotacaoMinutos, setRotacaoMinutos] = useState(10)
 
-  // passos 2/3
+  // passo 2 — elenco
   const [goleiros, setGoleiros] = useState([])
   const [campo, setCampo] = useState([])
   const [tornarGkPermanente, setTornarGkPermanente] = useState({})
 
-  // passos 5/6
+  // passo 3 — sorteio
   const [resultado, setResultado] = useState(null)
   const [selecao, setSelecao] = useState(null) // troca manual: primeiro clique
-  const [ajustado, setAjustado] = useState(false) // houve trocas feitas à mão
-  const [tentativa, setTentativa] = useState(0) // quantos sorteios já se fizeram a este jogo
-  // `publicado` = o jogo já está publicado (agora ou de antes);
-  // `acabouDePublicar` = fomos nós, nesta passagem pelo assistente. Sem os dois
-  // separados, retomar um jogo publicado mostrava o ecrã de sucesso a um
-  // sorteio que nunca chegou a ser gravado.
+  const [ajustado, setAjustado] = useState(false)
+  const [tentativa, setTentativa] = useState(0)
   const [publicado, setPublicado] = useState(false)
   const [acabouDePublicar, setAcabouDePublicar] = useState(false)
   const publicandoRef = useRef(false)
 
+  const rotativo = gkMode === GK_MODE.ROTATING
+  const elenco = elencoNecessario(tamanho, gkMode)
+  const lugares = lugaresDe(tamanho)
+
   // ---------- conversão de um rachão ----------
-  // Chegam as duas EQUIPAS já formadas. O assistente não volta a pedir
-  // goleiros nem jogadores: as equipas ficam como estão e só se distribuem
-  // as posições. `equipasFixas` guarda-as; enquanto existirem, os passos
-  // 2 a 5 não têm nada para fazer e ficam de fora do caminho.
-  //
-  // Guardadas durante o render (o componente fica montado, não há
-  // inicializador que as apanhe) e uma só vez por conversão: é um array
-  // novo a cada "transformar em oficial", e a comparação por referência
-  // distingue uma conversão nova de um simples re-render.
   const [equipasFixas, setEquipasFixas] = useState(null)
   const [conversaoAplicada, setConversaoAplicada] = useState(null)
   if (Array.isArray(conversao) && conversao.length === 2 && conversao !== conversaoAplicada) {
@@ -260,11 +256,15 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
 
   const porId = useMemo(() => new Map(jogadores.map((j) => [j.id, j])), [jogadores])
 
+  // Histórico de baliza: quantas vezes cada um começou no gol e há quanto
+  // tempo. É o que torna a escolha JUSTA em vez de aleatória — e vive aqui
+  // (fora do render do motor) para o `new Date()` não entrar no sorteio.
+  const historico = useMemo(() => historicoDeGol(jogadores), [jogadores])
+
   // ---------- resenha do sorteio (vai no post do feed) ----------
   const [resenha, setResenha] = useState('')
   const sequencias = useMemo(() => calcularSequencias(matches), [matches])
   const liderancas = useMemo(() => calcularLiderancas({ jogadores }), [jogadores])
-  // o "jogo" que o gerador vê, montado a partir do sorteio no ecrã
   const jogoParaResenha = useMemo(() => {
     if (!resultado) return null
     const lineup = []
@@ -282,16 +282,15 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
       lineup,
     }
   }, [resultado, jogo])
-  // Quem foi à baliza sem ser goleiro: numa conversão saiu à sorte, e o
-  // admin tem de o saber para poder trocar antes de publicar. Fica de fora
-  // do `outOfPosition` do motor de propósito (ali só entra quem foi
-  // empurrado para um lugar de CAMPO), por isso conta-se aqui.
+
+  // Quem foi à baliza sem ser goleiro. Numa conversão saiu do rodízio; no
+  // formato rotativo é o caso normal e não é aviso nenhum.
   const improvisados = useMemo(() => {
-    if (!ehConversao || !resultado) return []
+    if (rotativo || !ehConversao || !resultado) return []
     return [resultado.teamA?.goalkeeper, resultado.teamB?.goalkeeper]
       .filter((g) => g && g.playerType !== PLAYER_TYPE.GOALKEEPER && g.primaryPosition !== 'GK')
       .map((g) => g.name)
-  }, [ehConversao, resultado])
+  }, [rotativo, ehConversao, resultado])
 
   const gerarResenha = useCallback(
     (tentativa) =>
@@ -305,9 +304,6 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     () =>
       adminMatchesUpcoming(pw)
         .then((l) => {
-          // Desde a 0019 a agenda também traz jogos à espera de resultado e
-          // cancelados (para a aba "Jogos"). Aqui só interessam os que ainda
-          // se marcam ou sorteiam.
           setProximos((l || []).filter((m) => ['DRAFT', 'PUBLISHED', 'IN_PROGRESS'].includes(m.status)))
           setFaltaMigracao(false)
         })
@@ -332,21 +328,32 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
         kickoffAt: paraISO(quando),
         location: local,
         mapUrl: mapa,
+        gkMode,
+        teamSize: tamanho,
+        rotationMinutes: rotativo ? rotacaoMinutos : null,
       })
-      setJogo({ id, kickoff_at: paraISO(quando), location: local, map_url: mapa, status: 'DRAFT' })
+      setJogo({
+        id,
+        kickoff_at: paraISO(quando),
+        location: local,
+        map_url: mapa,
+        status: 'DRAFT',
+        gk_mode: gkMode,
+        team_size: tamanho,
+        gk_rotation_minutes: rotativo ? rotacaoMinutos : null,
+      })
       await carregarProximos()
-      // Numa conversão não há goleiros nem plantel a escolher: distribuem-se
-      // as posições com o id do jogo já na semente e vai-se direto rever.
       if (ehConversao) {
         const r = escalarEquipasFixas({
           equipas: equipasFixas.map((ids) => ids.map((x) => porId.get(x))),
           seed: String(id),
+          historicoGol: historico,
         })
         setTentativa(1)
         setResultado(r)
         setSelecao(null)
         setAjustado(false)
-        setPasso(6)
+        setPasso(3)
         return
       }
       setPasso(2)
@@ -358,9 +365,10 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
   }
 
   const retomar = (m) => {
-    // Mudar de jogo tem de limpar as escolhas do anterior: um goleiro marcado
-    // para o jogo A não tem nada que aparecer marcado no jogo B. Se o jogo já
-    // tiver escalação gravada, é dela que vêm as escolhas.
+    // Mudar de jogo tem de limpar as escolhas do anterior — e agora também o
+    // FORMATO: retomar um rascunho criado com rodízio e continuar a ver
+    // "escolher 2 goleiros" era a forma mais rápida de publicar um jogo
+    // diferente do que o admin julgava estar a fazer.
     if (m.id !== jogo?.id) {
       const linhas = (Array.isArray(m.lineup) ? m.lineup : []).filter((l) =>
         porId.has(l.player_id)
@@ -374,6 +382,9 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     setQuando(paraLocal(m.kickoff_at))
     setLocal(m.location || '')
     setMapa(m.map_url || '')
+    setGkMode(m.gk_mode === GK_MODE.ROTATING ? GK_MODE.ROTATING : GK_MODE.FIXED)
+    setTamanho(m.team_size || 7)
+    setRotacaoMinutos(m.gk_rotation_minutes ?? 10)
     setResultado(null)
     setSelecao(null)
     setAjustado(false)
@@ -388,6 +399,9 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     setQuando('')
     setLocal('Browns Sports Resort')
     setMapa('')
+    setGkMode(GK_MODE.FIXED)
+    setTamanho(7)
+    setRotacaoMinutos(10)
     setGoleiros([])
     setCampo([])
     setTornarGkPermanente({})
@@ -397,12 +411,40 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     setTentativa(0)
     setPublicado(false)
     setAcabouDePublicar(false)
+    setResenha('')
     setAviso('')
     setErro('')
     setPasso(1)
   }
 
-  // ---------- passos 2/3 ----------
+  // Mudar de formato não pode limpar a seleção em silêncio: mantém-se quem
+  // já estava marcado e o contador revalida sozinho.
+  const mudarModo = (modo) => {
+    if (modo === gkMode) return
+    setErro('')
+    setResultado(null)
+    setAjustado(false)
+    setTentativa(0)
+    if (modo === GK_MODE.ROTATING) {
+      // no rodízio não há goleiros marcados: quem estava na baliza volta
+      // para a lista de linha, em vez de desaparecer da seleção
+      setCampo((c) => [...new Set([...c, ...goleiros])])
+      setGoleiros([])
+      setTornarGkPermanente({})
+    }
+    setGkMode(modo)
+  }
+
+  const mudarTamanho = (n) => {
+    if (Number(n) === Number(tamanho)) return
+    setErro('')
+    setResultado(null)
+    setAjustado(false)
+    setTentativa(0)
+    setTamanho(Number(n))
+  }
+
+  // ---------- passo 2 ----------
   const alternar = (lista, setLista, id, max) => {
     setErro('')
     if (lista.includes(id)) setLista(lista.filter((x) => x !== id))
@@ -410,9 +452,8 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     else setErro(`Já escolheste ${max} — desmarca um antes de escolher outro.`)
   }
 
-  // Quem vai para a baliza sai da lista de campo. Sem isto ficava nos dois
-  // sítios: o passo 4 acusava o duplicado e o passo 3 já não deixava desmarcá-lo
-  // (a lista de campo esconde os goleiros), e o admin ficava sem saída óbvia.
+  // Quem vai para a baliza sai da lista de campo, senão ficava nos dois
+  // sítios e o admin ficava sem saída óbvia.
   const alternarGoleiro = (id) => {
     if (!goleiros.includes(id) && goleiros.length < N_GOLEIROS) {
       setCampo((c) => c.filter((x) => x !== id))
@@ -429,26 +470,28 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     [jogadores, goleiros]
   )
 
-  // ---------- passo 4: o que está mal antes de sortear ----------
   const escolhidos = useMemo(
     () => [...goleiros, ...campo].map((id) => porId.get(id)).filter(Boolean),
     [goleiros, campo, porId]
   )
 
+  // ---------- o que está mal antes de sortear ----------
+  // Estes avisos eram um passo inteiro (o antigo passo 4, só de leitura).
+  // Passam a viver no ecrã da seleção, ao lado do que os resolve.
   const problemas = useMemo(() => {
     const p = []
-    if (goleiros.length !== N_GOLEIROS)
+    if (!rotativo && goleiros.length !== N_GOLEIROS)
       p.push({
         tom: 'erro',
         texto: `Faltam goleiros: escolhidos ${goleiros.length} de ${N_GOLEIROS}.`,
       })
-    if (campo.length !== N_CAMPO)
+    if (campo.length !== elenco.campo)
       p.push({
         tom: 'erro',
         texto:
-          campo.length < N_CAMPO
-            ? `Faltam ${N_CAMPO - campo.length} jogadores de campo (tens ${campo.length} de ${N_CAMPO}).`
-            : `Tens ${campo.length} jogadores de campo — são ${campo.length - N_CAMPO} a mais.`,
+          campo.length < elenco.campo
+            ? `Faltam ${elenco.campo - campo.length} ${rotativo ? 'jogadores' : 'jogadores de campo'} (tens ${campo.length} de ${elenco.campo}).`
+            : `Tens ${campo.length} — são ${campo.length - elenco.campo} a mais.`,
       })
     const duplicados = goleiros.filter((id) => campo.includes(id))
     if (duplicados.length)
@@ -477,26 +520,42 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
           .join(', ')}.`,
       })
 
-    const gkDeCampo = goleiros
-      .map((id) => porId.get(id))
-      .filter((j) => j && j.playerType !== PLAYER_TYPE.GOALKEEPER)
-    if (gkDeCampo.length)
-      p.push({
-        tom: 'aviso',
-        texto: `Estão registados como jogadores de campo: ${gkDeCampo
-          .map((j) => j.name)
-          .join(', ')}. Vão à baliza só neste jogo, a não ser que marques “goleiro permanente”.`,
-      })
+    if (!rotativo) {
+      const gkDeCampo = goleiros
+        .map((id) => porId.get(id))
+        .filter((j) => j && j.playerType !== PLAYER_TYPE.GOALKEEPER)
+      if (gkDeCampo.length)
+        p.push({
+          tom: 'aviso',
+          texto: `Estão registados como jogadores de campo: ${gkDeCampo
+            .map((j) => j.name)
+            .join(', ')}. Vão à baliza só neste jogo, a não ser que marques “goleiro permanente”.`,
+        })
+    }
 
-    // cobertura das posições: com 12 jogadores para 6 lugares x2, se ninguém
-    // joga a ala esquerda alguém vai ter de lá ir à força
+    if (rotativo) {
+      const recusam = escolhidos.filter((j) => j.gkRotationOk === false)
+      if (recusam.length >= elenco.total)
+        p.push({
+          tom: 'aviso',
+          texto: 'Ninguém neste elenco aceita ir à baliza — a regra vai ser ignorada e o rodízio sai à mesma.',
+        })
+      else if (recusam.length)
+        p.push({
+          tom: 'aviso',
+          texto: `Não aceitam ir à baliza: ${recusam.map((j) => j.name).join(', ')}. Ficam no fim do rodízio.`,
+        })
+    }
+
+    // cobertura das posições: se ninguém joga a ala esquerda, alguém vai lá
+    // ter de ir à força
     const contagem = {}
     for (const id of campo) {
       const j = porId.get(id)
       if (j?.primaryPosition) contagem[j.primaryPosition] = (contagem[j.primaryPosition] || 0) + 1
     }
-    const descobertas = FIELD_SLOTS.filter((s) => !contagem[s])
-    if (descobertas.length && campo.length === N_CAMPO)
+    const descobertas = lugares.filter((s) => !contagem[s])
+    if (descobertas.length && campo.length === elenco.campo)
       p.push({
         tom: 'aviso',
         texto: `Ninguém tem como principal: ${descobertas
@@ -505,11 +564,11 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
       })
 
     return p
-  }, [goleiros, campo, porId, escolhidos])
+  }, [rotativo, goleiros, campo, porId, escolhidos, elenco, lugares])
 
   const podeSortear = !problemas.some((p) => p.tom === 'erro')
 
-  // ---------- passo 5: sortear ----------
+  // ---------- sortear ----------
   const sortear = () => {
     if (busy || bloqueado) return
     if (!ehConversao && !podeSortear) return
@@ -525,31 +584,36 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     setBusy(true)
     setErro('')
     try {
-      // A semente vem do ID do jogo, para o sorteio ser reproduzível: correr
-      // outra vez com a mesma semente dá exactamente as mesmas equipas (é ela
-      // que fica gravada em `matches.draw_seed` com a escalação). Como
-      // "sortear de novo" tem de dar outro resultado, a tentativa entra na
-      // semente — muda o sorteio sem trocar a reprodutibilidade por um
-      // relógio, que dava uma semente diferente até no primeiro sorteio.
+      // A semente vem do ID do jogo, para o sorteio ser reproduzível; a
+      // tentativa entra nela para "sortear de novo" dar outro resultado sem
+      // trocar a reprodutibilidade por um relógio.
       const base = jogo?.id || 'rascunho'
       const seed = tentativa === 0 ? String(base) : `${base}#${tentativa}`
-      // Numa conversão as equipas vêm fechadas do rachão: só se distribuem
-      // as posições dentro de cada uma. Nada de re-sortear quem joga com quem.
       const r = ehConversao
         ? escalarEquipasFixas({
             equipas: equipasFixas.map((ids) => ids.map((id) => porId.get(id))),
             seed,
+            historicoGol: historico,
           })
-        : sortearEquipas({
-            goalkeepers: goleiros.map((id) => porId.get(id)),
-            fieldPlayers: campo.map((id) => porId.get(id)),
-            seed,
-          })
+        : rotativo
+          ? sortearEquipasRotativo({
+              jogadores: campo.map((id) => porId.get(id)),
+              seed,
+              historicoGol: historico,
+              tamanho,
+              rotacaoMinutos: rotacaoMinutos || null,
+            })
+          : sortearEquipas({
+              goalkeepers: goleiros.map((id) => porId.get(id)),
+              fieldPlayers: campo.map((id) => porId.get(id)),
+              seed,
+              tamanho,
+            })
       setTentativa(tentativa + 1)
       setResultado(r)
       setSelecao(null)
       setAjustado(false)
-      setPasso(6)
+      setPasso(3)
     } catch (e) {
       setErro(
         e.message === 'GOLEIROS' || e.message === 'CAMPO' || e.message === 'EQUIPAS'
@@ -572,7 +636,7 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
       setAviso('Troca feita — forças e equilíbrio recalculados.')
       setTimeout(() => setAviso(''), 2500)
     } catch (e) {
-      setErro(e.message)
+      setErro(e.detalhe || e.message)
     } finally {
       setSelecao(null)
     }
@@ -583,13 +647,23 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
       setResultado(moverParaSlot(resultado, playerId, team, slot))
       setAjustado(true)
     } catch (e) {
-      setErro(e.message)
+      setErro(e.detalhe || e.message)
     }
   }
 
-  // ---------- passo 7: publicar ----------
+  const mudarInicioNoGol = (team, playerId) => {
+    try {
+      setResultado(definirInicioNoGol(resultado, team, playerId))
+      setAjustado(true)
+      setAviso('Trocado — as forças das equipas não mudam.')
+      setTimeout(() => setAviso(''), 2500)
+    } catch (e) {
+      setErro(e.detalhe || e.message)
+    }
+  }
+
+  // ---------- publicar ----------
   const publicar = async () => {
-    // dupla proteção: a ref fecha a porta antes do próximo render
     if (publicandoRef.current || publicado || !resultado || !jogo) return
     if (
       !window.confirm(
@@ -609,10 +683,8 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
         seed: resultado.seed,
       })
 
-      // Goleiros que o admin quis fixar como permanentes. É um extra à margem
-      // do jogo: se falhar (a migração 0015 por aplicar, por exemplo) não pode
-      // levar a publicação atrás — a escalação já está gravada e o grupo está
-      // à espera das equipas. Falha em silêncio não, fica no aviso do fim.
+      // Goleiros que o admin quis fixar como permanentes. É um extra à
+      // margem do jogo: se falhar não pode levar a publicação atrás.
       const falhados = []
       for (const id of goleiros) {
         if (!tornarGkPermanente[id]) continue
@@ -640,8 +712,6 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
             ', '
           )} — faz isso na aba “Posições”.`
         )
-      // A partir daqui o jogo já está publicado: um erro a recarregar listas
-      // não desfaz nada e não pode reabrir o botão de publicar.
       await carregarProximos()
       try {
         await onDadosAlterados?.()
@@ -654,6 +724,29 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     } finally {
       setBusy(false)
     }
+  }
+
+  // O texto do sorteio, pronto a colar no grupo. Publicar e partilhar eram
+  // dois ecrãs; agora é o mesmo sítio.
+  const partilhar = async (copiarSo = false) => {
+    const jogoPartilha = {
+      ...jogo,
+      gk_mode: gkMode,
+      gk_rotation_minutes: rotativo ? rotacaoMinutos : null,
+      team_a_overall: resultado ? Math.round(resultado.teamA.strength) : null,
+      team_b_overall: resultado ? Math.round(resultado.teamB.strength) : null,
+      lineup: resultado
+        ? paraLinhasDeEscalacao(resultado).map((l) => ({
+            ...l,
+            name: porId.get(l.player_id)?.name || '',
+          }))
+        : [],
+    }
+    const texto = resumoSorteio(jogoPartilha, resenha)
+    const r = copiarSo ? await copiarTexto(texto) : await partilharTexto(texto)
+    if (r === 'copiado' || r === 'manual') setAviso('Escalação copiada — cola no grupo.')
+    else if (r === 'whatsapp') setAviso('Abri o WhatsApp com a escalação.')
+    setTimeout(() => setAviso(''), 3000)
   }
 
   const irPara = (n) => {
@@ -697,8 +790,8 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
       {faltaMigracao ? (
         <div style={{ ...styles.panel, marginBottom: 12 }}>
           <p style={{ ...styles.mutedText, fontSize: 13 }}>
-            ⚠️ Não consegui carregar os jogos marcados ({erro}). Se ainda não aplicaste a migração{' '}
-            <strong>0016_jogos_agendados.sql</strong> no Supabase, é isso que falta.
+            ⚠️ Não consegui carregar os jogos marcados ({erro}). Se ainda não aplicaste as
+            migrações <strong>0016</strong> e <strong>0024</strong> no Supabase, é isso que falta.
           </p>
         </div>
       ) : (
@@ -718,14 +811,14 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
         </p>
       )}
 
-      {/* ---------- 1. informações ---------- */}
+      {/* ---------- 1. o jogo ---------- */}
       {passo === 1 && (
         <div className="pb-card">
           {ehConversao && (
             <Aviso tom="ok">
               As duas equipas do rachão ({equipasFixas[0].length} + {equipasFixas[1].length}{' '}
-              jogadores) vêm tal como estão. Só falta a data — os goleiros e as posições são
-              tratados a seguir, sem voltar a escolher ninguém.
+              jogadores) vêm tal como estão. Só falta a data — as posições são tratadas a seguir,
+              sem voltar a escolher ninguém.
             </Aviso>
           )}
           <label style={styles.label} htmlFor="quando">
@@ -763,12 +856,28 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
           </label>
           <input
             id="mapa"
-            style={styles.input}
+            style={{ ...styles.input, marginBottom: 18 }}
             value={mapa}
             onChange={(e) => setMapa(e.target.value)}
             placeholder="https://maps.app.goo.gl/…"
             inputMode="url"
           />
+
+          {/* Numa conversão as equipas já estão feitas: o formato não muda
+              nada e mostrá-lo só dava a escolher o que não se aplica. */}
+          {!ehConversao && (
+            <div style={{ borderTop: `1px solid ${colors.line}`, paddingTop: 16 }}>
+              <FormatoPicker
+                gkMode={gkMode}
+                tamanho={tamanho}
+                rotacaoMinutos={rotacaoMinutos}
+                onMudarModo={mudarModo}
+                onMudarTamanho={mudarTamanho}
+                onMudarRotacao={setRotacaoMinutos}
+                bloqueado={bloqueado}
+              />
+            </div>
+          )}
 
           <button
             type="button"
@@ -812,22 +921,26 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
                         <div className="pb-truncate" style={{ fontSize: 14 }}>
                           {d ? `${d.data} · ${d.hora}` : 'sem data'} — {m.location || 'sem local'}
                         </div>
-                        <span
-                          style={chip(
-                            m.status === 'DRAFT' ? colors.teamA : colors.grass,
-                            m.status === 'DRAFT'
-                              ? 'rgba(255,197,49,0.12)'
-                              : 'rgba(52,208,88,0.12)'
-                          )}
-                        >
-                          {/* só o rascunho é que ainda se sorteia: um jogo a
-                              decorrer não pode aparecer como "rascunho" */}
-                          {m.status === 'DRAFT'
-                            ? 'rascunho'
-                            : m.status === 'IN_PROGRESS'
-                              ? 'a decorrer'
-                              : 'publicado'}
-                        </span>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
+                          <span
+                            style={chip(
+                              m.status === 'DRAFT' ? colors.teamA : colors.grass,
+                              m.status === 'DRAFT'
+                                ? 'rgba(255,197,49,0.12)'
+                                : 'rgba(52,208,88,0.12)'
+                            )}
+                          >
+                            {m.status === 'DRAFT'
+                              ? 'rascunho'
+                              : m.status === 'IN_PROGRESS'
+                                ? 'a decorrer'
+                                : 'publicado'}
+                          </span>
+                          <span style={chip(colors.muted)}>
+                            {m.gk_mode === GK_MODE.ROTATING ? '🔄 rodízio' : '🧤 goleiros fixos'} ·{' '}
+                            {formacaoDe(m.team_size).rotulo}
+                          </span>
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -845,219 +958,182 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
         </div>
       )}
 
-      {/* ---------- 2. goleiros ---------- */}
+      {/* ---------- 2. quem joga ---------- */}
       {passo === 2 && (
         <div className="pb-card">
-          <p style={{ fontSize: 14, marginBottom: 4 }}>
-            Escolhe os <strong>{N_GOLEIROS} goleiros</strong> ({goleiros.length} escolhidos). Vão um
-            para cada equipa, antes de distribuir o campo.
-          </p>
-          {goleirosSugeridos.length > 0 && (
-            <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
-              Registados como goleiros: {goleirosSugeridos.map((g) => g.name).join(', ')}.
-            </p>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              marginBottom: 12,
+            }}
+          >
+            <span style={chip(colors.grass, 'rgba(52,208,88,0.12)')}>
+              {rotativo ? '🔄 Sem goleiros fixos' : '🧤 Com goleiros fixos'} ·{' '}
+              {formacaoDe(tamanho).rotulo}
+            </span>
+            <button type="button" onClick={() => irPara(1)} style={{ ...styles.link }}>
+              mudar formato
+            </button>
+          </div>
+
+          {/* Um contador só, com o número certo para o formato escolhido. */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 8,
+              marginBottom: 10,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: fonts.title,
+                fontSize: 18,
+                color: escolhidos.length === elenco.total ? colors.grass : colors.text,
+              }}
+            >
+              {escolhidos.length}/{elenco.total}
+            </span>
+            <span style={{ ...styles.mutedText, fontSize: 13 }}>
+              {rotativo
+                ? 'jogadores de linha (o gol roda)'
+                : `${goleiros.length}/${N_GOLEIROS} goleiros · ${campo.length}/${elenco.campo} de campo`}
+            </span>
+          </div>
+
+          {/* ---- baliza (só no formato de goleiros fixos) ---- */}
+          {!rotativo && (
+            <details open={goleiros.length < N_GOLEIROS} style={{ marginBottom: 14 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 14, marginBottom: 6 }}>
+                🧤 Baliza ({goleiros.length} de {N_GOLEIROS})
+              </summary>
+              {goleirosSugeridos.length > 0 && (
+                <p style={{ ...styles.mutedText, fontSize: 12, margin: '6px 0 8px' }}>
+                  Registados como goleiros: {goleirosSugeridos.map((g) => g.name).join(', ')}.
+                </p>
+              )}
+              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {jogadores.map((j) => (
+                  <LinhaJogador
+                    key={j.id}
+                    j={j}
+                    marcado={goleiros.includes(j.id)}
+                    onToggle={() => alternarGoleiro(j.id)}
+                    desativado={!goleiros.includes(j.id) && goleiros.length >= N_GOLEIROS}
+                    extra={
+                      goleiros.includes(j.id) && j.playerType !== PLAYER_TYPE.GOALKEEPER ? (
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontSize: 11,
+                            color: colors.teamA,
+                            flexShrink: 0,
+                            maxWidth: 108,
+                          }}
+                          title="Passa a contar como goleiro em todos os jogos e no ranking de goleiros"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!!tornarGkPermanente[j.id]}
+                            onChange={(e) =>
+                              setTornarGkPermanente({
+                                ...tornarGkPermanente,
+                                [j.id]: e.target.checked,
+                              })
+                            }
+                            style={{ width: 14, height: 14, accentColor: colors.teamA }}
+                          />
+                          goleiro fixo
+                        </label>
+                      ) : null
+                    }
+                  />
+                ))}
+              </div>
+            </details>
           )}
 
+          {/* ---- elenco ---- */}
+          <div style={{ ...styles.label, marginBottom: 6 }}>
+            {rotativo ? `Jogadores (${campo.length} de ${elenco.total})` : `Campo (${campo.length} de ${elenco.campo})`}
+          </div>
           <div style={{ maxHeight: 420, overflowY: 'auto' }}>
-            {jogadores.map((j) => (
+            {restantes.map((j) => (
               <LinhaJogador
                 key={j.id}
                 j={j}
-                marcado={goleiros.includes(j.id)}
-                onToggle={() => alternarGoleiro(j.id)}
-                desativado={!goleiros.includes(j.id) && goleiros.length >= N_GOLEIROS}
+                marcado={campo.includes(j.id)}
+                onToggle={() => alternar(campo, setCampo, j.id, elenco.campo)}
+                desativado={!campo.includes(j.id) && campo.length >= elenco.campo}
                 extra={
-                  goleiros.includes(j.id) && j.playerType !== PLAYER_TYPE.GOALKEEPER ? (
-                    <label
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        fontSize: 11,
-                        color: colors.teamA,
-                        flexShrink: 0,
-                        maxWidth: 108,
-                      }}
-                      title="Passa a contar como goleiro em todos os jogos e no ranking de goleiros"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={!!tornarGkPermanente[j.id]}
-                        onChange={(e) =>
-                          setTornarGkPermanente({ ...tornarGkPermanente, [j.id]: e.target.checked })
-                        }
-                        style={{ width: 14, height: 14, accentColor: colors.teamA }}
-                      />
-                      goleiro fixo
-                    </label>
+                  rotativo && campo.includes(j.id) && j.gkRotationOk === false ? (
+                    <span style={{ ...chip(colors.muted), flexShrink: 0 }} title="Não aceita ir à baliza">
+                      🚫 gol
+                    </span>
                   ) : null
                 }
               />
             ))}
           </div>
 
-          {goleiros.length !== N_GOLEIROS && (
-            <Aviso tom="erro">
-              Escolhidos {goleiros.length} de {N_GOLEIROS} goleiros.
+          {/* Os avisos ficam aqui, ao lado do que os resolve — eram um passo
+              inteiro só de leitura. */}
+          {problemas.map((p, i) => (
+            <Aviso key={i} tom={p.tom}>
+              {p.texto}
             </Aviso>
-          )}
+          ))}
 
-          {botoes(1, 3, 'Continuar', goleiros.length === N_GOLEIROS)}
-        </div>
-      )}
-
-      {/* ---------- 3. jogadores de campo ---------- */}
-      {passo === 3 && (
-        <div className="pb-card">
-          <p style={{ fontSize: 14, marginBottom: 10 }}>
-            Marca os <strong>{N_CAMPO} jogadores de campo</strong> ({campo.length} marcados). Os
-            goleiros já saíram desta lista.
-          </p>
-
-          <div style={{ maxHeight: 460, overflowY: 'auto' }}>
-            {restantes.map((j) => (
-              <LinhaJogador
-                key={j.id}
-                j={j}
-                marcado={campo.includes(j.id)}
-                onToggle={() => alternar(campo, setCampo, j.id, N_CAMPO)}
-                desativado={!campo.includes(j.id) && campo.length >= N_CAMPO}
-              />
-            ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => irPara(1)}
+              style={{ ...styles.buttonGhost, flex: '1 1 120px', width: 'auto' }}
+            >
+              ← Voltar
+            </button>
+            <button
+              type="button"
+              onClick={sortear}
+              disabled={busy || !podeSortear || bloqueado}
+              style={
+                busy || !podeSortear || bloqueado
+                  ? disabled({ ...styles.button, flex: '2 1 180px', width: 'auto' })
+                  : { ...styles.button, flex: '2 1 180px', width: 'auto' }
+              }
+            >
+              {busy ? 'A calcular…' : '🎲 Sortear equipas'}
+            </button>
           </div>
-
-          {campo.length !== N_CAMPO && (
-            <Aviso tom="erro">
-              {campo.length < N_CAMPO
-                ? `Faltam ${N_CAMPO - campo.length}.`
-                : `São ${campo.length - N_CAMPO} a mais.`}{' '}
-              O sorteio 2-3-1 precisa de exatamente {N_CAMPO}.
-            </Aviso>
-          )}
-
-          {botoes(2, 4, 'Continuar', campo.length === N_CAMPO)}
         </div>
       )}
 
-      {/* ---------- 4. verificar posições ---------- */}
-      {passo === 4 && (
-        <div className="pb-card">
-          <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 15, marginBottom: 10 }}>
-            Verificação antes de sortear
-          </div>
-
-          {problemas.length === 0 ? (
-            <Aviso tom="ok">Está tudo pronto: {N_GOLEIROS} goleiros, {N_CAMPO} de campo, todos com posição e overall.</Aviso>
-          ) : (
-            problemas.map((p, i) => (
-              <Aviso key={i} tom={p.tom}>
-                {p.texto}
-              </Aviso>
-            ))
-          )}
-
-          <div style={{ marginTop: 16 }}>
-            <div style={{ ...styles.label, marginBottom: 8 }}>
-              Quem vai jogar ({escolhidos.length})
-            </div>
-            <div className="pb-cards" style={{ gap: 8 }}>
-              {escolhidos.map((j) => {
-                const e = ETIQUETA_STATUS[j.positionStatus] || ETIQUETA_STATUS.NOT_SELECTED
-                const tomCor =
-                  j.positionStatus === POSITION_STATUS.NOT_SELECTED
-                    ? colors.teamA
-                    : j.positionStatus === POSITION_STATUS.APPROVED
-                      ? colors.grass
-                      : j.positionStatus === POSITION_STATUS.ADJUSTED_BY_ADMIN
-                        ? colors.teamB
-                        : colors.muted
-                return (
-                  <div
-                    key={j.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: 8,
-                      borderRadius: 10,
-                      background: '#0C1915',
-                      border: `1px solid ${colors.line}`,
-                    }}
-                  >
-                    <Avatar name={j.name} photo={j.photo} size={28} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="pb-truncate" style={{ fontSize: 13 }}>
-                        {j.name}
-                      </div>
-                      <span style={chip(tomCor)}>
-                        <span aria-hidden>{e.icone}</span>
-                        {goleiros.includes(j.id) ? 'Goleiro neste jogo' : e.texto}
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: colors.muted,
-                        flexShrink: 0,
-                        fontFamily: fonts.title,
-                      }}
-                    >
-                      {j.primaryPosition ? siglaDaPosicao(j.primaryPosition) : '—'}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {botoes(3, 5, 'Ir para o sorteio', podeSortear)}
-        </div>
-      )}
-
-      {/* ---------- 5. sortear ---------- */}
-      {passo === 5 && (
-        <div className="pb-card">
-          <p style={{ fontSize: 14, marginBottom: 12 }}>
-            O sorteio testa todas as divisões possíveis das duas equipas e escolhe a que junta
-            forças parecidas com o menor número de jogadores fora da sua posição.
-          </p>
-          <button
-            type="button"
-            onClick={sortear}
-            disabled={busy || !podeSortear || bloqueado}
-            style={busy || !podeSortear || bloqueado ? disabled(styles.button) : styles.button}
-          >
-            {busy ? 'A calcular…' : '🎲 Sortear equipas'}
-          </button>
-          {!podeSortear && !bloqueado && (
-            <Aviso tom="erro">Há problemas por resolver no passo 4.</Aviso>
-          )}
-          {botoes(4, null)}
-        </div>
-      )}
-
-      {/* ---------- 6. rever ---------- */}
-      {passo === 6 && resultado && (
+      {/* ---------- 3. sorteio ---------- */}
+      {passo === 3 && resultado && (
         <div className="pb-stack">
           {ehConversao && (
             <Aviso tom="ok">
               Equipas vindas do <strong>sorteio rápido</strong> — ficaram como estavam. Só as
-              posições foram distribuídas: quem tem posição definida ficou nela sempre que deu, e
-              quem sobrou ocupou o resto.
+              posições foram distribuídas.
               {improvisados.length > 0 && (
                 <>
                   {' '}
                   <strong>
                     {improvisados.join(' e ')} {improvisados.length === 1 ? 'vai' : 'vão'} à baliza
                   </strong>{' '}
-                  sem ser goleiro{improvisados.length === 1 ? '' : 's'} — saiu à sorte, porque
-                  ninguém nesse time está registado como tal. Troca à mão se houver melhor
-                  candidato.
+                  sem ser goleiro{improvisados.length === 1 ? '' : 's'} — foi quem foi menos vezes
+                  ao gol. Troca à mão se houver melhor candidato.
                 </>
-              )}{' '}
-              Ajusta o que quiseres aqui antes de publicar.
+              )}
             </Aviso>
           )}
+
           <div className="pb-card" style={{ padding: 12 }}>
             <FootballPitch
               teamA={{ ...resultado.teamA, nome: '⚫ Pretos', cor: '#8A96A0' }}
@@ -1066,6 +1142,7 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
               interactive
               onPlayerClick={clicarJogador}
               destaqueIds={selecao ? [selecao] : []}
+              gkMode={resultado.gkMode}
             />
             <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10, textAlign: 'center' }}>
               {selecao
@@ -1102,6 +1179,12 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
               </span>
             </div>
           </div>
+
+          <RodizioPanel
+            resultado={resultado}
+            historico={historico}
+            onDefinirInicio={mudarInicioNoGol}
+          />
 
           {/* fora de posição */}
           <div className="pb-card">
@@ -1157,7 +1240,7 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
                   <div style={{ fontSize: 12, color: colors.muted, marginBottom: 6 }}>
                     {lado === 'A' ? '⚫ Pretos' : '⚪ Brancos'}
                   </div>
-                  {FIELD_SLOTS.map((slot) => {
+                  {(resultado.lugares || lugares).map((slot) => {
                     const j = equipa.slots?.[slot]
                     if (!j) return null
                     return (
@@ -1192,7 +1275,7 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
                               fontSize: 13,
                             }}
                           >
-                            {FIELD_SLOTS.map((s) => (
+                            {(resultado.lugares || lugares).map((s) => (
                               <option key={s} value={s}>
                                 {nomeDaPosicao(s)}
                               </option>
@@ -1218,30 +1301,30 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
             </button>
             <button
               type="button"
-              onClick={() => irPara(7)}
+              onClick={() => irPara(4)}
               style={{ ...styles.button, flex: '2 1 180px', width: 'auto' }}
             >
               Continuar para publicar
             </button>
           </div>
-          {botoes(ehConversao ? 1 : 5, null)}
+          {botoes(ehConversao ? 1 : 2, null)}
         </div>
       )}
 
-      {passo === 6 && !resultado && (
+      {passo === 3 && !resultado && (
         <div className="pb-card">
-          <p style={styles.mutedText}>Ainda não há sorteio. Volta ao passo 5.</p>
-          {botoes(ehConversao ? 1 : 5, null)}
+          <p style={styles.mutedText}>Ainda não há sorteio. Volta ao passo anterior.</p>
+          {botoes(ehConversao ? 1 : 2, null)}
         </div>
       )}
 
-      {/* ---------- 7. publicar ---------- */}
-      {passo === 7 && (
+      {/* ---------- 4. publicar ---------- */}
+      {passo === 4 && (
         <div className="pb-card">
           {!resultado ? (
             <>
               <p style={styles.mutedText}>Falta sortear as equipas.</p>
-              {botoes(ehConversao ? 1 : 5, null)}
+              {botoes(ehConversao ? 1 : 2, null)}
             </>
           ) : acabouDePublicar ? (
             <>
@@ -1254,7 +1337,25 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
                   Já aparece na página inicial de todos os jogadores, com a contagem regressiva.
                 </p>
               </div>
-              <button type="button" onClick={recomecar} style={{ ...styles.buttonGhost, marginTop: 14 }}>
+              {/* Publicar e partilhar eram dois sítios diferentes; agora o
+                  texto do grupo está aqui, a um toque. */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => partilhar(true)}
+                  style={{ ...styles.buttonGhost, flex: '1 1 140px', width: 'auto' }}
+                >
+                  📋 Copiar escalação
+                </button>
+                <button
+                  type="button"
+                  onClick={() => partilhar(false)}
+                  style={{ ...styles.button, flex: '1 1 140px', width: 'auto' }}
+                >
+                  🟢 Enviar no WhatsApp
+                </button>
+              </div>
+              <button type="button" onClick={recomecar} style={{ ...styles.buttonGhost, marginTop: 10 }}>
                 Marcar outro jogo
               </button>
             </>
@@ -1268,7 +1369,7 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
               <button type="button" onClick={recomecar} style={{ ...styles.buttonGhost, marginTop: 14 }}>
                 Marcar outro jogo
               </button>
-              {botoes(6, null)}
+              {botoes(3, null)}
             </>
           ) : (
             <>
@@ -1284,6 +1385,13 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
                   })()}
                 />
                 <Resumo rotulo="Onde" valor={jogo?.location || '—'} />
+                <Resumo
+                  rotulo="Formato"
+                  valor={`${rotativo ? '🔄 Goleiro rotativo' : '🧤 Goleiros fixos'} · ${formacaoDe(tamanho).rotulo}`}
+                />
+                {rotativo && rotacaoMinutos && (
+                  <Resumo rotulo="Troca de gol" valor={`a cada ${rotacaoMinutos} min`} />
+                )}
                 <Resumo rotulo="⚫ Pretos" valor={Math.round(resultado.teamA.strength)} />
                 <Resumo rotulo="⚪ Brancos" valor={Math.round(resultado.teamB.strength)} />
                 <Resumo rotulo="Diferença" valor={Math.round(resultado.diff)} />
@@ -1295,8 +1403,6 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
               </div>
 
               <div style={{ margin: '14px 0', borderTop: `1px solid ${colors.line}`, paddingTop: 14 }}>
-                {/* `inicial` devolve o texto guardado quando o admin volta ao
-                    passo 6 e regressa — o editor desmonta pelo caminho */}
                 <ResenhaEditor gerar={gerarResenha} onChange={setResenha} inicial={resenha} />
               </div>
 
@@ -1317,7 +1423,7 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
               >
                 {busy ? 'A publicar…' : '📢 Publicar sorteio'}
               </button>
-              {botoes(6, null)}
+              {botoes(3, null)}
             </>
           )}
         </div>

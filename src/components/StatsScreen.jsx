@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  getMatches,
-  getMyAwardVotes,
-  getMyPostRatings,
-  getPlayerStats,
-  getPlayerStatsRange,
-  voteAward,
-} from '../api'
+import { getMatches, getMyOpenVotes, getPlayerStats, getPlayerStatsRange } from '../api'
 import {
   assisters as getAssisters,
   awardWinners,
@@ -16,124 +9,41 @@ import {
   PERIODOS,
   scorers as getScorers,
 } from '../lib/format'
-import { candidatosBagre, candidatosCraque, podeVotar, semLadosDefinidos } from '../lib/awards'
+import { faltaVotarTexto, pendenciasReais, tempoAteFechar } from '../lib/voting'
 import { liderancas } from '../lib/trophies'
 import { NomeClicavel } from './RoundParts'
 import Avatar from './Avatar'
-import PostMatchRatingCard from './PostMatchRating'
 import RoundDetail from './RoundDetail'
 import { ErrorBox, SkeletonCard } from './Ui'
-import { colors, fonts, styles, disabled } from '../theme'
+import { colors, fonts, styles } from '../theme'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-// Cartão de votação de craque + bagre numa rodada pendente.
+// Atalho para a cédula de votação.
 //
-// Os candidatos já não são "toda a gente que jogou": craque sai dos
-// vencedores, bagre dos derrotados. Num empate (ou numa rodada antiga sem
-// equipas) não há lados, e aí concorre toda a gente — a mesma régua que o
-// servidor aplica em `elegiveis_premio`.
-function VoteCard({ match, session, onVoted }) {
-  const [craque, setCraque] = useState(null)
-  const [bagre, setBagre] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  const opcoesCraque = candidatosCraque(match, session.id)
-  const opcoesBagre = candidatosBagre(match, session.id)
-  const semLados = semLadosDefinidos(match)
-  const vencedor = matchWinner(match)
-  const mesmo = craque && bagre && craque === bagre
-  const pronto = craque && bagre && !mesmo
-
-  const submit = async () => {
-    if (!pronto || busy) return
-    setError('')
-    setBusy(true)
-    try {
-      await voteAward(session.id, session.pin, match.id, craque, bagre)
-      onVoted()
-    } catch (err) {
-      // votou entretanto noutro dispositivo/tab: refresca em vez de mostrar erro
-      if (err.code === 'VOTOFEITO') onVoted()
-      else setError(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const chips = (options, selected, cor, onPick) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-      {options.map((p) => {
-        const sel = selected === p.player_id
-        return (
-          <button
-            key={p.player_id}
-            onClick={() => onPick(sel ? null : p.player_id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              padding: '6px 12px 6px 6px',
-              borderRadius: 999,
-              border: `1px solid ${sel ? cor : colors.line}`,
-              background: sel ? 'rgba(255,255,255,0.06)' : '#0C1915',
-              color: sel ? cor : colors.text,
-              fontSize: 14,
-              fontWeight: sel ? 700 : 400,
-            }}
-          >
-            <Avatar name={p.name} photo={p.photo} size={26} />
-            {p.name}
-          </button>
-        )
-      })}
-    </div>
-  )
-
+// A votação vivia AQUI, em dois cartões (craque/bagre e estrelas) enterrados
+// dentro de Estatísticas → Rodadas. Chegar-lhes custava seis navegações e
+// dois envios, e era essa a razão de quase ninguém votar. Agora vive num ecrã
+// próprio, com link partilhável; daqui fica só o convite.
+function ChamadaParaVotar({ pendencia, onVotar }) {
+  const t = tempoAteFechar(pendencia.deadline)
+  const falta = faltaVotarTexto(pendencia)
   return (
     <div style={{ ...styles.panel, border: `1px solid ${colors.teamA}`, marginBottom: 12 }}>
       <div style={{ ...styles.title, fontSize: 16, marginBottom: 4 }}>
-        🗳️ Vota na rodada de {formatDia(match.played_at)}
+        🗳️ Falta o teu voto — {formatDia(pendencia.played_at)}
       </div>
       <p style={{ ...styles.mutedText, fontSize: 13 }}>
-        Só quem jogou vota, e só se vota uma vez — pensa bem. 😄
+        {falta ? `Por dar: ${falta}.` : 'Tens votos por dar nesta rodada.'}
+        {t.conhecido && !t.expirado ? ` Fecha em ${t.texto}.` : ''}
       </p>
-      <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 6 }}>
-        {semLados
-          ? '🤝 Sem vencedor definido nesta rodada — concorre toda a gente que jogou.'
-          : `👑 O craque sai de quem venceu (${vencedor.name}); 🐟 o bagre, de quem perdeu.`}
-      </p>
-
-      <div style={{ marginTop: 14 }}>
-        <span style={{ fontFamily: fonts.title, letterSpacing: 1, color: colors.teamA }}>
-          👑 Craque da rodada
-        </span>
-        {chips(opcoesCraque, craque, colors.teamA, setCraque)}
-      </div>
-
-      <div style={{ marginTop: 14 }}>
-        <span style={{ fontFamily: fonts.title, letterSpacing: 1, color: colors.teamB }}>
-          🐟 Bagre da rodada
-        </span>
-        {chips(opcoesBagre, bagre, colors.teamB, setBagre)}
-      </div>
-
-      {mesmo && (
-        <p style={styles.errorText}>O craque e o bagre não podem ser o mesmo jogador.</p>
-      )}
       <button
-        onClick={submit}
-        disabled={!pronto || busy}
-        style={
-          !pronto || busy
-            ? disabled({ ...styles.button, marginTop: 16 })
-            : { ...styles.button, marginTop: 16 }
-        }
+        type="button"
+        onClick={() => onVotar?.(pendencia.match_id)}
+        style={{ ...styles.button, marginTop: 12 }}
       >
-        {busy ? 'A votar…' : 'Submeter voto'}
+        Votar agora
       </button>
-      {error && <p style={styles.errorText}>{error}</p>}
     </div>
   )
 }
@@ -265,6 +175,8 @@ export default function StatsScreen({
   // deep-link do feed: abre logo esta rodada em detalhe
   initialMatchId = null,
   onProfile,
+  // leva à cédula de votação, que já não vive dentro deste ecrã
+  onVotar,
   embutido = false,
   // muda a cada toque na navegação, mesmo para o mesmo destino
   navToken = 0,
@@ -285,9 +197,8 @@ export default function StatsScreen({
   const [navPedido, setNavPedido] = useState({ tab: initialTab, token: navToken })
   const [stats, setStats] = useState(null)
   const [matches, setMatches] = useState(null)
-  const [myVotes, setMyVotes] = useState([])
-  // jogos com a avaliação pós-jogo aberta em que eu joguei (migração 0023)
-  const [posJogo, setPosJogo] = useState([])
+  // rodadas com votação aberta em que joguei e ainda tenho algo por dar
+  const [pendencias, setPendencias] = useState([])
   const [detailId, setDetailId] = useState(initialMatchId) // rodada aberta em detalhe
   if (navPedido.tab !== initialTab || navPedido.token !== navToken) {
     setNavPedido({ tab: initialTab, token: navToken })
@@ -322,15 +233,13 @@ export default function StatsScreen({
     Promise.all([
       carregarStats(periodo),
       getMatches(),
-      getMyAwardVotes(session.id, session.pin),
-      // não-fatal: sem a 0023 aplicada a secção simplesmente não aparece,
+      // não-fatal: sem a 0025 aplicada o atalho simplesmente não aparece,
       // em vez de deitar abaixo o histórico todo
-      getMyPostRatings(session.id, session.pin).catch(() => []),
+      getMyOpenVotes(session.id, session.pin).catch(() => []),
     ])
-      .then(([, m, v, pj]) => {
+      .then(([, m, p]) => {
         setMatches(m || [])
-        setMyVotes(v || [])
-        setPosJogo(pj || [])
+        setPendencias(p || [])
         setError('')
       })
       .catch((err) => setError(err.message))
@@ -404,20 +313,10 @@ export default function StatsScreen({
     )
   }
 
-  // rodadas em que joguei e ainda não votei (com <3 jogadores não há
-  // votação possível — sem votar em si e com craque ≠ bagre).
-  // `podeVotar` tira as que ficaram sem candidatos de um dos lados: um
-  // cartão que só dá erro ao submeter é pior do que cartão nenhum.
-  const pendentes = matches.filter(
-    (m) =>
-      m.players.length >= 3 &&
-      m.players.some((p) => p.player_id === session.id) &&
-      !myVotes.includes(m.id) &&
-      podeVotar(m, session.id)
-  )
-  const porAvaliar = posJogo.filter((j) =>
-    (j.teammates || []).some((c) => !Number.isInteger(c.stars))
-  )
+  // Rodadas em que joguei e ainda tenho voto por dar. Quem decide é o
+  // servidor (`get_my_open_votes`), que já olha para o prazo e para as duas
+  // votações ao mesmo tempo — a lista antiga só sabia do craque/bagre.
+  const porVotar = pendenciasReais(pendencias)
 
   return (
     <div style={pageStyle}>
@@ -449,7 +348,7 @@ export default function StatsScreen({
 
       <div style={{ display: 'flex', marginBottom: 16 }}>
         {tabBtn('geral', 'Geral')}
-        {tabBtn('rodadas', `Rodadas${pendentes.length || porAvaliar.length ? ' 🗳️' : ''}`)}
+        {tabBtn('rodadas', `Rodadas${porVotar.length ? ' 🗳️' : ''}`)}
       </div>
 
       {error && <p style={{ ...styles.errorText, marginBottom: 12 }}>{error}</p>}
@@ -646,16 +545,12 @@ export default function StatsScreen({
       {/* ---------- RODADAS ---------- */}
       {tab === 'rodadas' && (
         <div>
-          {pendentes.map((m) => (
-            <VoteCard key={m.id} match={m} session={session} onVoted={load} />
-          ))}
-          {posJogo.map((j) => (
-            <PostMatchRatingCard
-              key={j.match_id}
-              jogo={j}
-              session={session}
-              onSaved={load}
-            />
+          {/* A votação já não vive aqui: era este o problema. Estar enterrada
+              em Estatísticas → Rodadas custava seis navegações e dois envios,
+              e quase ninguém chegava ao fim. Agora é um ecrã próprio, com
+              link partilhável — daqui fica só o atalho. */}
+          {porVotar.map((p) => (
+            <ChamadaParaVotar key={p.match_id} pendencia={p} onVotar={onVotar} />
           ))}
           {matches.length === 0 && (
             <div style={{ ...styles.panel, textAlign: 'center', padding: 22 }}>
@@ -665,16 +560,14 @@ export default function StatsScreen({
               </p>
             </div>
           )}
-          {matches
-            .filter((m) => !pendentes.some((p) => p.id === m.id))
-            .map((m) => (
-              <MatchPanel
-                key={m.id}
-                match={m}
-                onDetail={setDetailId}
-                onProfile={(id) => onProfile?.(id, matches.length)}
-              />
-            ))}
+          {matches.map((m) => (
+            <MatchPanel
+              key={m.id}
+              match={m}
+              onDetail={setDetailId}
+              onProfile={(id) => onProfile?.(id, matches.length)}
+            />
+          ))}
         </div>
       )}
     </div>

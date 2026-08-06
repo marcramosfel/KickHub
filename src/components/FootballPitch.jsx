@@ -127,6 +127,9 @@ function normalizarJogador(fonte, slot) {
     // nome de quem desistiu e lhe deixou o lugar (só existe depois de uma
     // substituição gravada, migração 0018)
     substitui: fonte.substitute_for ?? fonte.substituiu ?? null,
+    // vez no rodízio (migração 0024): 1 = começa no gol. Nulo nos jogos de
+    // goleiros fixos, onde não há rodízio nenhum para mostrar.
+    vezNoGol: numero(fonte.gk_order ?? fonte.gkOrder),
   }
 }
 
@@ -380,8 +383,13 @@ const anelBase = {
 }
 
 // Um jogador (ou o lugar vazio) no seu sítio do campo.
-function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, onPlayerClick }) {
+function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, onPlayerClick, rodizio }) {
   const nomePos = nomeDaPosicao(slot)
+  // Num jogo com rodízio, quem está no lugar do goleiro não É goleiro: é o
+  // primeiro da vez. A diferença tem de se ver no campo, senão o formato
+  // novo chega ao jogador igual ao antigo.
+  const iniciaNoGol = rodizio && slot === 'GK' && Boolean(jogador)
+  const proximaVez = rodizio && jogador?.vezNoGol > 1 ? jogador.vezNoGol : null
   const overall = jogador?.overall == null ? null : Math.round(jogador.overall)
   // A dica sai para dentro do campo: em cima abre para baixo, em baixo abre
   // para cima, e nas alas encosta ao lado certo — senão era cortada.
@@ -439,6 +447,46 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
             }}
           >
             {iconeDaPosicao(slot)}
+          </span>
+        )}
+
+        {/* aro amarelo em quem começa na baliza: lê-se antes do texto */}
+        {iniciaNoGol && (
+          <span
+            aria-hidden
+            style={{
+              ...anelBase,
+              inset: -4,
+              border: `2px solid ${colors.teamA}`,
+              boxShadow: '0 0 8px rgba(255,197,49,0.5)',
+            }}
+          />
+        )}
+
+        {/* a vez de quem ainda não foi ao gol, no canto de cima */}
+        {proximaVez && (
+          <span
+            aria-hidden
+            title={`${jogador.name} é o ${proximaVez}.º a ir ao gol`}
+            style={{
+              position: 'absolute',
+              top: -3,
+              right: -3,
+              width: T.icone,
+              height: T.icone,
+              borderRadius: '50%',
+              background: FUNDO_TEXTO,
+              border: `1px solid ${colors.line}`,
+              color: colors.muted,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: T.iconeTexto,
+              fontFamily: fonts.title,
+              lineHeight: 1,
+            }}
+          >
+            {proximaVez}
           </span>
         )}
 
@@ -521,6 +569,26 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
         </span>
       )}
 
+      {iniciaNoGol && (
+        <span
+          style={{
+            display: 'block',
+            marginTop: 2,
+            padding: '1px 6px',
+            borderRadius: 6,
+            background: colors.teamA,
+            color: '#06130D',
+            fontFamily: fonts.title,
+            fontSize: T.sigla,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          INICIA NO GOL
+        </span>
+      )}
+
       {jogador && (
         <span
           className="fp-tip"
@@ -549,6 +617,8 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
         >
           {jogador.name} · {nomePos}
           {overall == null ? '' : ` · ${overall}`}
+          {iniciaNoGol ? ' · inicia no gol (rodízio)' : ''}
+          {proximaVez ? ` · ${proximaVez}.º a ir ao gol` : ''}
           {jogador.fora ? ' · fora de posição' : ''}
           {jogador.substitui ? ` · entrou por ${jogador.substitui} (desistência)` : ''}
         </span>
@@ -566,6 +636,8 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
 
   if (interactive && jogador) {
     const aria = `${jogador.name}, ${nomePos}${overall == null ? '' : `, overall ${overall}`}${
+      iniciaNoGol ? ', inicia no gol, rodízio de goleiro' : ''
+    }${proximaVez ? `, ${proximaVez}.º a ir ao gol` : ''}${
       jogador.fora ? ', fora da posição principal' : ''
     }${jogador.substitui ? `, entrou por desistência de ${jogador.substitui}` : ''}`
     return (
@@ -669,8 +741,11 @@ function FootballPitch({
   interactive = false,
   onPlayerClick,
   destaqueIds,
+  // 'ROTATING' pinta o goleiro como "quem começa" em vez de "o goleiro"
+  gkMode = 'FIXED',
 }) {
   const horizontal = orientation === 'horizontal'
+  const rodizio = gkMode === 'ROTATING'
   const idBase = useId().replace(/:/g, '')
 
   // O trabalho pesado (normalizar e posicionar) fica aqui: a Home
@@ -735,6 +810,7 @@ function FootballPitch({
             showOverall={showOverall}
             interactive={interactive}
             onPlayerClick={onPlayerClick}
+            rodizio={rodizio}
           />
         </Caixa>
       )
@@ -792,6 +868,7 @@ function saoIguais(a, b) {
     a.showOverall === b.showOverall &&
     a.interactive === b.interactive &&
     a.onPlayerClick === b.onPlayerClick &&
+    a.gkMode === b.gkMode &&
     listasIguais(a.destaqueIds, b.destaqueIds)
   )
 }

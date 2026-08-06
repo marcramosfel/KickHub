@@ -4,6 +4,7 @@ import { fileToDataURL } from '../lib/image'
 import { ordenarJogadoresDeCampo } from '../lib/ranking'
 import { PLAYER_TYPE } from '../lib/positions'
 import { TITULOS_POR_ID } from '../lib/achievements'
+import { tempoAteFechar } from '../lib/voting'
 import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import AchievementBadge from './AchievementBadge'
@@ -123,10 +124,11 @@ export default function HomeScreen({
   draw,
   latestMatch,
   totalRodadas,
-  pendingVotes,
+  porVotar,
   faltamAvaliar,
   loading,
   error,
+  onVotar,
   onRate,
   onProfile,
   onNavigate,
@@ -234,7 +236,11 @@ export default function HomeScreen({
 
       {/* ---------- 1.ª linha: próximo jogo + contagem ---------- */}
       <section aria-label="Próximo jogo">
-        <NextMatch jogo={proximoJogo} onPlayerClick={(j) => onProfile?.(j.id)} />
+        <NextMatch
+          jogo={proximoJogo}
+          meuId={session.id}
+          onPlayerClick={(j) => onProfile?.(j.id)}
+        />
       </section>
 
       {/* ---------- o feed: o que o admin publicou, mais recente primeiro ---------- */}
@@ -252,14 +258,24 @@ export default function HomeScreen({
       )}
 
       {/* ---------- avisos pessoais ---------- */}
-      {(pendingVotes > 0 || faltamAvaliar > 0) && (
+      {/* A votação já tem a faixa fixa no topo; este cartão é o reforço para
+          quem rolou a Home abaixo sem lhe tocar. */}
+      {(porVotar?.length > 0 || faltamAvaliar > 0) && (
         <section className="pb-cards">
-          {pendingVotes > 0 && (
+          {porVotar?.length > 0 && (
             <div className="pb-card" style={{ borderColor: colors.teamA }}>
-              <p style={{ fontSize: 14, marginBottom: 10 }}>
-                👑🐟 A votação do craque e do bagre está aberta — falta o teu voto!
+              <p style={{ fontSize: 14, marginBottom: 4 }}>
+                🗳️ Falta o teu voto na rodada — ⭐ avaliações, 👑 craque e 🐟 bagre.
               </p>
-              <button style={styles.button} onClick={() => onNavigate?.('history')}>
+              <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+                {(() => {
+                  const t = tempoAteFechar(porVotar[0].deadline)
+                  return t.conhecido && !t.expirado
+                    ? `Fecha em ${t.texto}. Leva menos de um minuto.`
+                    : 'Leva menos de um minuto.'
+                })()}
+              </p>
+              <button style={styles.button} onClick={() => onVotar?.(porVotar[0].match_id)}>
                 Votar agora
               </button>
             </div>

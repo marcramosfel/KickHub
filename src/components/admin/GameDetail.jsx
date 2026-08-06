@@ -2,13 +2,13 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   adminAddMedia,
   adminCancelMatch,
+  adminCloseGame,
   adminDeleteMedia,
   adminDeletePost,
   adminDeleteSchedule,
   adminMatchActivity,
   adminPublishResult,
   adminSaveResult,
-  adminSetPostRatingStatus,
   adminSetPrimaryMedia,
   adminUpdatePost,
   getFeed,
@@ -26,10 +26,14 @@ import { calcularSequencias } from '../../lib/streaks'
 import { gerarResenhaResultado } from '../../lib/resenha'
 import { nomeDaEquipa, corDaEquipa } from '../../lib/substitutions'
 import { candidatosBagre, candidatosCraque, ladoVencedor, semLadosDefinidos } from '../../lib/awards'
+import { prazoPorOmissao, prazoLegivel } from '../../lib/voting'
+import { urlDaVotacao } from '../../lib/router'
+import { copiarTexto, mensagemDeVotacao, partilharTexto } from '../../lib/share'
 import Avatar from '../Avatar'
 import Stepper from './Stepper'
 import FootballPitch from '../FootballPitch'
 import ResenhaEditor from './ResenhaEditor'
+import VotingPanel from './VotingPanel'
 import { ErrorBox } from '../Ui'
 import { colors, fonts, styles, chip, disabled } from '../../theme'
 
@@ -234,6 +238,9 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
   // ---------- cancelamento (dupla confirmação inline) ----------
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
   const [motivoCancelar, setMotivoCancelar] = useState('')
+  // Fomos NÓS a encerrar agora? É o que decide mostrar o ecrã de sucesso com
+  // a mensagem para o grupo, em vez de o mostrar a cada visita ao jogo.
+  const [acabouDeEncerrar, setAcabouDeEncerrar] = useState(false)
 
   // ---------- histórico ----------
   const [atividade, setAtividade] = useState(null) // null = ainda não carregado
@@ -352,15 +359,50 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
     }, 'Resultado publicado! 🎉')
   }
 
-  // ---------- avaliação pós-jogo ----------
-  const posJogoAberta = jogo?.post_rating_status === 'OPEN'
-  const mudarPosJogo = (abrir) =>
-    correr(
-      () => adminSetPostRatingStatus(pw, jogo.id, abrir),
-      abrir
-        ? 'Avaliação pós-jogo aberta — o pessoal já pode dar as estrelas.'
-        : 'Avaliação pós-jogo encerrada. As notas ficam como estão.',
+  // ---------- encerrar o jogo ----------
+  //
+  // Eram cinco passos para uma decisão só ("o jogo acabou"): preencher →
+  // guardar rascunho → publicar → ir à secção da avaliação → abrir. E a
+  // votação de craque/bagre nem interruptor tinha. Agora é um botão que faz
+  // tudo numa transação e devolve já a mensagem para o grupo.
+  const encerrarJogo = async () => {
+    const prazo = prazoPorOmissao(jogo?.kickoff_at)
+    if (
+      !window.confirm(
+        `Encerrar o jogo com ${form.scoreA}–${form.scoreB}?\n\n` +
+          '• o resultado é publicado e passa a contar\n' +
+          '• abre a votação (estrelas + craque + bagre)\n' +
+          `• a votação fecha ${prazoLegivel(prazo?.toISOString())}`
+      )
     )
+      return
+    await correr(async () => {
+      const novo = await adminCloseGame(pw, jogo.id, {
+        scoreA: form.scoreA,
+        scoreB: form.scoreB,
+        stats: linhasDeStats(),
+        gkStats: linhasDeGk(),
+        notes: form.notes,
+        resenha,
+        deadline: prazo ? prazo.toISOString() : null,
+      })
+      if (posts !== null) await carregarPosts()
+      setAcabouDeEncerrar(true)
+      return novo
+    }, 'Jogo encerrado e votação aberta! 🎉')
+  }
+
+  const partilharVotacao = async (copiarSo) => {
+    const url = urlDaVotacao(jogo.id)
+    const texto = mensagemDeVotacao(
+      { ...jogo, score_a: form.scoreA, score_b: form.scoreB },
+      url
+    )
+    const r = copiarSo ? await copiarTexto(texto) : await partilharTexto(texto)
+    if (r === 'copiado' || r === 'manual') setAviso('Mensagem copiada — cola no grupo.')
+    else if (r === 'whatsapp') setAviso('Abri o WhatsApp com o convite para votar.')
+    setTimeout(() => setAviso(''), 3000)
+  }
 
   const cancelarJogo = () =>
     correr(async () => {
@@ -670,7 +712,21 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {/* O caminho normal é UM botão. Publicar o resultado sem abrir a
+              votação continua a existir, mas passa a ser a opção secundária:
+              era esse o passo que toda a gente esquecia. */}
+          {fase !== FASES.RESULTADO_PUBLICADO && jogo.overall_version === 2 && (
+            <button
+              type="button"
+              onClick={encerrarJogo}
+              disabled={busy}
+              style={busy ? disabled({ ...styles.button }) : styles.button}
+            >
+              {busy ? 'A encerrar…' : '⏹ Encerrar jogo e abrir a votação'}
+            </button>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             <button
               type="button"
               onClick={guardarRascunho}
@@ -684,63 +740,62 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
                 type="button"
                 onClick={publicarResultado}
                 disabled={busy}
-                style={busy ? disabled({ ...styles.button, flex: '2 1 180px', width: 'auto' }) : { ...styles.button, flex: '2 1 180px', width: 'auto' }}
+                style={
+                  busy
+                    ? disabled({ ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' })
+                    : { ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' }
+                }
               >
-                {busy ? 'A publicar…' : '📢 Publicar resultado'}
+                {busy ? 'A publicar…' : '📢 Só publicar resultado'}
               </button>
             )}
           </div>
         </Seccao>
       )}
 
-      {/* ---------- avaliação pós-jogo ---------- */}
-      {/* Abre sozinha ao publicar o resultado; isto é para encerrar quando já
-          ninguém vota (as notas ficam trancadas) ou reabrir para os atrasados.
-          Só existe em jogos da versão nova da fórmula — o passado não se
-          reavalia, e a base recusa (VERSAOANTIGA) se se insistir. */}
+      {/* ---------- votação da rodada ---------- */}
+      {/* Era só um interruptor para as estrelas — o craque/bagre não tinha
+          controlo nenhum, nem prazo, nem forma de saber quem faltava. Agora
+          é um painel com prazo, participação, link para o grupo e a revisão
+          quando falta quórum ou há empate. Só em jogos da versão nova da
+          fórmula: o passado não se reavalia. */}
       {jogo.result_status === 'PUBLISHED' && jogo.overall_version === 2 && (
-        <Seccao titulo="Avaliação pós-jogo" tom={posJogoAberta ? colors.teamA : undefined}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={chip(posJogoAberta ? colors.teamA : colors.muted, posJogoAberta ? `${colors.teamA}1A` : 'transparent')}>
-              <span aria-hidden>{posJogoAberta ? '🟢' : '🔒'}</span>{' '}
-              {posJogoAberta ? 'Aberta' : 'Encerrada'}
-            </span>
-            <span style={{ fontSize: 13, color: colors.muted }}>
-              {jogo.post_rating_voters || 0} de {escalacao.length || '—'} já avaliaram ·{' '}
-              {jogo.post_rating_total || 0} notas dadas
-            </span>
-          </div>
-          <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
-            Cada jogador dá 0 a 5 estrelas aos companheiros da sua equipa. As notas são anónimas
-            (só sai a média) e valem 25% do overall. Enquanto estiver aberta podem corrigir;
-            depois de encerrada ninguém mexe.
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-            <button
-              type="button"
-              disabled={busy || posJogoAberta}
-              onClick={() => mudarPosJogo(true)}
-              style={
-                busy || posJogoAberta
-                  ? disabled({ ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' })
-                  : { ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' }
-              }
+        <Seccao titulo="Votação da rodada" tom={jogo.voting_status === 'REVIEW' ? colors.teamA : undefined}>
+          {acabouDeEncerrar && (
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 10,
+                background: 'rgba(52,208,88,0.10)',
+                border: `1px solid ${colors.grass}55`,
+                marginBottom: 14,
+              }}
             >
-              {jogo.post_rating_closed_at ? '🔓 Reabrir avaliação' : '🟢 Abrir avaliação'}
-            </button>
-            <button
-              type="button"
-              disabled={busy || !posJogoAberta}
-              onClick={() => mudarPosJogo(false)}
-              style={
-                busy || !posJogoAberta
-                  ? disabled({ ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' })
-                  : { ...styles.buttonGhost, flex: '1 1 150px', width: 'auto' }
-              }
-            >
-              🔒 Encerrar avaliação
-            </button>
-          </div>
+              <div style={{ ...styles.title, fontSize: 15, marginBottom: 6 }}>
+                ✅ Jogo encerrado — votação aberta
+              </div>
+              <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 10 }}>
+                Falta o passo que faz a diferença: mandar o link ao grupo.
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => partilharVotacao(true)}
+                  style={{ ...styles.buttonGhost, flex: '1 1 140px', width: 'auto' }}
+                >
+                  📋 Copiar mensagem
+                </button>
+                <button
+                  type="button"
+                  onClick={() => partilharVotacao(false)}
+                  style={{ ...styles.button, flex: '1 1 140px', width: 'auto' }}
+                >
+                  🟢 Enviar no WhatsApp
+                </button>
+              </div>
+            </div>
+          )}
+          <VotingPanel pw={pw} jogo={jogo} onAtualizado={onAtualizado} />
         </Seccao>
       )}
 

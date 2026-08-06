@@ -7,6 +7,7 @@ import {
   faseDoJogo,
   jogosComResultadoPendente,
 } from '../../lib/lifecycle'
+import { estadoDaVotacao } from '../../lib/voting'
 import GameDetail from './GameDetail'
 import { ErrorBox } from '../Ui'
 import { colors, fonts, styles, chip } from '../../theme'
@@ -180,7 +181,11 @@ export default function GamesPanel({
               const e = ETIQUETA_DA_FASE[fase] || { texto: fase, icone: '•', tom: 'neutro' }
               const cor = TOM_COR[e.tom] || colors.muted
               const d = formatarDataDoJogo(j.kickoff_at)
-              const pendente = fase === FASES.AGUARDA_RESULTADO || fase === FASES.RESULTADO_RASCUNHO
+              const votacao = estadoDaVotacao(j)
+              const pendente =
+                fase === FASES.AGUARDA_RESULTADO ||
+                fase === FASES.RESULTADO_RASCUNHO ||
+                votacao.emRevisao
               return (
                 <button
                   key={j.id}
@@ -210,10 +215,27 @@ export default function GamesPanel({
                       {Array.isArray(j.lineup) && j.lineup.length
                         ? `${j.lineup.length} jogadores escalados`
                         : 'sem equipas'}
+                      {j.gk_mode === 'ROTATING' ? ' · 🔄 rodízio' : ''}
                       {j.score_a != null && j.result_status !== 'NONE'
                         ? ` · ${j.score_a}–${j.score_b}`
                         : ''}
                     </span>
+                    {/* A votação a decorrer é a informação mais acionável que
+                        um jogo já jogado tem: sem ela na lista, o admin não
+                        tinha como saber que faltavam votos sem abrir cada um. */}
+                    {votacao.aberta && (
+                      <span style={{ fontSize: 12, color: colors.grass }}>
+                        🗳️ {votacao.votantes}/{votacao.total} votaram
+                        {votacao.tempo.conhecido && !votacao.tempo.expirado
+                          ? ` · fecha em ${votacao.tempo.texto}`
+                          : ''}
+                      </span>
+                    )}
+                    {votacao.emRevisao && (
+                      <span style={{ fontSize: 12, color: colors.teamA, fontWeight: 600 }}>
+                        ⚠️ votação à espera de decisão
+                      </span>
+                    )}
                   </span>
                   <span style={{ ...chip(cor, `${cor}1A`), flexShrink: 0 }}>{e.texto}</span>
                 </button>

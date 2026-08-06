@@ -14,6 +14,7 @@ import {
 } from '../api'
 import { juntarEstatisticas } from '../lib/ranking'
 import { jogosComResultadoPendente } from '../lib/lifecycle'
+import { estadoDaVotacao } from '../lib/voting'
 import { ADMIN_NAME } from '../config'
 import AdminNav from './admin/AdminNav'
 import AdminOverview from './admin/AdminOverview'
@@ -206,11 +207,14 @@ export default function AdminScreen({ onExit }) {
   const semPosicao = jogadores.filter((j) => !j.primaryPosition).length
   // jogos cuja hora já passou e continuam sem resultado publicado
   const resultadosPendentes = jogosComResultadoPendente(jogosAbertos).length
+  // votações que expiraram sem quórum (ou com empate) e esperam decisão —
+  // sem badge, ficavam esquecidas e a rodada nunca chegava a contar
+  const votacoesEmRevisao = jogosAbertos.filter((j) => estadoDaVotacao(j).emRevisao).length
 
   // ---------- tabs ----------
   // Contadores da navegação e da visão geral, num sítio só.
   const badges = {
-    resultadosPendentes,
+    resultadosPendentes: resultadosPendentes + votacoesEmRevisao,
     pedidos: pending.length,
     semPosicao,
     faltas: faltasTotal,
