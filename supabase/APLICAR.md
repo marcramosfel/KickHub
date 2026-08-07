@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0025)
+# Como aplicar as migrações novas (0015 → 0026)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -18,6 +18,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 9. `0023_avaliacao_pos_jogo.sql`
 10. `0024_formato_e_rodizio.sql`
 11. `0025_votacao.sql`
+12. `0026_vitorias_acima_do_esperado.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -374,6 +375,53 @@ para deixarem de ser uma porta lateral que ignora o prazo.
 
 ---
 
+## 0026 — Vitórias acima do esperado
+
+**A única desta série que não escreve nada.** Não cria colunas nem tabelas, não altera uma linha:
+são duas views de leitura e dois campos novos nas funções de estatísticas. Aplicar duas vezes é
+inofensivo, e desfazer é apagar as views.
+
+A parcela responde a "ganhaste **mais do que era suposto**?" em vez de "ganhaste?". O sorteio já
+gravou quem era favorito (`team_a_overall` / `team_b_overall` desde a 0016) e aqui mede-se o
+desvio:
+
+```
+saldo = resultado_real − resultado_esperado
+```
+
+Ganhar sendo favorito a 93% vale +0,07. Ganhar sendo favorito a 74% vale +0,26. Perder como
+azarão a 7% custa 0,07.
+
+**Porque não a taxa de vitórias crua.** Foi medida no plantel real antes de se decidir: premiava
+amostras de 1 e 2 jogos (uma vitória num jogo dava 100%) e tirava 21 pontos a quem tinha a melhor
+avaliação do grupo e quatro derrotas. E luta contra o próprio sorteio — o motor existe para
+igualar as equipas, por isso se ele funcionar as taxas convergem todas para 50% e a parcela passa
+a medir ruído.
+
+**Views novas:**
+
+| view | o que faz |
+|---|---|
+| `resultados_esperados` | por rodada: probabilidade prevista (curva logística, escala 100) e resultado real |
+| `saldo_esperado_por_jogador` | soma dos desvios e nº de rodadas, por jogador |
+
+**Campos novos** em `get_player_stats` e `get_player_profile`: `wae_saldo` (numeric, `null` quando
+não há rodadas medidas) e `wae_matches` (int). São os números **crus** — a conversão para nota e a
+confiança vivem em `src/lib/overall.js`, como nos goleiros. Duas fórmulas em dois sítios divergem
+sempre.
+
+**Rodadas que NÃO contam:** as que não têm forças gravadas — ou seja, as anteriores à 0016 e as
+criadas à mão no painel "Rodadas antigas". Sem sorteio não há expectativa, e inventar uma seria
+pior do que não ter parcela. Hoje isso são 2 das 4 rodadas.
+
+**Pesos do overall passam de `50/25/25` para `40/15/20/25`** (grupo / vitórias / campo /
+companheiros). Só na v2 — a v1 continua congelada nos 70/30. Quem não tem rodadas medidas fica
+sem a parcela e os pesos das outras renormalizam, por isso **o overall dele não muda**.
+
+**Sem códigos de erro novos.** Nenhuma função nova de escrita.
+
+---
+
 ## Depois de aplicar
 
 1. **Faz um backup antes** — Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)".
@@ -388,3 +436,17 @@ para deixarem de ser uma porta lateral que ignora o prazo.
    Confirma que aparece a mensagem pronta para o WhatsApp com o link `#/votar/<id>`.
 7. Abre esse link **noutro telemóvel** (ou numa janela anónima): deve cair direto no ecrã "És
    tu?" e, depois do PIN, na cédula. É este o caminho que tudo isto existe para encurtar.
+8. Abre o perfil de um jogador → **"Como se calcula o overall?"**. As linhas têm de **somar ao
+   total** — é a verificação que apanha um peso mal ligado. Se ele tiver rodadas com sorteio,
+   aparece a linha "🏆 Vitórias acima do esperado".
+
+### O que esperar da parcela das vitórias, no início
+
+Com poucas rodadas por jogador a nota é puxada para 50 (o esperado) de propósito, e **a parcela
+quase não mexe no overall**. Hoje a maior diferença no plantel são 7 pontos, e 14 jogadores ficam
+exatamente na mesma por não terem nenhuma rodada medida. Só começa a dizer alguma coisa a partir
+de **5 rodadas com sorteio** por jogador — não é sinal de estar mal ligada.
+
+Uma consequência prática: rodadas registadas à mão (sem passar pelo assistente) **nunca contam**
+para esta parcela. Se quiseres que contem, o jogo tem de nascer no assistente, que é quem grava as
+forças das equipas.
