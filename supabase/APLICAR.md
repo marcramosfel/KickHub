@@ -1,8 +1,12 @@
 # Como aplicar as migrações novas (0015 → 0027)
 
-A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
-tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
-rebentar (são idempotentes).
+A base de dados tem dados reais. Da **0015 à 0026** as migrações são **aditivas**: só acrescentam
+colunas, tabelas e funções, não apagam nada e podem correr duas vezes sem rebentar (são
+idempotentes).
+
+> ⚠️ **A `0027` é a exceção e apaga dados**: limpa a tabela `ratings` para o grupo recomeçar a
+> avaliação. As notas antigas vão para `ratings_arquivo` antes disso, mas lê a secção dela antes
+> de a correr — e faz o backup.
 
 Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 (`gfowkkchpqoirubumnau` → SQL Editor → colar → Run):
