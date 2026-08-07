@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0027)
+# Como aplicar as migrações novas (0015 → 0028)
 
 A base de dados tem dados reais. Da **0015 à 0026** as migrações são **aditivas**: só acrescentam
 colunas, tabelas e funções, não apagam nada e podem correr duas vezes sem rebentar (são
@@ -24,6 +24,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 11. `0025_votacao.sql`
 12. `0026_vitorias_acima_do_esperado.sql`
 13. `0027_avaliacao_do_grupo_v2.sql`
+14. `0028_limpeza.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -497,6 +498,35 @@ que força a revelação. A decisão é do admin, mas tem de ser possível tomá
 muda o tipo de retorno.
 
 **Códigos de erro novos:** `SCOREDECIMAL`.
+
+---
+
+## 0028 — Limpeza do que ficou a duplicar
+
+**Não apaga nem um dado.** Não toca em nenhuma linha de nenhuma tabela — só remove **funções**
+que deixaram de ser chamadas. Todas as rodadas, notas, gols, votos e escalações ficam onde
+estão. Correr duas vezes não faz nada.
+
+Duas listas do painel do admin mostravam a mesma coisa:
+
+| lista | o que era | destino |
+|---|---|---|
+| ⭐ "Falta dar notas" | corria sobre a tabela `ratings` — **a mesma query** da "Avaliação do grupo". O ⭐ e o nome enganavam: foi escrita na 0011, antes de existirem as estrelas pós-jogo | apagada |
+| 🗳️ "Falta votar (craque/bagre)" | olhava para a rodada mais recente **sem olhar ao prazo**, que nem existia quando foi escrita. Desde a 0025 a votação fecha sozinha, por isso listava gente que já não pode votar | apagada — vive em Jogos → Votação da rodada |
+
+A aba passa a chamar-se **"Avaliação do grupo"** e tem uma coisa só.
+
+**Funções removidas** (todas substituídas e sem ninguém a chamá-las):
+
+`admin_pending_votes` · `vote_award` · `submit_post_match_ratings` · `get_my_post_ratings` ·
+`get_my_award_votes` · `admin_set_post_rating_status` · `get_stats` · `admin_add_match`
+
+**O que NÃO se apagou, e porquê.** `matches.post_rating_status` (e as duas datas ao lado) é de
+facto um espelho de `voting_status`, mantido por um trigger desde a 0025 — estado duplicado.
+Fica. Tirá-lo obrigava a reescrever `match_json` e `match_public_json`, que juntas passam das 300
+linhas de construtor de JSON e já foram copiadas quatro vezes de migração em migração. Uma quinta
+cópia para remover três colunas que um trigger de dez linhas mantém coerentes acrescentava mais
+risco do que removia. Quando alguma delas tiver de mudar por outra razão, tira-se então.
 
 ---
 

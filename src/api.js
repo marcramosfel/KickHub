@@ -119,8 +119,6 @@ export const login = (nomeOuId, pin) => rpc('login', { p_name: nomeOuId, p_pin: 
 
 export const getPlayers = () => rpc('get_players')
 
-export const getStats = () => rpc('get_stats')
-
 export const submitRatings = (raterId, pin, scores) =>
   rpc('submit_ratings', { p_rater: raterId, p_pin: pin, p_scores: scores })
 
@@ -135,9 +133,6 @@ export const getPendingRatings = (raterId, pin) =>
 // quem a deu — foi decisão do grupo, e o momento é o que a torna honesta.
 export const getRatingsReceived = (playerId) =>
   rpc('get_ratings_received', { p_id: playerId })
-
-// Já toda a gente entregou? Alimenta o aviso "ainda anónimo".
-export const avaliacoesReveladas = () => rpc('avaliacoes_reveladas')
 
 // Progresso da ronda e quem falta (admin).
 export const adminRatingsProgress = (pw) => rpc('admin_ratings_progress', { p_pw: pw })
@@ -192,38 +187,6 @@ export const getPlayerStatsRange = (de, ate) =>
 
 // Com quem ganha mais (mesmo time) e contra quem se dá melhor
 export const getPlayerChemistry = (id) => rpc('get_player_chemistry', { p_id: id })
-
-export const getMyAwardVotes = (voterId, pin) =>
-  rpc('get_my_award_votes', { p_voter: voterId, p_pin: pin })
-
-export const voteAward = (voterId, pin, matchId, craqueId, bagreId) =>
-  rpc('vote_award', {
-    p_voter: voterId,
-    p_pin: pin,
-    p_match: matchId,
-    p_craque: craqueId,
-    p_bagre: bagreId,
-  })
-
-// ---------- Avaliação pós-jogo (migração 0023) ----------
-// Jogos com a avaliação ABERTA em que este jogador jogou, já com os
-// companheiros de equipa e as notas que ele lhes deu (para o ecrã abrir
-// preenchido e ele poder corrigir enquanto a votação estiver aberta).
-export const getMyPostRatings = (voterId, pin) =>
-  rpc('get_my_post_ratings', { p_voter: voterId, p_pin: pin })
-
-// ratings: [{ player_id, stars: 0..5 }] — aceita avaliações parciais.
-export const submitPostMatchRatings = (voterId, pin, matchId, ratings) =>
-  rpc('submit_post_match_ratings', {
-    p_voter: voterId,
-    p_pin: pin,
-    p_match: matchId,
-    p_ratings: ratings,
-  })
-
-// O admin abre, encerra ou reabre a avaliação de um jogo.
-export const adminSetPostRatingStatus = (pw, matchId, aberta) =>
-  rpc('admin_set_post_rating_status', { p_pw: pw, p_match: matchId, p_open: !!aberta })
 
 // ---------- Votação da rodada (migração 0025) ----------
 //
@@ -329,9 +292,6 @@ export const adminApprove = (pw, id) => rpc('admin_approve', { p_pw: pw, p_id: i
 
 export const adminReject = (pw, id) => rpc('admin_reject', { p_pw: pw, p_id: id })
 
-// Quem ainda não votou (craque/bagre da última rodada) e quem tem notas por dar
-export const adminPendingVotes = (pw) => rpc('admin_pending_votes', { p_pw: pw })
-
 // Snapshot dos dados para backup (comFotos = true fica bem maior)
 export const adminExport = (pw, comFotos = false) =>
   rpc('admin_export', { p_pw: pw, p_photos: comFotos })
@@ -351,9 +311,6 @@ export const adminSetPin = (pw, id, novo) =>
 
 export const publishDraw = (pw, teamA, teamB) =>
   rpc('publish_draw', { p_pw: pw, p_a: teamA, p_b: teamB })
-
-export const adminAddMatch = (pw, playedAt, stats) =>
-  rpc('admin_add_match', { p_pw: pw, p_played_at: playedAt, p_stats: stats })
 
 // Cria (id=null) ou edita uma rodada completa.
 // stats: [{ player_id, team: 'A'|'B'|null, goals, assists }]

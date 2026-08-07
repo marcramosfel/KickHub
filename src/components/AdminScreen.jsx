@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import {
   adminMatchesUpcoming,
   adminPending,
-  adminPendingVotes,
   adminReject,
   adminUsers,
   getFeed,
@@ -52,9 +51,6 @@ export default function AdminScreen({ onExit }) {
   const [matchesErr, setMatchesErr] = useState('')
   const [lastDraw, setLastDraw] = useState(null)
 
-  // quem falta votar
-  const [faltas, setFaltas] = useState(null)
-  const [faltasErr, setFaltasErr] = useState('')
   // jogos do ciclo novo (0016+): alimenta o badge da aba "Jogos"
   const [jogosAbertos, setJogosAbertos] = useState([])
   // ultimas publicacoes, so para a visao geral
@@ -99,13 +95,6 @@ export default function AdminScreen({ onExit }) {
         setUsersErr('')
       })
       .catch((err) => setUsersErr(err.message))
-    // quem falta votar (não-fatal: sem a migração 0011 esta aba mostra o aviso)
-    adminPendingVotes(senha)
-      .then((f) => {
-        setFaltas(f)
-        setFaltasErr('')
-      })
-      .catch((err) => setFaltasErr(err.message))
     // jogos abertos, para o badge de resultados pendentes na aba "Jogos"
     // (não-fatal: sem a 0016 a aba mostra o seu próprio aviso)
     adminMatchesUpcoming(senha)
@@ -199,10 +188,6 @@ export default function AdminScreen({ onExit }) {
     )
   }
 
-  // ---------- quem falta ----------
-  const awardPend = faltas?.award_pending || []
-  const ratingsPend = faltas?.ratings_pending || []
-  const faltasTotal = awardPend.length + ratingsPend.length
   // jogadores ainda sem posição: o sorteio posicional não os coloca bem
   const semPosicao = jogadores.filter((j) => !j.primaryPosition).length
   // jogos cuja hora já passou e continuam sem resultado publicado
@@ -217,7 +202,6 @@ export default function AdminScreen({ onExit }) {
     resultadosPendentes: resultadosPendentes + votacoesEmRevisao,
     pedidos: pending.length,
     semPosicao,
-    faltas: faltasTotal,
   }
 
   const escolherAba = (id) => {
@@ -280,7 +264,6 @@ export default function AdminScreen({ onExit }) {
           jogosAbertos={jogosAbertos}
           jogadores={jogadores}
           pedidos={pending}
-          faltas={faltas}
           feed={feedAdmin}
           onIr={escolherAba}
           onAbrirJogo={(id) => {
@@ -419,7 +402,7 @@ export default function AdminScreen({ onExit }) {
 
       {/* ---------- QUEM FALTA VOTAR ---------- */}
       {tab === 'faltas' && (
-        <FaltasPanel pw={pw} faltas={faltas} faltasErr={faltasErr} players={players} />
+        <FaltasPanel pw={pw} />
       )}
 
       {/* ---------- ACESSOS / IDs ---------- */}

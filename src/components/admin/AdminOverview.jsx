@@ -83,7 +83,6 @@ export default function AdminOverview({
   jogosAbertos = [],
   jogadores = [],
   pedidos = [],
-  faltas,
   feed = [],
   onIr,
   onAbrirJogo,
@@ -93,7 +92,6 @@ export default function AdminOverview({
   const proximo = useMemo(() => proximoJogoDoAdmin(jogosAbertos), [jogosAbertos])
 
   const semPosicao = jogadores.filter((j) => !j.primaryPosition).length
-  const faltasTotal = (faltas?.award_pending?.length || 0) + (faltas?.ratings_pending?.length || 0)
   const ultimaPublicacao = feed[0] || null
 
   const d = formatarDataDoJogo(proximo?.kickoff_at)
@@ -151,10 +149,10 @@ export default function AdminOverview({
         />
         <Metrica rotulo="jogadores no plantel" valor={jogadores.length} onClick={() => onIr('plantel')} />
         <Metrica
-          rotulo="por votar craque/notas"
-          valor={faltasTotal}
+          rotulo="avaliação do grupo"
+          valor="→"
           onClick={() => onIr('faltas')}
-          dica="Quem falta votar"
+          dica="Quem falta entregar as notas"
         />
       </div>
 

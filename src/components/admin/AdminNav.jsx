@@ -42,7 +42,7 @@ export const GRUPOS = [
     titulo: 'Registos',
     itens: [
       { id: 'jogos', rotulo: 'Rodadas antigas', icone: '📜' },
-      { id: 'faltas', rotulo: 'Quem falta votar', icone: '🗳️', badge: 'faltas' },
+      { id: 'faltas', rotulo: 'Avaliação do grupo', icone: '⭐', badge: 'faltas' },
     ],
   },
 ]
