@@ -8,6 +8,7 @@ const ERROS = {
   CRED: 'Nome ou PIN incorretos.',
   ADMIN: 'Senha de admin incorreta.',
   SCORE: 'As notas têm de estar entre 0 e 5.',
+  SCOREDECIMAL: 'A nota tem de ser um número entre 0 e 5 (por exemplo 3.7).',
   NOME: 'O nome é obrigatório.',
   FOTO: 'A foto é obrigatória.',
   PIN: 'O PIN tem de ter exatamente 4 dígitos.',
@@ -126,6 +127,23 @@ export const submitRatings = (raterId, pin, scores) =>
 // Jogadores que este avaliador ainda tem de avaliar (as suas lacunas)
 export const getPendingRatings = (raterId, pin) =>
   rpc('get_pending_ratings', { p_rater: raterId, p_pin: pin })
+
+// ---------- Avaliação do grupo, ronda 2 (migração 0027) ----------
+//
+// As notas que um jogador recebeu. Antes de a ronda fechar vêm sem nome
+// (só a lista de valores); depois de todos entregarem, cada nota traz
+// quem a deu — foi decisão do grupo, e o momento é o que a torna honesta.
+export const getRatingsReceived = (playerId) =>
+  rpc('get_ratings_received', { p_id: playerId })
+
+// Já toda a gente entregou? Alimenta o aviso "ainda anónimo".
+export const avaliacoesReveladas = () => rpc('avaliacoes_reveladas')
+
+// Progresso da ronda e quem falta (admin).
+export const adminRatingsProgress = (pw) => rpc('admin_ratings_progress', { p_pw: pw })
+
+// Abrir à força: um jogador que nunca vote não pode trancar o grupo todo.
+export const adminRevealRatings = (pw) => rpc('admin_reveal_ratings', { p_pw: pw })
 
 export const updatePhoto = (id, pin, photo) =>
   rpc('update_photo', { p_id: id, p_pin: pin, p_photo: photo })

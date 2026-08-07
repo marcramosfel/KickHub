@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0026)
+# Como aplicar as migrações novas (0015 → 0027)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -19,6 +19,7 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 10. `0024_formato_e_rodizio.sql`
 11. `0025_votacao.sql`
 12. `0026_vitorias_acima_do_esperado.sql`
+13. `0027_avaliacao_do_grupo_v2.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -440,6 +441,44 @@ Só na v2 — a v1 continua congelada nos 70/30.
 
 ---
 
+## 0027 — A avaliação do grupo, outra vez
+
+**Esta apaga dados de propósito.** É a única de toda a série que o faz, e é o ponto do exercício:
+o grupo recomeça a avaliação de raiz. **Faz o backup antes** — mas as notas antigas também vão
+para `ratings_arquivo` automaticamente, com o número da ronda, antes de a tabela ser limpa.
+
+**Consequência imediata:** no dia em que aplicares, toda a gente fica sem nota do grupo e o
+overall passa a valer só pelo que se fez em campo. Volta ao normal à medida que as notas novas
+entram. Não há forma de evitar isto — é o que "recomeçar" quer dizer.
+
+**Três mudanças:**
+
+| | |
+|---|---|
+| `score` passa de `int` a `numeric(2,1)` | 3,7 diz o que "3 ou 4" não diz. Com 30 jogadores, seis degraus empilhavam meio plantel no 3 e o sorteio ficava sem como os separar |
+| `score` passa a aceitar `NULL` | é o "não conheço este jogador": a linha existe, sai dos pendentes, e não entra em média nenhuma |
+| ronda + revelação | `app_config.ratings_round` e `ratings_revealed_at` |
+
+O "não conheço" sai de graça: `avg()` e `count()` do Postgres já ignoram nulos, por isso
+`round(avg(r.score))` e `count(r.score)` — que várias funções já usavam — passam a contar só quem
+conhece, **sem uma linha de código novo**.
+
+**As notas ficam anónimas até ao último jogador entregar.** Quando a ronda fecha, abre para todos
+e cada um vê quem lhe deu o quê, no perfil. A ordem é o que torna isto honesto: revelar antes
+faria os últimos votarem já a saber o que receberam, e a nota deixava de ser uma opinião para
+passar a ser uma resposta.
+
+Quem nunca votar tranca o grupo todo — daí **Admin → Quem falta votar → "Abrir as notas agora"**,
+que força a revelação. A decisão é do admin, mas tem de ser possível tomá-la.
+
+**`submit_ratings` e `admin_reset_ratings` são DROP + CREATE** — eram `returns void` e passam a
+`returns json` (para o ecrã saber se a ronda fechou com aquele envio). `CREATE OR REPLACE` não
+muda o tipo de retorno.
+
+**Códigos de erro novos:** `SCOREDECIMAL`.
+
+---
+
 ## Depois de aplicar
 
 1. **Faz um backup antes** — Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)".
@@ -460,6 +499,10 @@ Só na v2 — a v1 continua congelada nos 70/30.
 9. Ainda nesse telemóvel com voto por dar, vai à **Home**: onde estava o craque da última rodada
    deve aparecer **"🔒 Vota para ver"**. Depois de votar, recarrega — o craque, o bagre e as
    estrelas aparecem. O placar e os gols estão sempre à vista, antes e depois.
+10. Entra com qualquer conta: deves cair no ecrã de **avaliação do grupo**, um jogador por vez,
+    com a barra de 0 a 5 a mudar de emoji e de frase. Confirma o **"🤷 Não conheço este jogador"**.
+11. Admin → **Quem falta votar** → em cima aparece "Avaliação do grupo · ronda 2" com a lista de
+    quem ainda não entregou e o botão de abrir à força.
 
 ### O que esperar da parcela das vitórias, no início
 

@@ -20,6 +20,7 @@ import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '..
 import { badgesDoJogador } from '../lib/achievements'
 import { ETIQUETA_STATUS, nomeDaPosicao, nomeDoTipo, POSITION_STATUS } from '../lib/positions'
 import AchievementBadge from './AchievementBadge'
+import RatingsReceived from './RatingsReceived'
 import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
 
@@ -503,6 +504,10 @@ export default function PlayerProfile({
 
       {/* o overall tem de ser explicável, senão parece arbitrário */}
       <OverallExplicado o={ovr} />
+
+      {/* as notas que o grupo lhe deu — sem nomes até a ronda fechar.
+          A `key` garante que trocar de perfil remonta e recarrega. */}
+      <RatingsReceived key={playerId} playerId={playerId} nome={p.name} />
 
       {/* sequências */}
       {(seq.marcando.melhor > 0 || seq.vitorias.melhor > 0) && (

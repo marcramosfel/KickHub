@@ -419,7 +419,7 @@ export default function AdminScreen({ onExit }) {
 
       {/* ---------- QUEM FALTA VOTAR ---------- */}
       {tab === 'faltas' && (
-        <FaltasPanel faltas={faltas} faltasErr={faltasErr} players={players} />
+        <FaltasPanel pw={pw} faltas={faltas} faltasErr={faltasErr} players={players} />
       )}
 
       {/* ---------- ACESSOS / IDs ---------- */}
