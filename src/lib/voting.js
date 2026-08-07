@@ -137,3 +137,29 @@ export const temPendencia = (p) =>
 
 export const pendenciasReais = (lista) =>
   (Array.isArray(lista) ? lista : []).filter(temPendencia)
+
+// ---------- "vota para ver" ----------
+//
+// Enquanto um jogador tiver voto por dar numa rodada, o CRAQUE, o BAGRE e as
+// médias de estrelas dessa rodada ficam tapados para ele.
+//
+// O que fica à vista: placar, vencedor, gols, assistências, fotos. São
+// factos — quem lá esteve já os sabe, e escondê-los seria castigo sem
+// propósito. O que se tapa é só o resultado das VOTAÇÕES, que é
+// precisamente aquilo em que ele ainda não participou.
+//
+// Não é uma barreira de segurança: os dados vêm na mesma resposta e a chave
+// pública está no bundle por desenho. É um empurrão — e é honesto chamar-lhe
+// isso. Quem quiser mesmo espreitar consegue; o que isto muda é o caminho de
+// menor esforço, que passa a ser votar.
+//
+// Só se aplica a quem PODE votar: quem não jogou a rodada, ou já votou, ou
+// cuja votação fechou, vê tudo.
+export function resultadoBloqueado(matchId, pendencias) {
+  if (!matchId) return false
+  return pendenciasReais(pendencias).some((p) => p.match_id === matchId)
+}
+
+// A pendência daquela rodada, para o botão saber para onde levar.
+export const pendenciaDaRodada = (matchId, pendencias) =>
+  pendenciasReais(pendencias).find((p) => p.match_id === matchId) || null

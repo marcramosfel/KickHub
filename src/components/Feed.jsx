@@ -9,6 +9,7 @@ import {
   resumoSorteio,
 } from '../lib/share'
 import { nomeDaEquipa } from '../lib/substitutions'
+import { resultadoBloqueado } from '../lib/voting'
 import Avatar from './Avatar'
 import { colors, fonts, chip } from '../theme'
 
@@ -143,7 +144,7 @@ function DestaqueCraqueBagre({ post, jogadores, onProfile }) {
 }
 
 // O corpo específico de cada tipo de post.
-function Conteudo({ post, jogadores, onProfile }) {
+function Conteudo({ post, jogadores, onProfile, bloqueado, onVotar }) {
   const p = post.payload || {}
   if (post.type === 'RESULTADO') {
     return (
@@ -157,7 +158,37 @@ function Conteudo({ post, jogadores, onProfile }) {
         )}
         <Placar payload={p} />
         <LinhasDoResultado payload={p} />
-        <DestaqueCraqueBagre post={post} jogadores={jogadores} onProfile={onProfile} />
+        {/* o craque e o bagre ficam tapados a quem ainda tem voto por dar
+            nesta rodada — o resto do post (placar, gols) fica à vista */}
+        {bloqueado ? (
+          <button
+            type="button"
+            onClick={onVotar}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              width: '100%',
+              marginTop: 10,
+              padding: '12px 14px',
+              borderRadius: 12,
+              border: `1px dashed ${colors.teamA}`,
+              background: 'rgba(255,197,49,0.06)',
+              color: colors.text,
+              font: 'inherit',
+              fontSize: 13,
+              textAlign: 'left',
+            }}
+          >
+            <span aria-hidden style={{ fontSize: 20 }}>🔒</span>
+            <span style={{ flex: 1 }}>
+              <strong>Vota para ver</strong> quem foi o craque e o bagre.
+            </span>
+            <span style={{ color: colors.teamA, fontWeight: 700, flexShrink: 0 }}>Votar →</span>
+          </button>
+        ) : (
+          <DestaqueCraqueBagre post={post} jogadores={jogadores} onProfile={onProfile} />
+        )}
       </>
     )
   }
@@ -202,7 +233,7 @@ function Conteudo({ post, jogadores, onProfile }) {
   return null
 }
 
-function Publicacao({ post, jogo, jogadores, onProfile, onAbrirJogo }) {
+function Publicacao({ post, jogo, jogadores, onProfile, onAbrirJogo, bloqueado, onVotar }) {
   const [feedback, setFeedback] = useState('')
   const t = TIPO[post.type] || { icone: '📌', cor: colors.muted }
 
@@ -313,7 +344,13 @@ function Publicacao({ post, jogo, jogadores, onProfile, onAbrirJogo }) {
         </div>
       )}
 
-      <Conteudo post={post} jogadores={jogadores} onProfile={onProfile} />
+      <Conteudo
+        post={post}
+        jogadores={jogadores}
+        onProfile={onProfile}
+        bloqueado={bloqueado}
+        onVotar={onVotar}
+      />
 
       <footer style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         {/* um jogo cancelado não existe em mais lado nenhum — o contexto
@@ -344,7 +381,7 @@ function Publicacao({ post, jogo, jogadores, onProfile, onAbrirJogo }) {
   )
 }
 
-export default function Feed({ posts, proximoJogo, jogadores, onProfile, onNavigate }) {
+export default function Feed({ posts, proximoJogo, jogadores, porVotar, onProfile, onNavigate, onVotar }) {
   if (!Array.isArray(posts) || posts.length === 0) return null
 
   const abrirJogo = (post) => {
@@ -366,6 +403,8 @@ export default function Feed({ posts, proximoJogo, jogadores, onProfile, onNavig
           jogadores={jogadores}
           onProfile={onProfile}
           onAbrirJogo={abrirJogo}
+          bloqueado={resultadoBloqueado(post.match?.id, porVotar)}
+          onVotar={() => onVotar?.(post.match?.id)}
         />
       ))}
     </div>

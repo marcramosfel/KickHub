@@ -7,7 +7,9 @@ import {
   pendenciasReais,
   prazoLegivel,
   prazoParaInput,
+  pendenciaDaRodada,
   prazoPorOmissao,
+  resultadoBloqueado,
   temPendencia,
   tempoAteFechar,
 } from './voting.js'
@@ -229,5 +231,46 @@ describe('token do dispositivo', () => {
   it('guardar nada não guarda nada', () => {
     expect(guardarToken(null)).toBe(false)
     expect(lerToken()).toBe(null)
+  })
+})
+
+describe('"vota para ver" — bloqueio dos resultados', () => {
+  const pendencias = [
+    { match_id: 'a', falta_premio: true, falta_estrelas: 0 },
+    { match_id: 'b', falta_premio: false, falta_estrelas: 3 },
+    { match_id: 'c', falta_premio: false, falta_estrelas: 0 }, // já votou em tudo
+  ]
+
+  it('tapa a rodada em que ainda falta votar', () => {
+    expect(resultadoBloqueado('a', pendencias)).toBe(true)
+    expect(resultadoBloqueado('b', pendencias)).toBe(true)
+  })
+
+  it('não tapa a quem já votou em tudo naquela rodada', () => {
+    expect(resultadoBloqueado('c', pendencias)).toBe(false)
+  })
+
+  it('não tapa rodadas que não estão na lista', () => {
+    // quem não jogou a rodada, ou cuja votação já fechou, não aparece em
+    // `get_my_open_votes` — e vê tudo. Bloquear quem não pode votar seria
+    // castigo sem propósito.
+    expect(resultadoBloqueado('z', pendencias)).toBe(false)
+  })
+
+  it('sem pendências nenhumas não tapa nada', () => {
+    expect(resultadoBloqueado('a', [])).toBe(false)
+    expect(resultadoBloqueado('a', null)).toBe(false)
+    expect(resultadoBloqueado('a', undefined)).toBe(false)
+  })
+
+  it('sem id de rodada não tapa nada', () => {
+    expect(resultadoBloqueado(null, pendencias)).toBe(false)
+    expect(resultadoBloqueado(undefined, pendencias)).toBe(false)
+  })
+
+  it('devolve a pendência da rodada, para o botão saber para onde ir', () => {
+    expect(pendenciaDaRodada('a', pendencias)?.match_id).toBe('a')
+    expect(pendenciaDaRodada('c', pendencias)).toBe(null)
+    expect(pendenciaDaRodada('z', pendencias)).toBe(null)
   })
 })

@@ -530,9 +530,42 @@ export function TeamRoster({ m, side, onProfile }) {
   )
 }
 
+// O que fica no lugar do craque, do bagre e das estrelas enquanto o jogador
+// não votar. Só aparece a quem ainda pode votar naquela rodada.
+export function SegredoAteVotar({ onVotar }) {
+  return (
+    <div
+      style={{
+        ...styles.panel,
+        border: `1px dashed ${colors.teamA}`,
+        background: 'rgba(255,197,49,0.06)',
+        textAlign: 'center',
+        padding: 20,
+      }}
+    >
+      <div style={{ fontSize: 30, marginBottom: 6 }} aria-hidden>
+        🔒
+      </div>
+      <div style={{ ...styles.title, fontSize: 16 }}>Vota para ver</div>
+      <p style={{ ...styles.mutedText, fontSize: 13, margin: '8px auto 0', maxWidth: 340 }}>
+        O 👑 craque, o 🐟 bagre e as ⭐ estrelas desta rodada aparecem assim que enviares o teu
+        voto. O placar e os gols ficam à vista — esses já os viste em campo.
+      </p>
+      {onVotar && (
+        <button type="button" onClick={onVotar} style={{ ...styles.button, marginTop: 14 }}>
+          Votar agora — leva 1 minuto
+        </button>
+      )}
+    </div>
+  )
+}
+
 // Corpo partilhado de uma rodada (placar, rosters, gols/assistências, local, obs).
 // `full` inclui as fotos (detalhe/destaque); sem `full` mostra só o resumo.
-export function RoundBody({ m, full = false, onProfile }) {
+//
+// `bloqueado` tapa o resultado das VOTAÇÕES (craque, bagre, estrelas) a quem
+// ainda tem voto por dar naquela rodada — ver `resultadoBloqueado`.
+export function RoundBody({ m, full = false, onProfile, bloqueado = false, onVotar }) {
   const temTimes = (m.players || []).some((p) => p.team)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -540,12 +573,16 @@ export function RoundBody({ m, full = false, onProfile }) {
 
       <ScoreBoard m={m} />
 
-      {/* prémios da rodada — ao lado dos campeões, logo no destaque */}
-      {((m.craque && m.craque.length) || (m.bagre && m.bagre.length)) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <AwardCard tipo="craque" list={m.craque} players={m.players} onProfile={onProfile} />
-          <AwardCard tipo="bagre" list={m.bagre} players={m.players} onProfile={onProfile} />
-        </div>
+      {bloqueado ? (
+        <SegredoAteVotar onVotar={onVotar} />
+      ) : (
+        /* prémios da rodada — ao lado dos campeões, logo no destaque */
+        ((m.craque && m.craque.length) || (m.bagre && m.bagre.length)) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <AwardCard tipo="craque" list={m.craque} players={m.players} onProfile={onProfile} />
+            <AwardCard tipo="bagre" list={m.bagre} players={m.players} onProfile={onProfile} />
+          </div>
+        )
       )}
 
       {temTimes && (
@@ -557,8 +594,9 @@ export function RoundBody({ m, full = false, onProfile }) {
       )}
 
       {/* só no detalhe: no destaque da Home a lista de médias empurrava os
-          gols e as assistências para fora do primeiro ecrã */}
-      {full && <PostRatingsCard m={m} onProfile={onProfile} />}
+          gols e as assistências para fora do primeiro ecrã. Tapada também
+          para quem ainda não votou — é o resultado de uma votação. */}
+      {full && !bloqueado && <PostRatingsCard m={m} onProfile={onProfile} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <StatLine icon="⚽" label="Gols" list={scorers(m)} emptyText="sem gols" onProfile={onProfile} />

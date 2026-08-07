@@ -4,7 +4,7 @@ import { fileToDataURL } from '../lib/image'
 import { ordenarJogadoresDeCampo } from '../lib/ranking'
 import { PLAYER_TYPE } from '../lib/positions'
 import { TITULOS_POR_ID } from '../lib/achievements'
-import { tempoAteFechar } from '../lib/voting'
+import { resultadoBloqueado, tempoAteFechar } from '../lib/voting'
 import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import AchievementBadge from './AchievementBadge'
@@ -257,8 +257,10 @@ export default function HomeScreen({
             posts={feed}
             proximoJogo={proximoJogo}
             jogadores={jogadores}
+            porVotar={porVotar}
             onProfile={onProfile}
             onNavigate={onNavigate}
+            onVotar={onVotar}
           />
         </section>
       )}
@@ -393,6 +395,8 @@ export default function HomeScreen({
                 match={latestMatch}
                 onHistory={() => onNavigate?.('history')}
                 onProfile={(id) => onProfile?.(id, totalRodadas)}
+                bloqueado={resultadoBloqueado(latestMatch?.id, porVotar)}
+                onVotar={() => onVotar?.(latestMatch?.id)}
               />
             )}
           </div>

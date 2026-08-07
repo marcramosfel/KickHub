@@ -9,7 +9,12 @@ import {
   PERIODOS,
   scorers as getScorers,
 } from '../lib/format'
-import { faltaVotarTexto, pendenciasReais, tempoAteFechar } from '../lib/voting'
+import {
+  faltaVotarTexto,
+  pendenciasReais,
+  resultadoBloqueado,
+  tempoAteFechar,
+} from '../lib/voting'
 import { liderancas } from '../lib/trophies'
 import { NomeClicavel } from './RoundParts'
 import Avatar from './Avatar'
@@ -50,7 +55,7 @@ function ChamadaParaVotar({ pendencia, onVotar }) {
 
 // Card de uma rodada no histórico: placar, vencedor, marcadores/assistentes,
 // craque/bagre e "Ver detalhes" (que abre a rodada com fotos).
-function MatchPanel({ match, onDetail, onProfile }) {
+function MatchPanel({ match, onDetail, onProfile, bloqueado, onVotar }) {
   const scorers = getScorers(match)
   const assisters = getAssisters(match)
   const craque = awardWinners(match.craque)
@@ -139,7 +144,34 @@ function MatchPanel({ match, onDetail, onProfile }) {
         )}
       </p>
 
-      {match.votes > 0 ? (
+      {/* o craque e o bagre ficam tapados a quem ainda tem voto por dar
+          nesta rodada — ver `resultadoBloqueado` */}
+      {bloqueado ? (
+        <button
+          type="button"
+          onClick={onVotar}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '10px 12px',
+            borderRadius: 10,
+            border: `1px dashed ${colors.teamA}`,
+            background: 'rgba(255,197,49,0.06)',
+            color: colors.text,
+            font: 'inherit',
+            fontSize: 13,
+            textAlign: 'left',
+          }}
+        >
+          <span aria-hidden style={{ fontSize: 16 }}>🔒</span>
+          <span style={{ flex: 1 }}>
+            <strong>Vota para ver</strong> o craque e o bagre desta rodada.
+          </span>
+          <span style={{ color: colors.teamA, fontWeight: 700, flexShrink: 0 }}>Votar →</span>
+        </button>
+      ) : match.votes > 0 ? (
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 13 }}>
           {craque && (
             <span style={{ color: colors.teamA }}>
@@ -270,6 +302,8 @@ export default function StatsScreen({
         matchId={detailId}
         onBack={() => setDetailId(null)}
         onProfile={(id) => onProfile?.(id, matches?.length || 0)}
+        bloqueado={resultadoBloqueado(detailId, pendencias)}
+        onVotar={() => onVotar?.(detailId)}
       />
     )
   }
@@ -569,6 +603,8 @@ export default function StatsScreen({
               match={m}
               onDetail={setDetailId}
               onProfile={(id) => onProfile?.(id, matches.length)}
+              bloqueado={resultadoBloqueado(m.id, pendencias)}
+              onVotar={() => onVotar?.(m.id)}
             />
           ))}
         </div>
