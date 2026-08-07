@@ -457,6 +457,9 @@ Só na v2 — a v1 continua congelada nos 70/30.
 8. Abre o perfil de um jogador → **"Como se calcula o overall?"**. As linhas têm de **somar ao
    total** — é a verificação que apanha um peso mal ligado. Se ele tiver rodadas com sorteio,
    aparece a linha "🏆 Vitórias acima do esperado".
+9. Ainda nesse telemóvel com voto por dar, vai à **Home**: onde estava o craque da última rodada
+   deve aparecer **"🔒 Vota para ver"**. Depois de votar, recarrega — o craque, o bagre e as
+   estrelas aparecem. O placar e os gols estão sempre à vista, antes e depois.
 
 ### O que esperar da parcela das vitórias, no início
 
@@ -473,3 +476,23 @@ Uma consequência prática: rodadas registadas à mão (sem passar pelo assisten
 para esta parcela. Se quiseres que contem, o jogo tem de nascer no assistente, que é quem grava as
 forças das equipas. Hoje isso são 2 das 4 rodadas — metade do histórico é invisível para a
 parcela, e a única forma de o corrigir é daqui para a frente.
+
+---
+
+## "Vota para ver" — **não tem migração**
+
+Fica aqui registado por ser a única mudança de comportamento visível ao grupo que **não** precisa
+de nada na base de dados: vive toda no frontend e chega com o deploy.
+
+Enquanto um jogador tiver voto por dar numa rodada, o 👑 craque, o 🐟 bagre e as ⭐ médias dessa
+rodada aparecem-lhe como "Vota para ver", com um botão para a cédula. O placar, os gols, as
+assistências e as fotos ficam à vista — são factos, e quem lá esteve já os sabe.
+
+Só se aplica a quem **pode** votar. Quem não jogou a rodada, quem já votou, e toda a gente depois
+de a votação fechar veem tudo.
+
+**Não é uma barreira de segurança**, e convém que fique escrito: os dados vêm na mesma resposta do
+servidor e a chave pública está no bundle por desenho. É um empurrão — o que muda é o caminho de
+menor esforço, que passa a ser votar. Tornar isto privado a sério obrigava `get_matches` e
+`get_match` a deixarem de ser públicas e a decidirem o que devolvem conforme quem pergunta, que é
+outra mudança e com outro custo.
