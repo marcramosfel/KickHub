@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { adminExport, adminRegenUserId, adminSetPin, adminSetUserId } from '../../api'
+import {
+  adminExport,
+  adminRegenUserId,
+  adminRevokeDevices,
+  adminSetPin,
+  adminSetUserId,
+} from '../../api'
 import { formatDia, hojeLocal } from '../../lib/format'
 import { APP_NAME } from '../../config'
 import FiltroLista, { useFiltro } from './FiltroLista'
@@ -62,6 +68,22 @@ export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, o
     )
       return
     onAcao(() => adminRegenUserId(pw, u.id))
+  }
+
+  // "Terminar sessões": revoga os tokens do "lembrar-me neste telemóvel".
+  //
+  // O token autoriza ler e votar sem PIN — é o que faz o link do WhatsApp
+  // abrir direto na cédula. Se alguém perder o telemóvel, ou emprestar e se
+  // arrepender, tem de haver forma de fechar essa porta sem trocar o PIN.
+  const revogarSessoes = (u) => {
+    if (
+      !window.confirm(
+        `Terminar as sessões guardadas de ${u.name}? Nos telemóveis onde ele marcou ` +
+          '"lembrar-me", passa a ser pedido o PIN outra vez. O PIN não muda.'
+      )
+    )
+      return
+    onAcao(() => adminRevokeDevices(pw, u.id))
   }
 
   // define um PIN novo para quem se esqueceu do seu (o antigo não é preciso)
@@ -139,8 +161,9 @@ export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, o
       {usersErr && (
         <div style={{ ...styles.panel, marginBottom: 12 }}>
           <p style={{ ...styles.mutedText, fontSize: 13 }}>
-            ⚠️ Não consegui carregar os utilizadores ({usersErr}). Se ainda não aplicaste a
-            migração <strong>0008_user_ids.sql</strong> no Supabase, é isso que falta.
+            ⚠️ Não consegui carregar os utilizadores ({usersErr}). Se ainda não correste o{' '}
+            <strong>supabase/migrations/esquema.sql</strong> no SQL Editor do Supabase, é isso
+            que falta.
           </p>
         </div>
       )}
@@ -293,6 +316,14 @@ export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, o
                     style={styles.link}
                   >
                     ↻ Regenerar
+                  </button>
+                  <button
+                    onClick={() => revogarSessoes(u)}
+                    disabled={busy}
+                    style={styles.link}
+                    title="Revoga o 'lembrar-me neste telemóvel'. O PIN não muda."
+                  >
+                    📵 Terminar sessões
                   </button>
                   <button
                     onClick={() => definirPin(u)}

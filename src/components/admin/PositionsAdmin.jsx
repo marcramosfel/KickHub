@@ -386,8 +386,9 @@ export default function PositionsAdmin({ pw }) {
     return erro ? (
       <div style={styles.panel}>
         <p style={{ ...styles.mutedText, fontSize: 13 }}>
-          ⚠️ Não consegui carregar as posições ({erro}). Se ainda não aplicaste a migração{' '}
-          <strong>0015_posicoes.sql</strong> no Supabase, é isso que falta.
+          ⚠️ Não consegui carregar as posições ({erro}). Se ainda não correste o{' '}
+          <strong>supabase/migrations/esquema.sql</strong> no SQL Editor do Supabase, é isso que
+          falta.
         </p>
       </div>
     ) : (

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { changePin, updatePhoto } from '../api'
+import { changePin, setMyGkRotation, updatePhoto } from '../api'
 import { fileToDataURL } from '../lib/image'
 import { ordenarJogadoresDeCampo } from '../lib/ranking'
 import { PLAYER_TYPE } from '../lib/positions'
@@ -148,7 +148,36 @@ export default function HomeScreen({
   const [pinErr, setPinErr] = useState('')
   const [pinOk, setPinOk] = useState(false)
 
+  // "Aceito ir à baliza no rodízio".
+  //
+  // A coluna nasce a `true` para toda a gente, ou seja, o sistema assume
+  // que todos aceitam. Sem este botão, quem não quer não tinha como dizer —
+  // e o rodízio calhava-lhe na mesma.
+  const [golOk, setGolOk] = useState(null) // null = ainda não mexemos nisto
+  const [golBusy, setGolBusy] = useState(false)
+
   const me = useMemo(() => jogadores.find((p) => p.id === session.id), [jogadores, session.id])
+
+  // o que o servidor diz, até o próprio mudar aqui
+  const golAtual = golOk ?? me?.gkRotationOk ?? true
+
+  const mudarGol = async () => {
+    if (golBusy) return
+    const novo = !golAtual
+    const pin = session.pin || (await onPedirPin?.('Vais mudar a tua preferência de baliza.'))
+    if (!pin) return
+    setGolBusy(true)
+    try {
+      await setMyGkRotation(session.id, pin, novo)
+      setGolOk(novo)
+      await onRecarregar?.()
+    } catch (err) {
+      setPhotoErr(err.message)
+    } finally {
+      setGolBusy(false)
+    }
+  }
+
   const top5 = useMemo(
     () =>
       ordenarJogadoresDeCampo(
@@ -529,6 +558,44 @@ export default function HomeScreen({
                     {faltamAvaliar === 0 ? 'Avaliação feita ✓' : 'Avaliação pendente'}
                   </span>
                 </div>
+                {/* preferência de baliza — só faz sentido a quem joga na
+                    linha; um goleiro registado está sempre na baliza */}
+                {me?.playerType !== PLAYER_TYPE.GOALKEEPER && (
+                  <button
+                    type="button"
+                    onClick={mudarGol}
+                    disabled={golBusy}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      width: '100%',
+                      marginTop: 10,
+                      padding: '8px 10px',
+                      borderRadius: 10,
+                      border: `1px solid ${golAtual ? colors.line : colors.teamA}`,
+                      background: golAtual ? '#0C1915' : 'rgba(255,197,49,0.08)',
+                      color: colors.text,
+                      font: 'inherit',
+                      fontSize: 13,
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span aria-hidden style={{ fontSize: 16 }}>{golAtual ? '🧤' : '🚫'}</span>
+                    <span style={{ flex: 1 }}>
+                      {golAtual ? 'Aceito ir à baliza no rodízio' : 'Não vou à baliza'}
+                      <span style={{ display: 'block', fontSize: 11, color: colors.muted }}>
+                        {golAtual
+                          ? 'Podes ser escolhido para começar no gol nos jogos sem goleiro fixo.'
+                          : 'Só te calha se não houver mais ninguém disponível.'}
+                      </span>
+                    </span>
+                    <span style={{ color: colors.teamA, flexShrink: 0 }}>
+                      {golBusy ? '…' : 'mudar'}
+                    </span>
+                  </button>
+                )}
+
                 <div style={{ marginTop: 8, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                   <button
                     type="button"

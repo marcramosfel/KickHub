@@ -202,7 +202,7 @@ export default function RodadasPanel({
         await adminSaveGkStats(pw, matchId || editingId, gkLinhas)
       } catch (gkErr) {
         onErro(
-          `Rodada guardada, mas as estatísticas de goleiro não (${gkErr.message}). Falta aplicar a migração 0017_goleiros.sql?`
+          `Rodada guardada, mas as estatísticas de goleiro não (${gkErr.message}). Falta correr o supabase/migrations/esquema.sql?`
         )
       }
       setJogoOk(true)
@@ -311,8 +311,9 @@ export default function RodadasPanel({
       {matchesErr && (
         <div style={{ ...styles.panel, marginBottom: 12 }}>
           <p style={{ ...styles.mutedText, fontSize: 13 }}>
-            ⚠️ Não consegui carregar as rodadas ({matchesErr}). Se ainda não aplicaste a
-            migração <strong>0002_estatisticas.sql</strong> no Supabase, é isso que falta.
+            ⚠️ Não consegui carregar as rodadas ({matchesErr}). Se ainda não correste o{' '}
+            <strong>supabase/migrations/esquema.sql</strong> no SQL Editor do Supabase, é isso
+            que falta.
           </p>
         </div>
       )}

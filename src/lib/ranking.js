@@ -294,6 +294,10 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
       primaryPosition: row.primary_position ?? row.primaryPosition ?? null,
       secondaryPosition: row.secondary_position ?? row.secondaryPosition ?? null,
       acceptsOther: (row.accepts_other_positions ?? row.acceptsOther) !== false,
+      // "aceito ir à baliza no rodízio" (0024) — omissão true, como na base
+      gkRotationOk: (row.gk_rotation_ok ?? row.gkRotationOk) !== false,
+      gkStarts: num(row.gk_starts ?? row.gkStarts),
+      lastGkStart: row.last_gk_start ?? row.lastGkStart ?? null,
       positionStatus: row.position_status ?? row.positionStatus ?? POSITION_STATUS.NOT_SELECTED,
       // escolhas do jogador para o card (migração 0022)
       nickname: row.nickname ?? row.apelido ?? null,

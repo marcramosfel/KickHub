@@ -62,11 +62,11 @@ function Aviso({ tom = 'aviso', children }) {
   )
 }
 
-// Sem a 0021 aplicada, as ações novas chegam como SEMMIGRACAO genérico —
-// dizer QUAL o ficheiro falta poupa a caça ao erro.
+// Sem o esquema em dia, as ações novas chegam como SEMMIGRACAO genérico —
+// dizer o que falta correr poupa a caça ao erro.
 const erroLegivel = (e) =>
   e?.code === 'SEMMIGRACAO'
-    ? 'Falta aplicar a migração 0021_trocas.sql no Supabase (instruções em supabase/APLICAR.md).'
+    ? 'Falta correr o supabase/migrations/esquema.sql no Supabase (instruções em supabase/APLICAR.md).'
     : e?.message
 
 // O overall que vai ficar congelado na escalação. O neutro é o mesmo que o
@@ -244,8 +244,8 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
     return (
       <div className="pb-card">
         <p style={{ ...styles.mutedText, fontSize: 13 }}>
-          ⚠️ As desistências ainda não estão ativas na base de dados. Aplica a migração{' '}
-          <strong>0021_trocas.sql</strong> (e as anteriores) no SQL Editor do Supabase — instruções
+          ⚠️ As desistências ainda não estão ativas na base de dados. Corre o{' '}
+          <strong>supabase/migrations/esquema.sql</strong> no SQL Editor do Supabase — instruções
           em <code>supabase/APLICAR.md</code>.
         </p>
       </div>

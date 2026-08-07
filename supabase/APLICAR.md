@@ -1,34 +1,33 @@
-# Como aplicar as migrações novas (0015 → 0028)
+# Como pôr a base de dados em dia
 
-A base de dados tem dados reais. Da **0015 à 0026** as migrações são **aditivas**: só acrescentam
-colunas, tabelas e funções, não apagam nada e podem correr duas vezes sem rebentar (são
-idempotentes).
+Há **um ficheiro só**: [`migrations/esquema.sql`](migrations/esquema.sql). Abre-o, copia tudo,
+cola no **SQL Editor** do Supabase (`gfowkkchpqoirubumnau` → SQL Editor → Run). Acabou.
 
-> ⚠️ **A `0027` é a exceção e apaga dados**: limpa a tabela `ratings` para o grupo recomeçar a
-> avaliação. As notas antigas vão para `ratings_arquivo` antes disso, mas lê a secção dela antes
-> de a correr — e faz o backup.
+> **Não apaga nem altera um único dado.** Cria o que falta, actualiza definições, e não toca em
+> nenhuma linha das tabelas. Correr duas vezes é inofensivo. Serve tanto para uma base vazia como
+> para a que está a trabalhar agora.
 
-Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
-(`gfowkkchpqoirubumnau` → SQL Editor → colar → Run):
+As 28 migrações numeradas (`0001` → `0028`) desapareceram desta pasta. Ao longo do tempo
+reescreveram as mesmas funções 179 vezes — a `login` sete vezes, a `match_public_json` seis — e
+para saber o que estava de pé era preciso ler as 28 por ordem. O `esquema.sql` tem só a última
+versão de cada coisa. O que lá estava continua no histórico do git, se alguma vez for preciso.
 
-1. `0015_posicoes.sql`
-2. `0016_jogos_agendados.sql`
-3. `0017_goleiros.sql`
-4. `0018_desistencias.sql`
-5. `0019_ciclo_de_vida.sql`
-6. `0020_feed.sql`
-7. `0021_trocas.sql`
-8. `0022_cards.sql`
-9. `0023_avaliacao_pos_jogo.sql`
-10. `0024_formato_e_rodizio.sql`
-11. `0025_votacao.sql`
-12. `0026_vitorias_acima_do_esperado.sql`
-13. `0027_avaliacao_do_grupo_v2.sql`
-14. `0028_limpeza.sql`
+**Duas coisas ficaram deliberadamente de fora**, no fim do ficheiro, comentadas e explicadas: as
+operações que mexem em dados e que já correram uma vez. A principal é a limpeza da tabela
+`ratings` da 0027 — se o ficheiro a corresse, aplicá-lo apagava as notas que o grupo está a dar
+agora. Para recomeçar a avaliação usa-se o botão do admin, que arquiva antes de limpar.
 
-A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
-um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
-funciona a partir da 0015** — e sem posições não há sorteio novo.
+**Antes de correr, faz o backup**: Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)". Não é
+por este ficheiro ser perigoso; é porque um backup antes de mexer na base custa dez segundos.
+
+---
+
+# O que cada mudança trouxe
+
+Daqui para baixo é **referência**, não instruções. Uma secção por migração antiga, na ordem em que
+foram escritas, com o que cada uma resolveu e as decisões que ficaram pelo caminho. Nada disto é
+preciso para aplicar o `esquema.sql` — serve para quando alguém (tu, daqui a seis meses) precisar
+de perceber *porquê*.
 
 ---
 
@@ -533,9 +532,9 @@ risco do que removia. Quando alguma delas tiver de mudar por outra razão, tira-
 ## Depois de aplicar
 
 1. **Faz um backup antes** — Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)".
-2. Aplica as migrações que faltam, **por ordem**, uma de cada vez.
-3. Faz o **deploy do frontend**. As migrações sozinhas não chegam: o código novo só chega ao
-   grupo depois do rebuild.
+2. Corre o `migrations/esquema.sql` no SQL Editor.
+3. Faz o **deploy do frontend**. O SQL sozinho não chega: o código novo só chega ao grupo depois
+   do rebuild.
 4. Admin → **Novo sorteio** → confirma que o passo 1 mostra os dois cartões de formato
    (🧤 goleiros fixos / 🔄 sem goleiros fixos) e o tamanho da equipa.
 5. Marca um jogo de teste em modo rodízio e confirma que o passo 3 mostra a ordem do rodízio com

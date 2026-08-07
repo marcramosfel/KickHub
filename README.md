@@ -39,40 +39,26 @@ VITE_SUPABASE_KEY=sb_publishable_...
 
 > A chave `sb_publishable_...` é **pública por design** — pode ir no repo. **Nunca** commitar chaves `sb_secret_...` nem a connection string do Postgres.
 
-## Aplicar a migração no Supabase
+## Pôr a base de dados de pé
 
-O schema está em `supabase/migrations/`, por ordem:
+Há **um ficheiro só**: [`supabase/migrations/esquema.sql`](supabase/migrations/esquema.sql).
+Tabelas, views, funções RPC, índices, triggers e permissões — tudo o que a app precisa.
 
-- [`0001_init.sql`](supabase/migrations/0001_init.sql) — jogadores, avaliações, sorteios, admin.
-- [`0002_estatisticas.sql`](supabase/migrations/0002_estatisticas.sql) — rodadas, gols/assistências e votação de craque/bagre.
-- [`0003_seguranca_pin.sql`](supabase/migrations/0003_seguranca_pin.sql) — correção de segurança: torna a verificação do PIN em `login`/`submit_ratings` imune a `p_pin = null`. **Aplicar sempre.**
-- [`0004_trocar_foto.sql`](supabase/migrations/0004_trocar_foto.sql) — permite ao jogador trocar a própria foto (função `update_photo`, validada por PIN).
-- [`0005_avaliacoes_incrementais.sql`](supabase/migrations/0005_avaliacoes_incrementais.sql) — avaliação passa a ser por lacunas (novos jogadores são avaliados pelos veteranos); admin pode reiniciar avaliações de todos ou de um jogador.
-- [`0006_fix_pending_ratings.sql`](supabase/migrations/0006_fix_pending_ratings.sql) — corrige `get_pending_ratings` (coluna `id` ambígua na 0005). **Aplicar se já aplicaste a 0005.**
-- [`0007_fix_reset_all.sql`](supabase/migrations/0007_fix_reset_all.sql) — corrige "reiniciar avaliações de todos" (`DELETE` sem `WHERE` era bloqueado pelo Supabase). **Aplicar se já aplicaste a 0005.**
-- [`0008_user_ids.sql`](supabase/migrations/0008_user_ids.sql) — `user_id` único por jogador (gerado do nome, com deduplicação), backfill dos existentes, login por **Nome ou ID**, e RPCs de gestão de IDs no admin.
-- [`0009_login_ambiguidade.sql`](supabase/migrations/0009_login_ambiguidade.sql) — login mostra `AMBIGUO` (pede o ID) quando o nome é partilhado por vários jogadores. **Aplicar se já aplicaste a 0008.**
-- [`0010_rodadas.sql`](supabase/migrations/0010_rodadas.sql) — resumo completo da rodada: nome/placar de cada time, time de cada jogador, foto do vencedor + foto do local + observações; RPCs `get_latest_match`/`get_match`/`admin_save_match` (criar/editar).
-- [`0011_quem_falta.sql`](supabase/migrations/0011_quem_falta.sql) — painel "Faltas" no admin: quem ainda não votou no craque/bagre da última rodada e quem tem notas por dar (`admin_pending_votes`, só leitura).
-- [`0012_perfil_export.sql`](supabase/migrations/0012_perfil_export.sql) — perfil do jogador com histórico rodada a rodada (`get_player_profile`) e exportação de dados para backup (`admin_export`). Ambas só de leitura.
-- [`0013_temporadas_quimica.sql`](supabase/migrations/0013_temporadas_quimica.sql) — rankings por período/temporada (`get_player_stats_range`) e curiosidades de "química" entre jogadores (`get_player_chemistry`). Ambas só de leitura.
-- [`0014_pin.sql`](supabase/migrations/0014_pin.sql) — o jogador muda o próprio PIN (`change_pin`) e o admin define um novo a quem se esqueceu (`admin_set_pin`).
-- [`0015_posicoes.sql`](supabase/migrations/0015_posicoes.sql) — **posições dos jogadores** (formação 2-3-1), escolhidas uma vez pelo jogador e depois só alteráveis pelo admin, com histórico de auditoria. Estende `login` e `get_players`.
-- [`0016_jogos_agendados.sql`](supabase/migrations/0016_jogos_agendados.sql) — **próximo jogo e escalação**: `matches` ganha data/hora, local, estado e forças das equipas; nova tabela `match_lineup` com o overall no momento do sorteio.
-- [`0017_goleiros.sql`](supabase/migrations/0017_goleiros.sql) — **estatísticas de goleiro** (defesas e gols sofridos por rodada), base do ranking e do overall próprios da baliza.
-
-> As três últimas ainda não estão aplicadas — ver [`supabase/APLICAR.md`](supabase/APLICAR.md) para o passo a passo e para o que muda em cada uma.
-
-Duas formas de aplicar:
-
-**Opção A — Supabase CLI:**
+Abre o dashboard do Supabase → *SQL Editor* → cola o ficheiro inteiro → *Run*. Ou, com a CLI:
 
 ```bash
 supabase link --project-ref gfowkkchpqoirubumnau
 supabase db push
 ```
 
-**Opção B — SQL Editor:** abre o dashboard do Supabase → *SQL Editor* → cola o conteúdo de cada ficheiro (pela ordem 0001 → 0002 → … → 0016 → 0017) → *Run*.
+Corre numa base vazia (cria tudo) e numa base já a trabalhar (põe as definições em dia sem tocar
+em nenhuma linha). Correr duas vezes é inofensivo.
+
+Até há pouco isto eram 28 ficheiros numerados, aplicados por ordem, que ao longo do tempo
+reescreveram as mesmas funções 179 vezes. Foram colapsados na última versão de cada coisa; o
+histórico continua no git. O [`supabase/APLICAR.md`](supabase/APLICAR.md) explica o que cada uma
+trouxe e as decisões que ficaram pelo caminho — e é lá que estão as poucas operações sobre dados
+que **não** entraram no ficheiro, de propósito.
 
 ## Qualidade
 
@@ -82,7 +68,7 @@ npm test       # vitest — motor de sorteio, overall, rankings, conquistas, con
 npm run build
 ```
 
-A migração cria as tabelas (`players`, `ratings`, `draws`, `app_config`), ativa RLS sem políticas (tabelas fechadas) e cria as funções RPC que a app usa.
+O `esquema.sql` cria as tabelas, ativa RLS sem políticas (tabelas fechadas — o browser só fala por RPC) e cria as funções `security definer` que a app chama.
 
 ## Senha de admin
 
@@ -107,7 +93,7 @@ update app_config set admin_pw_hash = crypt('NOVA_SENHA', gen_salt('bf')) where 
 ## Estrutura
 
 ```
-supabase/migrations/0001_init.sql   schema + funções RPC (a "API")
+supabase/migrations/esquema.sql     schema + funções RPC (a "API")
 src/
   api.js            wrappers das RPC + tradução dos erros para PT
   supabaseClient.js cliente único do Supabase

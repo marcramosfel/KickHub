@@ -9,3 +9,6 @@ dist
 # NOTA: o .env NÃO está ignorado de propósito — só contém a chave
 # publishable do Supabase (sb_publishable_...), que é pública.
 # NUNCA commitar chaves sb_secret_... nem a connection string do Postgres.
+
+# ferramentas de uso único (geraram o esquema.sql a partir das migrações antigas)
+.scratch
