@@ -3970,25 +3970,87 @@ drop function if exists get_stats();
 drop function if exists admin_add_match(text, date, jsonb);
 
 -- ============================ PERMISSOES ============================
--- O Postgres dá EXECUTE a PUBLIC a toda a função nova: sem este revoke, o
--- helper interno position_json ficava a ser um RPC aberto que devolve nome e
--- user_id de qualquer jogador (os ids saem no get_players) sem PIN nenhum.
--- Idempotente: revogar o que já não existe não é erro.
-revoke execute on function position_json(uuid) from public, anon, authenticated;
--- ---------- PERMISSÕES ----------
--- `recalcular_forcas_do_jogo` é interna e não pede senha: o Postgres dá
--- EXECUTE a PUBLIC a toda a função nova, e sem este revoke qualquer
--- visitante reescrevia as forças de um jogo. As funções de admin chamam-na
--- por dentro, onde o revoke não estorva (mesmo dono, SECURITY DEFINER).
-revoke execute on function recalcular_forcas_do_jogo(uuid) from public, anon, authenticated;
--- ---------- PERMISSÕES ----------
-revoke execute on function registar_atividade(uuid, text, jsonb) from public, anon, authenticated;
+--
+-- Escritas a partir do CATALOGO, nao a mao. Um `grant execute` tem de
+-- nomear a assinatura completa da funcao, e a assinatura de varias delas
+-- mudou pelo caminho — a `admin_save_schedule` passou de 5 argumentos a 8.
+-- Copiar as linhas antigas dava `function ... does not exist` e o ficheiro
+-- parava aqui. Assim a assinatura vem do que existe mesmo na base, e nao
+-- ha como voltar a ficar dessincronizada.
+--
+-- Sao dois grupos, e a diferenca e a fronteira de seguranca de toda a app:
+--
+--   INTERNAS  — perdem o EXECUTE de toda a gente. Sao os auxiliares que o
+--               PostgREST nao deve conseguir chamar de fora: nao pedem
+--               senha nem PIN porque so sao chamados de dentro de outra
+--               funcao que ja validou quem esta a falar. Sem este revoke,
+--               o `grant` implicito do Postgres ao PUBLIC deixava-os
+--               abertos a qualquer visitante.
+--
+--   PUBLICAS  — a API propriamente dita. O EXECUTE vai para `anon` e
+--               `authenticated`, e a validacao (senha de admin, PIN do
+--               jogador, prazo da votacao) e feita LA DENTRO.
+--
+-- Quem esta nas duas listas leva o revoke primeiro e o grant depois: fica
+-- fora do PUBLIC mas chamavel pela app. E o caso da `match_public_json`.
+-- so chamaveis de dentro de outra funcao
+do $internas$
+declare r record;
+begin
+  for r in select p.oid::regprocedure as assinatura
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname = any (array[
+              'admin_ok', 'autenticar_votante', 'avaliacoes_em_falta', 'corrigir_ordem_rodizio',
+              'elegiveis_premio', 'fechar_votacao', 'fechar_votacoes_expiradas', 'gen_user_id',
+              'jogadores_do_jogo', 'lider_do_premio', 'limpar_votos_invalidos', 'match_admin_json',
+              'match_json', 'match_public_json', 'participacao_da_votacao', 'payload_resultado',
+              'position_json', 'preencher_gk_order', 'publicar_no_feed', 'recalcular_forcas_do_jogo',
+              'registar_atividade', 'sincronizar_post_rating_status', 'slugify', 'talvez_revelar_avaliacoes',
+              'vencedor_do_jogo'
+            ])
+  loop
+    execute 'revoke execute on function ' || r.assinatura || ' from public, anon, authenticated';
+  end loop;
+end
+$internas$;
+
+-- a API que o browser chama
+do $publicas$
+declare r record;
+begin
+  for r in select p.oid::regprocedure as assinatura
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname = any (array[
+              'ack_position_notice', 'admin_add_media', 'admin_approve', 'admin_approve_positions',
+              'admin_cancel_match', 'admin_clear_card_choices', 'admin_close_game', 'admin_delete_match',
+              'admin_delete_media', 'admin_delete_post', 'admin_delete_schedule', 'admin_export',
+              'admin_finalize_voting', 'admin_match_activity', 'admin_matches_upcoming', 'admin_pending',
+              'admin_position_history', 'admin_positions_overview', 'admin_publish_match', 'admin_publish_result',
+              'admin_ratings_progress', 'admin_regen_user_id', 'admin_reject', 'admin_reset_ratings',
+              'admin_reset_ratings_for', 'admin_reveal_ratings', 'admin_revoke_devices', 'admin_save_gk_stats',
+              'admin_save_lineup', 'admin_save_match', 'admin_save_result', 'admin_save_schedule',
+              'admin_set_gk_rotation', 'admin_set_match_status', 'admin_set_pin', 'admin_set_positions',
+              'admin_set_primary_media', 'admin_set_user_id', 'admin_set_voting', 'admin_substitute_player',
+              'admin_swap_players', 'admin_undo_substitution', 'admin_undo_swap', 'admin_update_post',
+              'admin_users', 'admin_voting_review', 'avaliacoes_completas', 'avaliacoes_reveladas',
+              'change_pin', 'get_feed', 'get_goalkeeper_stats', 'get_latest_match',
+              'get_match', 'get_match_gk_stats', 'get_matches', 'get_my_open_votes',
+              'get_next_match', 'get_pending_ratings', 'get_player_chemistry', 'get_player_profile',
+              'get_player_stats', 'get_player_stats_range', 'get_players', 'get_published_draw',
+              'get_ratings_received', 'get_round_ballot', 'issue_device_token', 'login',
+              'login_with_device', 'match_public_json', 'position_ok', 'prazo_de_votacao',
+              'publish_draw', 'register', 'revoke_device', 'set_my_gk_rotation',
+              'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'submit_ratings',
+              'submit_round_vote', 'update_photo'
+            ])
+  loop
+    execute 'grant execute on function ' || r.assinatura || ' to anon, authenticated';
+  end loop;
+end
+$publicas$;
+
+-- As views nao tem este problema (nao tem assinatura), ficam como estavam.
 revoke select on matches_validas       from public, anon, authenticated;
--- ---------- PERMISSÕES ----------
-revoke execute on function publicar_no_feed(uuid, text, text, text, jsonb) from public, anon, authenticated;
-revoke execute on function payload_resultado(uuid) from public, anon, authenticated;
--- match_json continua fechada (0020): quem manda no que se vê são os wrappers
-revoke execute on function match_json(uuid, boolean) from public, anon, authenticated;
 -- ---------- PERMISSÕES ----------
 -- As views e os auxiliares são canalização interna das funções acima: quem
 -- decide o que se vê são as funções de leitura, não quem souber um id.
@@ -3997,130 +4059,13 @@ revoke execute on function match_json(uuid, boolean) from public, anon, authenti
 -- poder chamá-las.)
 revoke select on participantes_do_jogo from public, anon, authenticated;
 revoke select on post_ratings_validas  from public, anon, authenticated;
-revoke execute on function limpar_votos_invalidos(uuid) from public, anon, authenticated;
-revoke execute on function jogadores_do_jogo(uuid)      from public, anon, authenticated;
-revoke execute on function vencedor_do_jogo(uuid)       from public, anon, authenticated;
-revoke execute on function elegiveis_premio(uuid, text) from public, anon, authenticated;
--- ---------- PERMISSÕES ----------
-revoke execute on function corrigir_ordem_rodizio(uuid) from public, anon, authenticated;
-revoke execute on function preencher_gk_order()         from public, anon, authenticated;
-revoke execute on function match_public_json(uuid)      from public, anon, authenticated;
 -- ---------- PERMISSÕES ----------
 revoke select on premios_da_rodada from public, anon, authenticated;
-revoke execute on function fechar_votacao(uuid, boolean)            from public, anon, authenticated;
-revoke execute on function fechar_votacoes_expiradas()              from public, anon, authenticated;
-revoke execute on function participacao_da_votacao(uuid)            from public, anon, authenticated;
-revoke execute on function lider_do_premio(uuid, text)              from public, anon, authenticated;
-revoke execute on function autenticar_votante(uuid, text, uuid)     from public, anon, authenticated;
-revoke execute on function sincronizar_post_rating_status()         from public, anon, authenticated;
-revoke execute on function match_admin_json(uuid)                   from public, anon, authenticated;
 -- ---------- PERMISSÕES ----------
 -- As views são canalização interna das funções: quem decide o que se vê
 -- são elas, não quem souber um id.
 revoke select on resultados_esperados          from public, anon, authenticated;
 revoke select on saldo_esperado_por_jogador    from public, anon, authenticated;
--- ---------- PERMISSÕES ----------
-revoke execute on function avaliacoes_em_falta()          from public, anon, authenticated;
-revoke execute on function talvez_revelar_avaliacoes()    from public, anon, authenticated;
--- ---------- PERMISSÕES ----------
-grant execute on function register(text,date,text,text)  to anon, authenticated;
-grant execute on function login(text,text)                to anon, authenticated;
-grant execute on function get_players()                            to anon, authenticated;
-grant execute on function submit_ratings(uuid,text,jsonb) to anon, authenticated;
-grant execute on function admin_pending(text)             to anon, authenticated;
-grant execute on function admin_approve(text,uuid)        to anon, authenticated;
-grant execute on function admin_reject(text,uuid)         to anon, authenticated;
-grant execute on function publish_draw(text,jsonb,jsonb)  to anon, authenticated;
-grant execute on function get_published_draw()            to anon, authenticated;
-grant execute on function admin_delete_match(text,uuid)        to anon, authenticated;
-grant execute on function get_matches()                             to anon, authenticated;
-grant execute on function get_player_stats()   to anon, authenticated;
-grant execute on function update_photo(uuid, text, text) to anon, authenticated;
-grant execute on function get_pending_ratings(uuid, text) to anon, authenticated;
-grant execute on function admin_reset_ratings(text)       to anon, authenticated;
-grant execute on function admin_reset_ratings_for(text, uuid) to anon, authenticated;
--- ---------- PERMISSÕES ----------
-grant execute on function register(text, date, text, text)   to anon, authenticated;
-grant execute on function admin_users(text)                  to anon, authenticated;
-grant execute on function admin_regen_user_id(text, uuid)    to anon, authenticated;
-grant execute on function admin_set_user_id(text, uuid, text) to anon, authenticated;
-grant execute on function get_latest_match()                     to anon, authenticated;
-grant execute on function get_match(uuid)                        to anon, authenticated;
-grant execute on function admin_save_match(text, uuid, date, text, text, int, int, text, text, text, jsonb) to anon, authenticated;
-grant execute on function get_player_profile(uuid) to anon, authenticated;
-grant execute on function admin_export(text, boolean)   to anon, authenticated;
-grant execute on function get_player_stats_range(date, date)     to anon, authenticated;
-grant execute on function get_player_chemistry(uuid)             to anon, authenticated;
-grant execute on function change_pin(uuid, text, text)   to anon, authenticated;
-grant execute on function admin_set_pin(text, uuid, text) to anon, authenticated;
--- ---------- PERMISSÕES ----------
-grant execute on function position_ok(text)                                              to anon, authenticated;
-grant execute on function set_my_positions(uuid, text, text, text, boolean)              to anon, authenticated;
-grant execute on function admin_set_positions(text, uuid, text, text, text, boolean, text) to anon, authenticated;
-grant execute on function admin_approve_positions(text, uuid)                            to anon, authenticated;
-grant execute on function ack_position_notice(uuid, text)                                to anon, authenticated;
-grant execute on function admin_positions_overview(text)                                 to anon, authenticated;
-grant execute on function admin_position_history(text, uuid)                             to anon, authenticated;
-grant execute on function login(text, text)                                  to anon, authenticated;
--- ---------- PERMISSÕES ----------
-grant execute on function admin_save_schedule(text, uuid, timestamptz, text, text)          to anon, authenticated;
-grant execute on function admin_save_lineup(text, uuid, jsonb, int, int, numeric, text)
-  to anon, authenticated;
-grant execute on function admin_publish_match(text, uuid)        to anon, authenticated;
-grant  execute on function match_public_json(uuid)      to anon, authenticated;
-grant execute on function get_next_match()                                                  to anon, authenticated;
-grant execute on function admin_matches_upcoming(text)           to anon, authenticated;
-grant execute on function admin_set_match_status(text, uuid, text) to anon, authenticated;
-grant execute on function admin_delete_schedule(text, uuid)                                 to anon, authenticated;
--- ---------- PERMISSÕES ----------
-grant execute on function admin_save_gk_stats(text, uuid, jsonb) to anon, authenticated;
-grant execute on function get_goalkeeper_stats()                 to anon, authenticated;
-grant execute on function get_match_gk_stats(uuid)               to anon, authenticated;
-grant execute on function admin_substitute_player(text, uuid, uuid, uuid, int, text) to anon, authenticated;
-grant execute on function admin_undo_substitution(text, uuid)     to anon, authenticated;
-grant execute on function admin_save_result(text, uuid, int, int, jsonb, jsonb, text, uuid, uuid) to anon, authenticated;
-grant execute on function admin_publish_result(text, uuid)       to anon, authenticated;
-grant execute on function admin_cancel_match(text, uuid, text)    to anon, authenticated;
-grant execute on function admin_add_media(text, uuid, text, text, boolean) to anon, authenticated;
-grant execute on function admin_set_primary_media(text, uuid)    to anon, authenticated;
-grant execute on function admin_delete_media(text, uuid)         to anon, authenticated;
-grant execute on function admin_match_activity(text, uuid)       to anon, authenticated;
-grant execute on function admin_publish_match(text, uuid, text)   to anon, authenticated;
-grant execute on function admin_publish_result(text, uuid, text) to anon, authenticated;
-grant execute on function get_feed(int, timestamptz, uuid)        to anon, authenticated;
-grant execute on function admin_update_post(text, uuid, text, text) to anon, authenticated;
-grant execute on function admin_delete_post(text, uuid)           to anon, authenticated;
--- ---------- PERMISSÕES ----------
-grant execute on function admin_substitute_player(text, uuid, uuid, uuid, int, text, text) to anon, authenticated;
-grant execute on function admin_swap_players(text, uuid, uuid, uuid, text)                 to anon, authenticated;
-grant execute on function admin_undo_swap(text, uuid)                                      to anon, authenticated;
--- ---------- PERMISSÕES ----------
-grant execute on function set_my_primary_card(uuid, text, text)              to anon, authenticated;
-grant execute on function set_my_nickname(uuid, text, text)                  to anon, authenticated;
-grant execute on function admin_clear_card_choices(text, uuid, boolean, boolean) to anon, authenticated;
-grant execute on function admin_save_schedule(text, uuid, timestamptz, text, text, text, int, int)
-  to anon, authenticated;
-grant execute on function set_my_gk_rotation(uuid, text, boolean)  to anon, authenticated;
-grant execute on function admin_set_gk_rotation(text, uuid, boolean) to anon, authenticated;
-grant execute on function prazo_de_votacao(timestamptz, int)        to anon, authenticated;
-grant execute on function get_round_ballot(uuid, text, uuid, uuid)  to anon, authenticated;
-grant execute on function submit_round_vote(uuid, text, uuid, uuid, uuid, jsonb, uuid) to anon, authenticated;
-grant execute on function get_my_open_votes(uuid, text, uuid)       to anon, authenticated;
-grant execute on function issue_device_token(uuid, text, text)      to anon, authenticated;
-grant execute on function login_with_device(uuid)                   to anon, authenticated;
-grant execute on function revoke_device(uuid)                       to anon, authenticated;
-grant execute on function admin_revoke_devices(text, uuid)          to anon, authenticated;
-grant execute on function admin_close_game(text, uuid, int, int, jsonb, jsonb, text, text, timestamptz)
-  to anon, authenticated;
-grant execute on function admin_set_voting(text, uuid, text, timestamptz, int) to anon, authenticated;
-grant execute on function admin_voting_review(text, uuid)           to anon, authenticated;
-grant execute on function admin_finalize_voting(text, uuid, uuid, uuid) to anon, authenticated;
-grant execute on function avaliacoes_completas()          to anon, authenticated;
-grant execute on function avaliacoes_reveladas()          to anon, authenticated;
-grant execute on function submit_ratings(uuid, text, jsonb) to anon, authenticated;
-grant execute on function get_ratings_received(uuid)      to anon, authenticated;
-grant execute on function admin_ratings_progress(text)    to anon, authenticated;
-grant execute on function admin_reveal_ratings(text)      to anon, authenticated;
 
 -- ====================== SEMENTE (base vazia) ========================
 -- Senha inicial do admin. Numa base que ja exista, o ON CONFLICT faz

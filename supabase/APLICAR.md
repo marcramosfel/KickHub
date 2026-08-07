@@ -20,6 +20,37 @@ agora. Para recomeçar a avaliação usa-se o botão do admin, que arquiva antes
 **Antes de correr, faz o backup**: Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)". Não é
 por este ficheiro ser perigoso; é porque um backup antes de mexer na base custa dez segundos.
 
+### A única coisa que muda de comportamento: a `admin_ok` fecha
+
+`admin_ok(senha)` recebe a senha de admin e responde `true` ou `false`. Nunca teve um `revoke` —
+é das primeiras migrações, de antes de existir essa disciplina — por isso ficou com o `EXECUTE`
+que o Postgres dá ao `PUBLIC` por omissão. Na prática: **qualquer pessoa com a chave publishable
+(que está no bundle, por desenho) podia adivinhar a senha de admin à velocidade de HTTP**, com
+resposta limpa de sim/não, sem nada registado e sem limite de tentativas.
+
+O `esquema.sql` fecha-a. Nada no frontend a chama — é o porteiro que as outras funções usam por
+dentro, e por dentro continua a funcionar, porque são todas `security definer`. As mesmas duas
+linhas fecham também a `gen_user_id` e a `slugify`, pela mesma razão.
+
+**Se a senha de admin ainda for a inicial (`pelada2026`), troca-a.** Enquanto esteve aberta, o
+custo de a adivinhar era baixo:
+
+```sql
+update app_config set admin_pw_hash = crypt('NOVA_SENHA', gen_salt('bf')) where id = 1;
+```
+
+### As permissões são escritas a partir do catálogo
+
+Um `grant execute` tem de nomear a assinatura completa da função, e várias mudaram pelo caminho —
+a `admin_save_schedule` passou de 5 argumentos para 8. Copiar as linhas antigas dava
+`function ... does not exist` e o ficheiro parava. Em vez disso, os dois blocos de permissões
+perguntam ao `pg_proc` qual é a assinatura que existe mesmo e aplicam-na. Não há como voltar a
+ficar dessincronizado.
+
+São dois grupos, e a fronteira entre eles é a segurança de toda a app: as **internas** perdem o
+`EXECUTE` de toda a gente (só são chamadas de dentro de outra função que já validou quem fala), e
+as **públicas** são a API, com a validação lá dentro.
+
 ---
 
 # O que cada mudança trouxe
