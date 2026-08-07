@@ -38,6 +38,11 @@ export const PESO_DESEMPENHO_V2 = 0.2
 export const PESO_POS_JOGO_V2 = 0.25
 export const ESTRELAS_MAX = 5
 
+// Os pesos ANTES de haver rodadas medidas: a fórmula que existia antes das
+// vitórias entrarem. É daqui que a transição parte.
+export const PESO_GRUPO_SEM_VITORIAS = 0.5
+export const PESO_DESEMPENHO_SEM_VITORIAS = 0.25
+
 // A avaliação dos companheiros vale os 25% a partir da PRIMEIRA nota.
 //
 // Houve uma versão que amortecia a parcela até seis avaliações, para um
@@ -67,14 +72,17 @@ export const ESTRELAS_MAX = 5
 // Aqui converte-se para a escala 0–100 onde **50 = exatamente o esperado**.
 export const WAE_NEUTRO = 50
 export const WAE_ESCALA = 100 // saldo médio de +0,5 por jogo → nota 100
-// Abaixo disto a nota é puxada para 50 — não é castigo, é o mesmo mecanismo
-// de confiança do overall de goleiro (`RODADAS_CONFIANCA`). Com uma rodada
-// só, o desvio é quase todo sorte, e a parcela não pode fingir que sabe.
+// A partir daqui a parcela vale os 15% inteiros. Abaixo, os pesos ainda
+// estão a transitar (ver `pesosDaTransicao`).
 export const WAE_MIN_JOGOS = 5
 
 // `saldo` é a soma dos desvios; `jogos`, quantas rodadas contribuíram.
 // Devolve `null` quando não há rodadas com forças gravadas — e `null` faz a
 // parcela sair da conta, em vez de contar como "exatamente o esperado".
+//
+// A nota é CRUA: não é puxada para 50 com poucos jogos. Quem trata da falta
+// de dados é o PESO (`pesosDaTransicao`), não o valor. Amortecer os dois era
+// contar a mesma incerteza duas vezes.
 export function notaAcimaDoEsperado(saldo, jogos) {
   // `Number(null)` é 0, e um 0 aqui não é "saldo zero" — é ausência de
   // dados, que tem de sair da conta em vez de virar "exatamente o esperado".
@@ -83,9 +91,33 @@ export function notaAcimaDoEsperado(saldo, jogos) {
   const n = Number(jogos)
   const s = Number(saldo)
   if (!Number.isFinite(n) || n <= 0 || !Number.isFinite(s)) return null
-  const confianca = Math.min(n / WAE_MIN_JOGOS, 1)
-  const nota = WAE_NEUTRO + (s / n) * WAE_ESCALA * confianca
-  return Math.max(0, Math.min(100, nota))
+  return Math.max(0, Math.min(100, WAE_NEUTRO + (s / n) * WAE_ESCALA))
+}
+
+// Os pesos da v2 no ponto da transição em que este jogador está.
+//
+// A parcela das vitórias não se liga de repente: os pesos DESLIZAM da
+// fórmula anterior (50/0/25/25) para a nova (40/15/20/25) à medida que há
+// rodadas medidas. Somam sempre 1.
+//
+//   0 rodadas → 50 /  0 / 25 / 25   (exatamente a fórmula anterior)
+//   2 rodadas → 46 /  6 / 23 / 25
+//   5 rodadas → 40 / 15 / 20 / 25   (a nova, completa)
+//
+// A alternativa — ligar a parcela de uma vez às 5 rodadas — fazia um jogador
+// que rendeu EXATAMENTE o esperado perder 5 pontos de um dia para o outro,
+// só por cruzar a fronteira. Um número que cai sem nada ter acontecido em
+// campo é impossível de explicar a quem o vê.
+export function pesosDaTransicao(waeJogos) {
+  const n = Number(waeJogos)
+  const t = Number.isFinite(n) && n > 0 ? Math.min(n / WAE_MIN_JOGOS, 1) : 0
+  return {
+    grupo: PESO_GRUPO_SEM_VITORIAS + (PESO_GRUPO_V2 - PESO_GRUPO_SEM_VITORIAS) * t,
+    vitorias: PESO_VITORIAS_V2 * t,
+    desempenho:
+      PESO_DESEMPENHO_SEM_VITORIAS + (PESO_DESEMPENHO_V2 - PESO_DESEMPENHO_SEM_VITORIAS) * t,
+    posJogo: PESO_POS_JOGO_V2,
+  }
 }
 
 export const PARTICIPACOES_TOPO = 3 // gols + assistências por jogo que valem 100
@@ -142,10 +174,10 @@ export function calcularOverall(perfil) {
   const pesoPosJogo = temPosJogo ? PESO_POS_JOGO_V2 : 0
 
   // `null` quando não há rodadas com forças gravadas (as anteriores ao
-  // sorteio agendado, ou as criadas à mão). Aí a parcela sai da conta e os
-  // pesos das outras renormalizam — não vale 50 nem 0.
+  // sorteio agendado, ou as criadas à mão). Aí o peso das vitórias é 0 e os
+  // outros ficam nos da fórmula anterior — não há transição a acontecer.
   const vitorias = notaAcimaDoEsperado(waeSaldo, waeJogos)
-  const pesoVitorias = vitorias == null ? 0 : PESO_VITORIAS_V2
+  const pesosV2 = pesosDaTransicao(vitorias == null ? 0 : waeJogos)
 
   const partes = {
     base,
@@ -162,20 +194,15 @@ export function calcularOverall(perfil) {
     vitorias,
     waeSaldo,
     waeJogos,
-    // com poucas rodadas a nota está a ser puxada para 50 — a UI diz isso
-    // em vez de deixar parecer que o jogador é mesmo médio
+    // com poucas rodadas o PESO ainda está a subir — a UI diz isso, em vez
+    // de deixar parecer que a parcela já vale por inteiro
     vitoriasProvisorio: vitorias != null && waeJogos < WAE_MIN_JOGOS,
     // uma única avaliação já conta por inteiro, mas ainda não é uma média —
     // a UI diz de quantas notas vem o número, sem lhe mexer no peso
     posJogoProvisorio: temPosJogo && avaliacoes === 1,
     pesos:
       versao === 2
-        ? {
-            grupo: PESO_GRUPO_V2,
-            vitorias: pesoVitorias,
-            desempenho: PESO_DESEMPENHO_V2,
-            posJogo: pesoPosJogo,
-          }
+        ? { ...pesosV2, posJogo: pesoPosJogo }
         : { grupo: PESO_GRUPO, vitorias: 0, desempenho: PESO_DESEMPENHO, posJogo: 0 },
     // Preenchido a seguir por cada ramo. São os pesos DEPOIS de as parcelas
     // em falta saírem da conta — os únicos que explicam o número final.
@@ -235,7 +262,7 @@ export function calcularOverall(perfil) {
     }
   }
 
-  // ---------- v2: 40% grupo + 15% vitórias + 20% campo + 25% companheiros ----------
+  // ---------- v2: até 40% grupo + 15% vitórias + 20% campo + 25% companheiros ----------
   // Média ponderada só com as parcelas que EXISTEM. Um jogador sem notas do
   // grupo (ou sem rodadas de campo, ou sem rodadas com forças gravadas) não
   // leva zero na parcela em falta: ela sai da conta e os pesos das outras são
@@ -244,10 +271,15 @@ export function calcularOverall(perfil) {
   // É isto que evita o efeito colateral da taxa de vitórias crua, onde quem
   // nunca jogou perdia ~10 pontos por causa de uma parcela que nem se lhe
   // aplicava.
+  //
+  // Os pesos vêm de `pesosDaTransicao`: com 0 rodadas medidas são os da
+  // fórmula anterior (50/25/25) e vão deslizando até aos definitivos às 5.
   const parcelas = [['posJogo', posJogo, pesoPosJogo]]
-  if (base != null) parcelas.push(['grupo', base, PESO_GRUPO_V2])
-  if (vitorias != null) parcelas.push(['vitorias', vitorias, PESO_VITORIAS_V2])
-  if (matches > 0) parcelas.push(['desempenho', desempenho, PESO_DESEMPENHO_V2])
+  if (base != null) parcelas.push(['grupo', base, pesosV2.grupo])
+  if (vitorias != null && pesosV2.vitorias > 0) {
+    parcelas.push(['vitorias', vitorias, pesosV2.vitorias])
+  }
+  if (matches > 0) parcelas.push(['desempenho', desempenho, pesosV2.desempenho])
 
   const pesoTotal = parcelas.reduce((s, [, , p]) => s + p, 0)
   const somaPesada = parcelas.reduce((s, [, v, p]) => s + v * p, 0)

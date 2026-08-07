@@ -8,9 +8,12 @@ import {
   PESO_GRUPO,
   PESO_GRUPO_V2,
   PESO_POS_JOGO_V2,
+  PESO_GRUPO_SEM_VITORIAS,
+  PESO_DESEMPENHO_SEM_VITORIAS,
   PESO_VITORIAS_V2,
   WAE_MIN_JOGOS,
   notaAcimaDoEsperado,
+  pesosDaTransicao,
   calcularOverall,
   calculateFieldPlayerOverall,
   calculateGoalkeeperOverall,
@@ -84,11 +87,12 @@ describe('versão da fórmula', () => {
     const r = calcularOverall(v1({ post_rating_avg: 4, post_rating_count: 1 }))
     expect(r.versao).toBe(2)
     expect(r.versao).toBe(OVERALL_VERSION)
+    // Sem rodadas medidas a transição ainda nem começou: os pesos são os
+    // da fórmula anterior, e a parcela das vitórias não existe.
     expect(r.pesos).toEqual({
-      grupo: PESO_GRUPO_V2,
-      // sem rodadas com forças gravadas, a parcela das vitórias nem existe
+      grupo: PESO_GRUPO_SEM_VITORIAS,
       vitorias: 0,
-      desempenho: PESO_DESEMPENHO_V2,
+      desempenho: PESO_DESEMPENHO_SEM_VITORIAS,
       posJogo: PESO_POS_JOGO_V2,
     })
     // marcada como provisória, mas isso é só informação — o peso é o cheio
@@ -176,9 +180,10 @@ describe('fórmula v2 — 40% grupo, 15% vitórias, 20% campo, 25% companheiros'
     })
     const desempenho = Math.min(6 / 4 / 3, 1) * 100
     const posJogo = 80
+    // sem rodadas medidas, o desempenho continua nos 25% de antes
     const esperado =
-      (desempenho * PESO_DESEMPENHO_V2 + posJogo * PESO_POS_JOGO_V2) /
-      (PESO_DESEMPENHO_V2 + PESO_POS_JOGO_V2)
+      (desempenho * PESO_DESEMPENHO_SEM_VITORIAS + posJogo * PESO_POS_JOGO_V2) /
+      (PESO_DESEMPENHO_SEM_VITORIAS + PESO_POS_JOGO_V2)
     expect(r.overallBase).toBeCloseTo(esperado, 6)
     expect(r.provisorio).toBe(true)
   })
@@ -191,7 +196,8 @@ describe('fórmula v2 — 40% grupo, 15% vitórias, 20% campo, 25% companheiros'
     // 80 e 60, sem o desempenho nem as vitórias a puxar para baixo — as duas
     // parcelas em falta saem da conta e os pesos renormalizam
     expect(r.overallBase).toBeCloseTo(
-      (80 * PESO_GRUPO_V2 + 60 * PESO_POS_JOGO_V2) / (PESO_GRUPO_V2 + PESO_POS_JOGO_V2),
+      (80 * PESO_GRUPO_SEM_VITORIAS + 60 * PESO_POS_JOGO_V2) /
+        (PESO_GRUPO_SEM_VITORIAS + PESO_POS_JOGO_V2),
       6
     )
     expect(r.overall).toBeGreaterThan(60)
@@ -359,10 +365,10 @@ describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
     })
     // sem rodadas de campo nao ha desempenho NEM vitorias: as duas saem e o
     // que resta reparte os 100%
-    const resto = PESO_GRUPO_V2 + PESO_POS_JOGO_V2
+    const resto = PESO_GRUPO_SEM_VITORIAS + PESO_POS_JOGO_V2
     expect(semCampo.pesosEfetivos.desempenho).toBe(0)
     expect(semCampo.pesosEfetivos.vitorias).toBe(0)
-    expect(semCampo.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_V2 / resto, 6)
+    expect(semCampo.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_SEM_VITORIAS / resto, 6)
     expect(semCampo.pesosEfetivos.posJogo).toBeCloseTo(PESO_POS_JOGO_V2 / resto, 6)
   })
 })
@@ -510,17 +516,13 @@ describe('notaAcimaDoEsperado', () => {
     expect(cima).toBeCloseTo(baixo, 6)
   })
 
-  it('a confiança puxa para 50 até WAE_MIN_JOGOS', () => {
-    // o mesmo saldo MÉDIO conta menos com menos rodadas
+  it('a nota é CRUA: o mesmo saldo médio dá a mesma nota, venha de 1 ou de 20', () => {
+    // quem trata da falta de dados é o PESO, não o valor — amortecer os dois
+    // era contar a mesma incerteza duas vezes
     const uma = notaAcimaDoEsperado(0.4, 1)
-    const cinco = notaAcimaDoEsperado(2.0, 5) // mesmo saldo médio: 0,4
-    expect(uma).toBeLessThan(cinco)
-    expect(uma - 50).toBeCloseTo((cinco - 50) / WAE_MIN_JOGOS, 6)
-  })
-
-  it('a partir de WAE_MIN_JOGOS a confiança pára de crescer', () => {
-    const cinco = notaAcimaDoEsperado(2.0, 5) // médio 0,4
-    const vinte = notaAcimaDoEsperado(8.0, 20) // médio 0,4
+    const cinco = notaAcimaDoEsperado(2.0, 5)
+    const vinte = notaAcimaDoEsperado(8.0, 20)
+    expect(uma).toBeCloseTo(cinco, 6)
     expect(cinco).toBeCloseTo(vinte, 6)
   })
 
@@ -590,5 +592,109 @@ describe('a parcela das vitórias no overall', () => {
     expect(r.versao).toBe(1)
     expect(r.pesos.vitorias).toBe(0)
     expect(r.pesosEfetivos.vitorias).toBe(0)
+  })
+})
+
+// ------------------------------------------------------ transição sem degrau
+//
+// A parcela das vitórias não se liga de repente: os pesos deslizam da fórmula
+// anterior (50/0/25/25) para a nova (40/15/20/25) ao longo de 5 rodadas.
+//
+// A alternativa — ligar tudo de uma vez às 5 — fazia um jogador que rendeu
+// EXATAMENTE o esperado perder 5 pontos de um dia para o outro, só por cruzar
+// a fronteira. Estes testes existem para esse degrau não voltar.
+describe('pesosDaTransicao', () => {
+  it('sem rodadas medidas são os pesos da fórmula anterior', () => {
+    const w = pesosDaTransicao(0)
+    expect(w.grupo).toBeCloseTo(PESO_GRUPO_SEM_VITORIAS, 6)
+    expect(w.vitorias).toBe(0)
+    expect(w.desempenho).toBeCloseTo(PESO_DESEMPENHO_SEM_VITORIAS, 6)
+    expect(w.posJogo).toBeCloseTo(PESO_POS_JOGO_V2, 6)
+  })
+
+  it('às WAE_MIN_JOGOS são os definitivos', () => {
+    const w = pesosDaTransicao(WAE_MIN_JOGOS)
+    expect(w.grupo).toBeCloseTo(PESO_GRUPO_V2, 6)
+    expect(w.vitorias).toBeCloseTo(PESO_VITORIAS_V2, 6)
+    expect(w.desempenho).toBeCloseTo(PESO_DESEMPENHO_V2, 6)
+  })
+
+  it('não passa dos definitivos por muitas rodadas que haja', () => {
+    for (const n of [WAE_MIN_JOGOS, 10, 40]) {
+      expect(pesosDaTransicao(n).vitorias).toBeCloseTo(PESO_VITORIAS_V2, 6)
+    }
+  })
+
+  it('somam sempre 1, em qualquer ponto da transição', () => {
+    for (const n of [0, 1, 2, 3, 4, 5, 9, 30]) {
+      const w = pesosDaTransicao(n)
+      expect(w.grupo + w.vitorias + w.desempenho + w.posJogo).toBeCloseTo(1, 6)
+    }
+  })
+
+  it('o peso das vitórias cresce sempre, nunca recua', () => {
+    let anterior = -1
+    for (let n = 0; n <= 8; n++) {
+      const w = pesosDaTransicao(n)
+      expect(w.vitorias).toBeGreaterThanOrEqual(anterior)
+      anterior = w.vitorias
+    }
+  })
+
+  it('o ponto do meio é mesmo o meio', () => {
+    // 2 de 5 rodadas → 46 / 6 / 23 / 25
+    const w = pesosDaTransicao(2)
+    expect(w.grupo).toBeCloseTo(0.46, 6)
+    expect(w.vitorias).toBeCloseTo(0.06, 6)
+    expect(w.desempenho).toBeCloseTo(0.23, 6)
+  })
+
+  it('lida com lixo à entrada sem rebentar', () => {
+    for (const v of [null, undefined, -3, NaN, 'abc']) {
+      const w = pesosDaTransicao(v)
+      expect(w.vitorias).toBe(0)
+      expect(w.grupo).toBeCloseTo(PESO_GRUPO_SEM_VITORIAS, 6)
+    }
+  })
+})
+
+describe('a transição não faz degraus no overall', () => {
+  // um jogador que rendeu EXATAMENTE o esperado em todas as rodadas: o
+  // overall dele não pode dar saltos só por jogar mais uma
+  const perfil = { avg: 3.68, matches: 10, goals: 20, assists: 10, craques: 0, bagres: 0,
+                   post_rating_avg: 5, post_rating_count: 4 }
+  const comN = (n) => calcularOverall({ ...perfil, wae_saldo: 0, wae_matches: n }).overall
+
+  it('nenhuma rodada extra mexe mais de 2 pontos', () => {
+    for (let n = 1; n <= 8; n++) {
+      expect(Math.abs(comN(n) - comN(n - 1))).toBeLessThanOrEqual(2)
+    }
+  })
+
+  it('com 0 rodadas medidas o overall é o da fórmula anterior', () => {
+    const semDados = calcularOverall(perfil)
+    const zero = calcularOverall({ ...perfil, wae_saldo: 0, wae_matches: 0 })
+    expect(zero.overall).toBe(semDados.overall)
+    expect(semDados.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_SEM_VITORIAS, 6)
+  })
+
+  it('estabiliza a partir de WAE_MIN_JOGOS', () => {
+    expect(comN(WAE_MIN_JOGOS)).toBe(comN(WAE_MIN_JOGOS + 5))
+  })
+
+  it('o peso efetivo acompanha a transição', () => {
+    const duas = calcularOverall({ ...perfil, wae_saldo: 0, wae_matches: 2 })
+    const cinco = calcularOverall({ ...perfil, wae_saldo: 0, wae_matches: 5 })
+    expect(duas.pesosEfetivos.vitorias).toBeCloseTo(0.06, 6)
+    expect(cinco.pesosEfetivos.vitorias).toBeCloseTo(PESO_VITORIAS_V2, 6)
+    // e as parcelas continuam a somar ao total
+    for (const r of [duas, cinco]) {
+      const soma =
+        r.base * r.pesosEfetivos.grupo +
+        r.vitorias * r.pesosEfetivos.vitorias +
+        r.desempenho * r.pesosEfetivos.desempenho +
+        r.posJogo * r.pesosEfetivos.posJogo
+      expect(soma).toBeCloseTo(r.overallBase, 6)
+    }
   })
 })

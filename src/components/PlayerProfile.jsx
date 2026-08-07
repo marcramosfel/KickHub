@@ -6,6 +6,7 @@ import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
   BONUS_CRAQUE_MAX,
   PARTICIPACOES_TOPO,
+  PESO_VITORIAS_V2,
   WAE_MIN_JOGOS,
   PENAL_BAGRE_MAX,
   PESO_DESEMPENHO,
@@ -231,9 +232,10 @@ function OverallExplicado({ o }) {
             )}
             {o.vitoriasProvisorio && (
               <p style={{ fontSize: 12, color: colors.teamA, marginTop: 8 }}>
-                🏆 As vitórias contam com {o.waeJogos} de {WAE_MIN_JOGOS} rodadas — até lá a nota
-                é puxada para os 50 (o esperado), porque com poucos jogos o desvio é quase todo
-                sorte.
+                🏆 As vitórias contam com {o.waeJogos} de {WAE_MIN_JOGOS} rodadas medidas — por
+                isso pesam {pct(o.pesosEfetivos.vitorias)} em vez dos {pct(PESO_VITORIAS_V2)}. O
+                peso sobe a cada rodada sorteada pelo assistente, até estar completo às{' '}
+                {WAE_MIN_JOGOS}.
               </p>
             )}
             <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>
