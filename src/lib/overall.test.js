@@ -232,6 +232,86 @@ describe('confiança na avaliação pós-jogo', () => {
   })
 })
 
+// O painel "Como se calcula o overall?" mostra parcela a parcela. Se as
+// parcelas não somarem ao total, o painel mente — e ele existe precisamente
+// para o número não parecer arbitrário. Foi o que aconteceu quando a
+// confiança entrou: as linhas usavam os pesos nominais e o total usava os
+// renormalizados.
+describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
+  const soma = (r) =>
+    (r.base ?? 0) * r.pesosEfetivos.grupo +
+    r.desempenho * r.pesosEfetivos.desempenho +
+    (r.posJogo ?? 0) * r.pesosEfetivos.posJogo
+
+  it('somam 1 sempre que há alguma parcela', () => {
+    const casos = [
+      { avg: 4, matches: 10, goals: 10, assists: 5 },
+      { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 5, post_rating_count: 1 },
+      { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 5, post_rating_count: 3 },
+      { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 5, post_rating_count: 20 },
+      { avg: null, matches: 10, goals: 10, assists: 5, post_rating_avg: 4, post_rating_count: 9 },
+      { avg: 4, matches: 0, goals: 0, assists: 0, post_rating_avg: 4, post_rating_count: 9 },
+      { avg: 4, matches: 0, goals: 0, assists: 0 },
+      { avg: null, matches: 10, goals: 3, assists: 1 },
+    ]
+    for (const c of casos) {
+      const r = calcularOverall(c)
+      const total =
+        r.pesosEfetivos.grupo + r.pesosEfetivos.desempenho + r.pesosEfetivos.posJogo
+      expect(total).toBeCloseTo(1, 6)
+    }
+  })
+
+  it('a soma das parcelas dá exatamente o overallBase', () => {
+    const casos = [
+      { avg: 3.68, matches: 3, goals: 8, assists: 4, post_rating_avg: 5, post_rating_count: 2 },
+      { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 5, post_rating_count: 1 },
+      { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 2, post_rating_count: 12 },
+      { avg: null, matches: 4, goals: 4, assists: 2, post_rating_avg: 4, post_rating_count: 4 },
+    ]
+    for (const c of casos) {
+      const r = calcularOverall(c)
+      expect(soma(r)).toBeCloseTo(r.overallBase, 6)
+    }
+  })
+
+  it('o caso do ecrã: 3,68 de média, 4 part./jogo, 5,0 em 2 avaliações', () => {
+    // as linhas do painel somavam 70,1 e o total dizia 90 — a diferença era
+    // a renormalização, que não aparecia em lado nenhum
+    const r = calcularOverall({
+      avg: 3.68,
+      matches: 3,
+      goals: 8,
+      assists: 4,
+      craques: 2,
+      bagres: 0,
+      post_rating_avg: 5,
+      post_rating_count: 2,
+    })
+    expect(soma(r)).toBeCloseTo(r.overallBase, 6)
+    expect(Math.round(r.overallBase + r.bonusCraque - r.penalBagre)).toBe(r.overall)
+    // com 2 de 6 avaliações, a opinião do grupo passa a pesar mais do que os
+    // 50% nominais — é isso que explica o número
+    expect(r.pesosEfetivos.grupo).toBeGreaterThan(0.5)
+    expect(r.avaliacoesEmFalta).toBe(4)
+  })
+
+  it('com avaliações que cheguem, os efetivos voltam a ser 50/25/25', () => {
+    const r = calcularOverall({
+      avg: 4,
+      matches: 10,
+      goals: 10,
+      assists: 5,
+      post_rating_avg: 4,
+      post_rating_count: AVALIACOES_CONFIANCA,
+    })
+    expect(r.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_V2, 6)
+    expect(r.pesosEfetivos.desempenho).toBeCloseTo(PESO_DESEMPENHO_V2, 6)
+    expect(r.pesosEfetivos.posJogo).toBeCloseTo(PESO_POS_JOGO_V2, 6)
+    expect(r.avaliacoesEmFalta).toBe(0)
+  })
+})
+
 describe('calculateGoalkeeperOverall — exemplo do utilizador', () => {
   // 10 defesas e 5 gols sofridos = 15 finalizações à baliza, 66,7% de defesas
   const gk = { matches: 5, saves: 10, goalsConceded: 5, cleanSheets: 1, wins: 3 }

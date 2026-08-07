@@ -4,6 +4,7 @@ import { formatDia } from '../lib/format'
 import Avatar from './Avatar'
 import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
+  AVALIACOES_CONFIANCA,
   BONUS_CRAQUE_MAX,
   PARTICIPACOES_TOPO,
   PENAL_BAGRE_MAX,
@@ -140,27 +141,32 @@ function OverallExplicado({ o }) {
           </>
         ) : (
           <>
+            {/* Os pesos mostrados são os EFETIVOS, já renormalizados. Com os
+                nominais (50/25/25), uma parcela em falta — ou a confiança da
+                avaliação ainda a subir — fazia as linhas não somarem ao
+                total, e o painel existe precisamente para o número não
+                parecer arbitrário. */}
             {o.base != null && (
               <Parcela
-                label={`Opinião do grupo (${pct(o.pesos.grupo)})`}
-                nota={`${(o.base / 20).toFixed(2).replace('.', ',')} × 20 = ${num(o.base)} × ${pct(o.pesos.grupo)}`}
-                valor={`+${num(o.pesos.grupo * o.base)}`}
+                label={`Opinião do grupo (${pct(o.pesosEfetivos.grupo)})`}
+                nota={`${(o.base / 20).toFixed(2).replace('.', ',')} × 20 = ${num(o.base)} × ${pct(o.pesosEfetivos.grupo)}`}
+                valor={`+${num(o.pesosEfetivos.grupo * o.base)}`}
                 cor={colors.grass}
               />
             )}
             <Parcela
-              label={`Desempenho em campo (${pct(o.pesos.desempenho)})`}
-              nota={`${num(o.ppj)} gols+assist. por jogo = ${num(o.desempenho)} × ${pct(o.pesos.desempenho)}`}
-              valor={`+${num(o.pesos.desempenho * o.desempenho)}`}
+              label={`Desempenho em campo (${pct(o.pesosEfetivos.desempenho)})`}
+              nota={`${num(o.ppj)} gols+assist. por jogo = ${num(o.desempenho)} × ${pct(o.pesosEfetivos.desempenho)}`}
+              valor={`+${num(o.pesosEfetivos.desempenho * o.desempenho)}`}
               cor={colors.grass}
             />
             {o.versao === 2 && (
               <Parcela
-                label={`⭐ Avaliação dos companheiros (${pct(o.pesos.posJogo)})`}
+                label={`⭐ Avaliação dos companheiros (${pct(o.pesosEfetivos.posJogo)})`}
                 nota={`${num(o.estrelas)} de 5 em ${o.avaliacoes} ${
                   o.avaliacoes === 1 ? 'avaliação' : 'avaliações'
-                } = ${num(o.posJogo)} × ${pct(o.pesos.posJogo)}`}
-                valor={`+${num(o.pesos.posJogo * o.posJogo)}`}
+                } = ${num(o.posJogo)} × ${pct(o.pesosEfetivos.posJogo)}`}
+                valor={`+${num(o.pesosEfetivos.posJogo * o.posJogo)}`}
                 cor={colors.teamA}
               />
             )}
@@ -206,8 +212,11 @@ function OverallExplicado({ o }) {
             </div>
             {o.posJogoProvisorio && (
               <p style={{ fontSize: 12, color: colors.teamA, marginTop: 8 }}>
-                ⏳ Só uma avaliação pós-jogo até agora — a nota dos companheiros ainda é
-                provisória e vai assentar com as próximas peladas.
+                ⏳ {o.avaliacoes === 1 ? 'Só 1 avaliação' : `Só ${o.avaliacoes} avaliações`}{' '}
+                pós-jogo até agora, de {AVALIACOES_CONFIANCA}. Enquanto forem poucas, a nota dos
+                companheiros pesa menos e o resto do overall pesa mais — não é castigo, é não
+                deixar um voto isolado decidir o teu número. As avaliações somam-se de pelada
+                para pelada: faltam {o.avaliacoesEmFalta} para valer por inteiro.
               </p>
             )}
             <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>

@@ -115,10 +115,27 @@ export function calcularOverall(perfil) {
     // ainda sem avaliações que cheguem para a parcela valer por inteiro —
     // a UI diz que o número é provisório
     posJogoProvisorio: temPosJogo && avaliacoes < AVALIACOES_CONFIANCA,
+    avaliacoesEmFalta: temPosJogo ? Math.max(0, AVALIACOES_CONFIANCA - avaliacoes) : 0,
     pesos:
       versao === 2
         ? { grupo: PESO_GRUPO_V2, desempenho: PESO_DESEMPENHO_V2, posJogo: pesoPosJogo }
         : { grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 },
+    // Preenchido a seguir por cada ramo. São os pesos DEPOIS de as parcelas
+    // em falta saírem da conta — os únicos que explicam o número final.
+    pesosEfetivos: { grupo: 0, desempenho: 0, posJogo: 0 },
+  }
+
+  // Os pesos nominais (50/25/25) não explicam o overall quando falta uma
+  // parcela ou a confiança ainda não é 1: o que manda são estes, já
+  // renormalizados. Sem os expor, o painel "como se calcula o overall"
+  // mostrava parcelas que não somavam ao total — e o painel existe
+  // precisamente para o número não parecer arbitrário.
+  const efetivos = (pares) => {
+    const total = pares.reduce((s, [, p]) => s + p, 0)
+    const out = { grupo: 0, desempenho: 0, posJogo: 0 }
+    if (total <= 0) return out
+    for (const [nome, p] of pares) out[nome] = p / total
+    return out
   }
 
   // ---------- v1: exatamente o que este ficheiro sempre fez ----------
@@ -133,15 +150,28 @@ export function calcularOverall(perfil) {
     }
     // ainda sem notas do grupo: conta só o que fez em campo
     if (base == null) {
-      return { ...partes, overallBase: desempenho, overall: limitar(desempenho), provisorio: true }
+      return {
+        ...partes,
+        pesosEfetivos: { grupo: 0, desempenho: 1, posJogo: 0 },
+        overallBase: desempenho,
+        overall: limitar(desempenho),
+        provisorio: true,
+      }
     }
     // ainda sem rodadas registadas: vale só a opinião do grupo
     if (matches === 0) {
-      return { ...partes, overallBase: base, overall: limitar(base), provisorio: true }
+      return {
+        ...partes,
+        pesosEfetivos: { grupo: 1, desempenho: 0, posJogo: 0 },
+        overallBase: base,
+        overall: limitar(base),
+        provisorio: true,
+      }
     }
     const overallBase = PESO_GRUPO * base + PESO_DESEMPENHO * desempenho
     return {
       ...partes,
+      pesosEfetivos: { grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 },
       overallBase,
       overall: limitar(overallBase + bonusCraque - penalBagre),
       provisorio: false,
@@ -157,16 +187,17 @@ export function calcularOverall(perfil) {
   // uma avaliação pesa ~4%, com seis pesa os 25% cheios. A renormalização
   // trata do resto — o que a parcela ainda não vale vai para as outras, em
   // vez de puxar o número para baixo por falta de dados.
-  const parcelas = [[posJogo, pesoPosJogo]]
-  if (base != null) parcelas.push([base, PESO_GRUPO_V2])
-  if (matches > 0) parcelas.push([desempenho, PESO_DESEMPENHO_V2])
+  const parcelas = [['posJogo', posJogo, pesoPosJogo]]
+  if (base != null) parcelas.push(['grupo', base, PESO_GRUPO_V2])
+  if (matches > 0) parcelas.push(['desempenho', desempenho, PESO_DESEMPENHO_V2])
 
-  const pesoTotal = parcelas.reduce((s, [, p]) => s + p, 0)
-  const somaPesada = parcelas.reduce((s, [v, p]) => s + v * p, 0)
+  const pesoTotal = parcelas.reduce((s, [, , p]) => s + p, 0)
+  const somaPesada = parcelas.reduce((s, [, v, p]) => s + v * p, 0)
   const overallBase = somaPesada / pesoTotal
 
   return {
     ...partes,
+    pesosEfetivos: efetivos(parcelas.map(([nome, , p]) => [nome, p])),
     overallBase,
     overall: limitar(overallBase + bonusCraque - penalBagre),
     // "provisório" continua a querer dizer "ainda falta informação para o
