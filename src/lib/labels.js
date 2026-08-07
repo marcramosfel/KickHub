@@ -36,18 +36,38 @@ export const RATING_LABELS = [
 // piada que passe a ofensa deixa de ser piada quando tem autor. Por isso
 // nenhuma frase ataca a pessoa — todas falam do que ela faz com a bola.
 //
-// `ate` é o limite SUPERIOR da faixa (exclusivo, menos na última).
+// `ate` é o limite SUPERIOR da faixa (inclusivo). Uma faixa a cada 0,2, e
+// o passo da barra é 0,1 — ou seja, a reação muda a cada dois toques. Foi
+// escolhido assim: a cada 0,1 o texto piscava e não se lia; a cada 0,5 a
+// barra parecia encravada metade do caminho.
 export const FAIXAS_DA_NOTA = [
-  { ate: 0.5, emoji: '🪵', titulo: 'Tronco', frase: 'Ainda está a decidir de que lado joga.' },
-  { ate: 1.0, emoji: '🐟', titulo: 'Bagre autêntico', frase: 'Não sabe chutar uma bola. Mas aparece sempre.' },
-  { ate: 1.5, emoji: '🥴', titulo: 'Bagre com noção', frase: 'É ruim, e o melhor é que sabe que é.' },
-  { ate: 2.0, emoji: '🦵', titulo: 'Perna de pau', frase: 'Raça de sobra, bola de menos.' },
-  { ate: 2.5, emoji: '😅', titulo: 'Vai levando', frase: 'Uma boa por jogo, e sai feliz.' },
-  { ate: 3.0, emoji: '🔧', titulo: 'Operário da pelada', frase: 'Faz o simples e não estraga.' },
-  { ate: 3.5, emoji: '🙂', titulo: 'Dá conta do recado', frase: 'Ninguém reclama de o ter no time.' },
-  { ate: 4.0, emoji: '⚽', titulo: 'Bom de bola', frase: 'Resolve quando precisa.' },
-  { ate: 4.5, emoji: '🔥', titulo: 'Craque da vila', frase: 'Carrega o time nas costas.' },
-  { ate: 4.9, emoji: '🌟', titulo: 'Decide sozinho', frase: 'Quando entra, o jogo muda.' },
+  // O zero redondo tem reação própria: sem ela, 0,0 / 0,1 / 0,2 caíam todos
+  // na mesma faixa e o arranque da barra ficava morto.
+  { ate: 0.0, emoji: '💀', titulo: 'Zero absoluto', frase: 'Nem o nome na súmula justifica.' },
+  { ate: 0.2, emoji: '🪵', titulo: 'Tronco', frase: 'Foi ao campo. Ficou no campo.' },
+  { ate: 0.4, emoji: '🧱', titulo: 'Poste', frase: 'Ao menos não sai do lugar.' },
+  { ate: 0.6, emoji: '🚧', titulo: 'Obstáculo', frase: 'Atrapalha os dois times por igual.' },
+  { ate: 0.8, emoji: '🐟', titulo: 'Bagre autêntico', frase: 'Não sabe chutar uma bola. Mas aparece sempre.' },
+  { ate: 1.0, emoji: '🐌', titulo: 'Chega tarde', frase: 'A bola passa, ele acena.' },
+  { ate: 1.2, emoji: '🥴', titulo: 'Bagre com noção', frase: 'É ruim, e o melhor é que sabe que é.' },
+  { ate: 1.4, emoji: '🙈', titulo: 'Perigo em casa', frase: 'Já fez gol contra. E comemorou.' },
+  { ate: 1.6, emoji: '🦵', titulo: 'Perna de pau', frase: 'Raça de sobra, bola de menos.' },
+  { ate: 1.8, emoji: '🪃', titulo: 'Chuta e volta', frase: 'Toda bola dele volta para o adversário.' },
+  { ate: 2.0, emoji: '😵‍💫', titulo: 'Tonto de bola', frase: 'Corre muito, entende pouco.' },
+  { ate: 2.2, emoji: '🫠', titulo: 'Vai levando', frase: 'Uma boa por jogo, e sai feliz.' },
+  { ate: 2.4, emoji: '🚶', titulo: 'Passeador', frase: 'Anda mais do que corre.' },
+  { ate: 2.6, emoji: '🧢', titulo: 'Figura da pelada', frase: 'Vale metade pelo futebol, metade pela presença.' },
+  { ate: 2.8, emoji: '🔧', titulo: 'Operário', frase: 'Faz o simples e não estraga.' },
+  { ate: 3.0, emoji: '🧰', titulo: 'Quebra-galho', frase: 'Joga onde faltar, sem reclamar.' },
+  { ate: 3.2, emoji: '🙂', titulo: 'Dá conta do recado', frase: 'Ninguém reclama de o ter no time.' },
+  { ate: 3.4, emoji: '🎯', titulo: 'Passe certo', frase: 'Não inventa — e é por isso que funciona.' },
+  { ate: 3.6, emoji: '🏃', titulo: 'Motorzinho', frase: 'Não para nunca. Cansa só de olhar.' },
+  { ate: 3.8, emoji: '⚽', titulo: 'Bom de bola', frase: 'Resolve quando precisa.' },
+  { ate: 4.0, emoji: '🎩', titulo: 'Tem categoria', frase: 'Faz parecer fácil.' },
+  { ate: 4.2, emoji: '🔥', titulo: 'Craque da vila', frase: 'Carrega o time nas costas.' },
+  { ate: 4.4, emoji: '🚀', titulo: 'Desequilibra', frase: 'Quando arranca, ninguém pega.' },
+  { ate: 4.6, emoji: '🪄', titulo: 'Mágico', frase: 'Inventa passe que ninguém tinha visto.' },
+  { ate: 4.8, emoji: '🌟', titulo: 'Decide sozinho', frase: 'Quando entra, o jogo muda.' },
   { ate: 5.0, emoji: '👑', titulo: 'Craque absoluto', frase: 'Profissional infiltrado na pelada.' },
 ]
 
