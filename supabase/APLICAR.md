@@ -1,4 +1,4 @@
-# Como aplicar as migrações novas (0015 → 0023)
+# Como aplicar as migrações novas (0015 → 0025)
 
 A base de dados tem dados reais. Estas migrações são **aditivas**: só acrescentam colunas,
 tabelas e funções. Não apagam nada, não alteram linhas existentes e podem correr duas vezes sem
@@ -16,6 +16,8 @@ Aplica **por ordem**, uma de cada vez, no **SQL Editor** do Supabase
 7. `0021_trocas.sql`
 8. `0022_cards.sql`
 9. `0023_avaliacao_pos_jogo.sql`
+10. `0024_formato_e_rodizio.sql`
+11. `0025_votacao.sql`
 
 A app degrada sozinha enquanto não aplicares: as secções que dependem de cada migração mostram
 um aviso a dizer qual o ficheiro que falta, em vez de rebentar. Mas o **fluxo de posições só
@@ -289,13 +291,100 @@ existirem, e sem isso as funções não veriam a `overall_version`.
 
 ---
 
+## 0024 — Formato do jogo e rodízio de goleiro
+
+Até aqui só existia um formato: 2 goleiros fixos + 12 de campo. Sem dois goleiros no dia, o
+admin tinha de marcar jogadores de linha como goleiros (com uma caixa que os tornava goleiros
+**permanentes** no ranking) ou fugir pelo rachão, onde o goleiro saía à sorte.
+
+**Colunas novas em `matches`:**
+
+| coluna | omissão | para quê |
+|---|---|---|
+| `gk_mode` | `'FIXED'` | `'FIXED'` (goleiros fixos) ou `'ROTATING'` (o gol roda) |
+| `team_size` | `7` | 5 a 8; hoje só 6 e 7 estão ativos no assistente |
+| `gk_rotation_minutes` | `null` | de quantos em quantos minutos troca, opcional |
+
+**Coluna nova em `match_lineup`:** `gk_order` — 1 = começa no gol, 2 = entra a seguir. Fica
+`null` no formato de goleiros fixos. É gravada (em vez de recalculada) porque o histórico de
+quem foi ao gol muda com o tempo e a escalação publicada tem de continuar a dizer o que o grupo
+viu.
+
+**Coluna nova em `players`:** `gk_rotation_ok` (omissão `true`) — "aceitas ir ao gol quando o
+rodízio te calhar?". Diferente de `accepts_other_positions`, que é sobre lugares de campo.
+
+**O número de jogadores NÃO muda:** um 7×7 com rodízio usa as mesmas 14 pessoas de sempre. O que
+muda é quem conta como goleiro e como o equilíbrio é calculado.
+
+**`admin_save_schedule` é recriada com DROP + CREATE** — ganha parâmetros novos, e acrescentar
+parâmetros cria uma *segunda* função em vez de substituir a primeira. As duas a coexistir
+tornavam ambígua qualquer chamada antiga (PGRST203, que a app mostrava como "erro de ligação").
+
+**`get_players` também é DROP + CREATE** (muda o `returns table`): passa a trazer `gk_starts` e
+`last_gk_start`, que é o que torna a escolha do goleiro justa em vez de aleatória.
+
+**Trigger novo** `match_lineup_gk_order_trg`: as trocas de equipa (0021) apagam e reinserem as
+linhas sem conhecer o `gk_order`, e sem isto a ordem ficava com um buraco.
+
+**Códigos de erro novos:** `FORMATOINVALIDO`, `TAMANHOEQUIPA`, `ORDEMRODIZIO`.
+
+---
+
+## 0025 — Votação com prazo, link e fecho
+
+Havia duas votações independentes (craque/bagre e estrelas), sem prazo, sem lembrete e sem link.
+
+**Colunas novas em `matches`:**
+
+| coluna | omissão | para quê |
+|---|---|---|
+| `voting_status` | `'NONE'` | `NONE` → `OPEN` → `REVIEW` → `CLOSED` |
+| `voting_deadline` | `null` | validado no **servidor** — o contador do ecrã é decoração |
+| `voting_closed_at` | `null` | quando fechou |
+| `voting_quorum_pct` | `50` | abaixo disto vai a `REVIEW` em vez de fechar |
+| `craque_final` / `bagre_final` | `null` | vencedor congelado no fecho |
+
+**Tabela nova `player_devices`** — o "lembrar-me neste telemóvel" guarda um **token**, nunca o
+PIN. Autoriza ler e votar, e mais nada: trocar PIN, trocar foto e entrar no admin continuam a
+exigir o PIN escrito.
+
+**Dois UPDATE de dados** (os únicos de toda esta série, e são precisos):
+
+1. Os jogos com a avaliação aberta passam a `OPEN` com **3 dias de prazo a contar de agora**. Sem
+   isto, a primeira leitura depois do deploy fechava-as todas de uma vez (prazo nulo = expirado).
+2. As rodadas já jogadas passam a `CLOSED`. **Consequência assumida: deixam de aceitar votos
+   novos.** `craque_final` fica a `null` de propósito — quem ganhou nessas rodadas continua a ser
+   decidido pela contagem de votos de sempre, para a régua nova não reescrever a história. Se
+   faltar mesmo o voto de alguém, o admin reabre em Jogos → Votação.
+
+**`get_matches` e `admin_matches_upcoming` passam a chamar `fechar_votacoes_expiradas()`** — o
+fecho é preguiçoso e converge na primeira leitura depois do prazo, sem precisar de `pg_cron`. Se
+quiseres fecho ao segundo, agenda a mesma função de 15 em 15 minutos; é idempotente.
+
+**`admin_matches_upcoming` passa a trazer os jogos com votação a decorrer** — um jogo já jogado
+saía da agenda do admin, e é precisamente esse que tem votos a contar.
+
+**A view `matches_validas` é recriada** — nasceu com `select m.*` antes destas colunas
+existirem, e sem isso as funções não veriam o `voting_status`.
+
+**`vote_award` e `submit_post_match_ratings` passam a ser invólucros** de `submit_round_vote`,
+para deixarem de ser uma porta lateral que ignora o prazo.
+
+**Códigos de erro novos:** `PRAZOVOTACAO`, `VOTACAOREVISAO`, `TOKENINVALIDO`.
+
+---
+
 ## Depois de aplicar
 
 1. **Faz um backup antes** — Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)".
-2. Aplica as três migrações por ordem.
-3. Entra na app: deves ir parar ao ecrã de escolha de posição.
-4. Admin → **Posições** → confirma que vês os ~30 jogadores como "Sem posição".
-5. Admin → **Próximo jogo** → o assistente de 7 passos precisa de 2 goleiros + 12 jogadores de
-   campo com posição definida. Define-os tu em "Posições" se ninguém tiver escolhido ainda.
-6. Faz o **deploy do frontend**. As migrações sozinhas não chegam: o código novo só chega ao grupo
-   depois do rebuild.
+2. Aplica as migrações que faltam, **por ordem**, uma de cada vez.
+3. Faz o **deploy do frontend**. As migrações sozinhas não chegam: o código novo só chega ao
+   grupo depois do rebuild.
+4. Admin → **Novo sorteio** → confirma que o passo 1 mostra os dois cartões de formato
+   (🧤 goleiros fixos / 🔄 sem goleiros fixos) e o tamanho da equipa.
+5. Marca um jogo de teste em modo rodízio e confirma que o passo 3 mostra a ordem do rodízio com
+   a justificação ("nunca começou no gol", "3× no gol · última vez há 12 dias").
+6. Num jogo já jogado: Admin → **Jogos** → abre-o → **⏹ Encerrar jogo e abrir a votação**.
+   Confirma que aparece a mensagem pronta para o WhatsApp com o link `#/votar/<id>`.
+7. Abre esse link **noutro telemóvel** (ou numa janela anónima): deve cair direto no ecrã "És
+   tu?" e, depois do PIN, na cédula. É este o caminho que tudo isto existe para encurtar.
