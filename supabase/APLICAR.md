@@ -451,9 +451,26 @@ Só na v2 — a v1 continua congelada nos 70/30.
 o grupo recomeça a avaliação de raiz. **Faz o backup antes** — mas as notas antigas também vão
 para `ratings_arquivo` automaticamente, com o número da ronda, antes de a tabela ser limpa.
 
-**Consequência imediata:** no dia em que aplicares, toda a gente fica sem nota do grupo e o
-overall passa a valer só pelo que se fez em campo. Volta ao normal à medida que as notas novas
-entram. Não há forma de evitar isto — é o que "recomeçar" quer dizer.
+**O que apaga, ao certo:** só a tabela `ratings` (a nota de 0 a 5 que cada um dá aos outros). Tem
+exatamente dois `DELETE`, os dois sobre ela. **Nada mais é tocado** — e vale a pena ser explícito,
+porque é a primeira pergunta que isto levanta:
+
+| | tabela | a 0027 mexe? |
+|---|---|---|
+| 👑 Craques e 🐟 bagres | `award_votes` | **não** |
+| ⚽ Gols e 🅰️ assistências | `match_stats` | **não** |
+| Rodadas, placares, fotos | `matches`, `match_media` | **não** |
+| ⭐ Notas pós-jogo | `post_match_ratings` | **não** |
+| 🧤 Defesas e gols sofridos | `goalkeeper_match_stats` | **não** |
+| Escalações e rodízio | `match_lineup` | **não** |
+
+Não há cascata: as chaves estrangeiras da `ratings` apontam **para** `players`, não o contrário.
+
+**Consequência imediata:** no dia em que aplicares, toda a gente fica sem a parcela da opinião do
+grupo — a mais pesada do overall. As outras continuam a contar na mesma (desempenho em campo,
+avaliação dos companheiros, vitórias acima do esperado, craques e bagres), e os pesos
+renormalizam entre elas. O overall de toda a gente vai mexer até a ronda nova andar. Não há forma
+de evitar isto — é o que "recomeçar" quer dizer.
 
 **Três mudanças:**
 
@@ -503,8 +520,10 @@ muda o tipo de retorno.
 9. Ainda nesse telemóvel com voto por dar, vai à **Home**: onde estava o craque da última rodada
    deve aparecer **"🔒 Vota para ver"**. Depois de votar, recarrega — o craque, o bagre e as
    estrelas aparecem. O placar e os gols estão sempre à vista, antes e depois.
-10. Entra com qualquer conta: deves cair no ecrã de **avaliação do grupo**, um jogador por vez,
-    com a barra de 0 a 5 a mudar de emoji e de frase. Confirma o **"🤷 Não conheço este jogador"**.
+10. Entra com qualquer conta: deves cair no ecrã de **avaliação do grupo**, um jogador por vez.
+    Arrasta a barra de ponta a ponta — o emoji, o título e a frase têm de mudar **a cada 0,2**
+    (são 26 reações, de 💀 “Zero absoluto” a 👑 “Craque absoluto”). Confirma também o
+    **“🤷 Não conheço este jogador”**.
 11. Admin → **Quem falta votar** → em cima aparece "Avaliação do grupo · ronda 2" com a lista de
     quem ainda não entregou e o botão de abrir à força.
 
