@@ -249,6 +249,12 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
     // proíbe. A contagem, essa, pode ser 0 à vontade.
     const postRatingAvg = numOuNulo(stats.post_rating_avg ?? row.post_rating_avg)
     const postRatingCount = num(stats.post_rating_count ?? row.post_rating_count)
+    // Vitórias acima do esperado (0026): saldo cru e quantas rodadas o
+    // compõem. `null` no saldo quer dizer "não há rodadas com forças
+    // gravadas" — e é isso que faz a parcela sair da conta em vez de valer
+    // 50 (o neutro) a quem nunca teve um sorteio equilibrado medido.
+    const waeSaldo = numOuNulo(stats.wae_saldo ?? row.wae_saldo)
+    const waeMatches = num(stats.wae_matches ?? row.wae_matches)
 
     // As vitórias podem vir do histórico ou já contadas na linha do goleiro;
     // sem nenhuma das duas fontes ficam a null e a aba mostra empty state.
@@ -268,6 +274,8 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
       bagres,
       post_rating_avg: postRatingAvg,
       post_rating_count: postRatingCount,
+      wae_saldo: waeSaldo,
+      wae_matches: waeMatches,
     })
     // Para o overall de baliza contam as vitórias COM ele na baliza; só na
     // falta delas é que se recorre ao histórico geral.
@@ -299,6 +307,11 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
       bagres,
       postRatingAvg,
       postRatingCount,
+      waeSaldo,
+      waeMatches,
+      // a nota já convertida (50 = exatamente o esperado), para os ecrãs não
+      // terem de repetir a conta
+      vitoriasAcimaDoEsperado: campo.vitorias,
       // versão da fórmula deste jogador: 1 enquanto não for avaliado pelos
       // companheiros, 2 a partir daí
       overallVersion: campo.versao,

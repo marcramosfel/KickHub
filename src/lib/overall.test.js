@@ -8,6 +8,9 @@ import {
   PESO_GRUPO,
   PESO_GRUPO_V2,
   PESO_POS_JOGO_V2,
+  PESO_VITORIAS_V2,
+  WAE_MIN_JOGOS,
+  notaAcimaDoEsperado,
   calcularOverall,
   calculateFieldPlayerOverall,
   calculateGoalkeeperOverall,
@@ -44,7 +47,14 @@ describe('versão da fórmula', () => {
   it('sem avaliação pós-jogo fica na v1, com 70/30', () => {
     const r = calcularOverall(v1())
     expect(r.versao).toBe(1)
-    expect(r.pesos).toEqual({ grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 })
+    // a v1 é a fórmula congelada: as vitórias acima do esperado só entram na
+    // v2, para os números antigos não mexerem sozinhos
+    expect(r.pesos).toEqual({
+      grupo: PESO_GRUPO,
+      vitorias: 0,
+      desempenho: PESO_DESEMPENHO,
+      posJogo: 0,
+    })
     const base = 4.1 * 20
     const desempenho = Math.min(18 / 10 / 3, 1) * 100
     const esperado =
@@ -76,6 +86,8 @@ describe('versão da fórmula', () => {
     expect(r.versao).toBe(OVERALL_VERSION)
     expect(r.pesos).toEqual({
       grupo: PESO_GRUPO_V2,
+      // sem rodadas com forças gravadas, a parcela das vitórias nem existe
+      vitorias: 0,
       desempenho: PESO_DESEMPENHO_V2,
       posJogo: PESO_POS_JOGO_V2,
     })
@@ -96,9 +108,13 @@ describe('versão da fórmula', () => {
   })
 })
 
-describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
-  // O exemplo do pedido: grupo 82, campo 76, pós-jogo 88.
-  it('o exemplo do pedido dá as parcelas anunciadas', () => {
+// Saldo 0 em 5 rodadas = exatamente o esperado = nota 50, com o peso já
+// cheio. É o fixture para os testes que querem as QUATRO parcelas presentes
+// sem que as vitórias mexam no resultado.
+const WAE_NEUTRO = { wae_saldo: 0, wae_matches: 5 }
+
+describe('fórmula v2 — 40% grupo, 15% vitórias, 20% campo, 25% companheiros', () => {
+  it('as quatro parcelas entram com os pesos anunciados', () => {
     const r = calcularOverall({
       avg: 4.1, // × 20 = 82
       matches: 10,
@@ -108,16 +124,19 @@ describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
       bagres: 0,
       post_rating_avg: 4.4, // 4,4/5 = 88
       post_rating_count: 12,
+      ...WAE_NEUTRO, // → 50
     })
     expect(r.base).toBeCloseTo(82, 6)
     expect(r.desempenho).toBeCloseTo(76, 6)
     expect(r.posJogo).toBeCloseTo(88, 6)
-    expect(r.overallBase).toBeCloseTo(82 * 0.5 + 76 * 0.25 + 88 * 0.25, 6)
-    expect(r.overall).toBe(82)
+    expect(r.vitorias).toBeCloseTo(50, 6)
+    expect(r.overallBase).toBeCloseTo(82 * 0.4 + 50 * 0.15 + 76 * 0.2 + 88 * 0.25, 6)
   })
 
   it('a avaliação pós-jogo mexe no overall na proporção certa', () => {
-    const perfil = { avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0 }
+    const perfil = {
+      avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0, ...WAE_NEUTRO,
+    }
     const cincoEstrelas = calcularOverall({ ...perfil, post_rating_avg: 5, post_rating_count: 6 })
     const zeroEstrelas = calcularOverall({ ...perfil, post_rating_avg: 0, post_rating_count: 6 })
     expect(cincoEstrelas.overall - zeroEstrelas.overall).toBe(25)
@@ -169,8 +188,12 @@ describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
       avg: 4, matches: 0, goals: 0, assists: 0, craques: 0, bagres: 0,
       post_rating_avg: 3, post_rating_count: 6,
     })
-    // 80 e 60, sem a parcela de desempenho a puxar para baixo
-    expect(r.overallBase).toBeCloseTo((80 * 0.5 + 60 * 0.25) / 0.75, 6)
+    // 80 e 60, sem o desempenho nem as vitórias a puxar para baixo — as duas
+    // parcelas em falta saem da conta e os pesos renormalizam
+    expect(r.overallBase).toBeCloseTo(
+      (80 * PESO_GRUPO_V2 + 60 * PESO_POS_JOGO_V2) / (PESO_GRUPO_V2 + PESO_POS_JOGO_V2),
+      6
+    )
     expect(r.overall).toBeGreaterThan(60)
   })
 })
@@ -184,7 +207,9 @@ describe('fórmula v2 — 50% grupo, 25% campo, 25% companheiros', () => {
 // Houve uma versão que amortecia a parcela até seis avaliações. Estes testes
 // existem para o amortecimento não voltar por acidente.
 describe('a avaliação pós-jogo conta pela média de quem votou', () => {
-  const perfil = { avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0 }
+  const perfil = {
+    avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0, ...WAE_NEUTRO,
+  }
 
   it('uma avaliação isolada já vale os 25% inteiros', () => {
     const r = calcularOverall({ ...perfil, post_rating_avg: 5, post_rating_count: 1 })
@@ -236,6 +261,7 @@ describe('a avaliação pós-jogo conta pela média de quem votou', () => {
 describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
   const soma = (r) =>
     (r.base ?? 0) * r.pesosEfetivos.grupo +
+    (r.vitorias ?? 0) * r.pesosEfetivos.vitorias +
     r.desempenho * r.pesosEfetivos.desempenho +
     (r.posJogo ?? 0) * r.pesosEfetivos.posJogo
 
@@ -249,11 +275,20 @@ describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
       { avg: 4, matches: 0, goals: 0, assists: 0, post_rating_avg: 4, post_rating_count: 9 },
       { avg: 4, matches: 0, goals: 0, assists: 0 },
       { avg: null, matches: 10, goals: 3, assists: 1 },
+      // agora com a parcela das vitorias presente
+      { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 5, post_rating_count: 3,
+        wae_saldo: 1.2, wae_matches: 6 },
+      { avg: 4, matches: 10, goals: 10, assists: 5, wae_saldo: -0.8, wae_matches: 4 },
+      { avg: null, matches: 6, goals: 4, assists: 2, post_rating_avg: 3, post_rating_count: 5,
+        wae_saldo: 0.3, wae_matches: 5 },
     ]
     for (const c of casos) {
       const r = calcularOverall(c)
       const total =
-        r.pesosEfetivos.grupo + r.pesosEfetivos.desempenho + r.pesosEfetivos.posJogo
+        r.pesosEfetivos.grupo +
+        r.pesosEfetivos.vitorias +
+        r.pesosEfetivos.desempenho +
+        r.pesosEfetivos.posJogo
       expect(total).toBeCloseTo(1, 6)
     }
   })
@@ -264,6 +299,9 @@ describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
       { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 5, post_rating_count: 1 },
       { avg: 4, matches: 10, goals: 10, assists: 5, post_rating_avg: 2, post_rating_count: 12 },
       { avg: null, matches: 4, goals: 4, assists: 2, post_rating_avg: 4, post_rating_count: 4 },
+      { avg: 3.68, matches: 3, goals: 8, assists: 4, post_rating_avg: 5, post_rating_count: 2,
+        wae_saldo: 0.5, wae_matches: 5 },
+      { avg: 4, matches: 10, goals: 10, assists: 5, wae_saldo: -1.1, wae_matches: 7 },
     ]
     for (const c of casos) {
       const r = calcularOverall(c)
@@ -283,13 +321,15 @@ describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
       bagres: 0,
       post_rating_avg: 5,
       post_rating_count: 2,
+      wae_saldo: 0,
+      wae_matches: 5,
     })
     expect(soma(r)).toBeCloseTo(r.overallBase, 6)
     expect(Math.round(r.overallBase + r.bonusCraque - r.penalBagre)).toBe(r.overall)
-    // com as três parcelas presentes, os efetivos são os nominais
+    // com as quatro parcelas presentes, os efetivos são os nominais
     expect(r.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_V2, 6)
+    expect(r.pesosEfetivos.vitorias).toBeCloseTo(PESO_VITORIAS_V2, 6)
     expect(r.pesosEfetivos.posJogo).toBeCloseTo(PESO_POS_JOGO_V2, 6)
-    expect(r.overall).toBe(93)
   })
 
   it('os efetivos só divergem dos nominais quando FALTA uma parcela', () => {
@@ -300,7 +340,10 @@ describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
       assists: 5,
       post_rating_avg: 4,
       post_rating_count: 1,
+      wae_saldo: 0,
+      wae_matches: 5,
     })
+    expect(completo.pesosEfetivos.vitorias).toBeCloseTo(PESO_VITORIAS_V2, 6)
     expect(completo.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_V2, 6)
     expect(completo.pesosEfetivos.desempenho).toBeCloseTo(PESO_DESEMPENHO_V2, 6)
     expect(completo.pesosEfetivos.posJogo).toBeCloseTo(PESO_POS_JOGO_V2, 6)
@@ -314,9 +357,13 @@ describe('pesosEfetivos — as parcelas têm de somar ao overall', () => {
       post_rating_avg: 4,
       post_rating_count: 3,
     })
+    // sem rodadas de campo nao ha desempenho NEM vitorias: as duas saem e o
+    // que resta reparte os 100%
+    const resto = PESO_GRUPO_V2 + PESO_POS_JOGO_V2
     expect(semCampo.pesosEfetivos.desempenho).toBe(0)
-    expect(semCampo.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_V2 / 0.75, 6)
-    expect(semCampo.pesosEfetivos.posJogo).toBeCloseTo(PESO_POS_JOGO_V2 / 0.75, 6)
+    expect(semCampo.pesosEfetivos.vitorias).toBe(0)
+    expect(semCampo.pesosEfetivos.grupo).toBeCloseTo(PESO_GRUPO_V2 / resto, 6)
+    expect(semCampo.pesosEfetivos.posJogo).toBeCloseTo(PESO_POS_JOGO_V2 / resto, 6)
   })
 })
 
@@ -436,5 +483,112 @@ describe('calculateGoalkeeperOverall — sem dados', () => {
     expect(pessimo.overall).toBeGreaterThanOrEqual(0)
     expect(otimo.overall).toBeLessThanOrEqual(100)
     expect(otimo.overall).toBeGreaterThan(pessimo.overall)
+  })
+})
+
+// --------------------------------------------------- vitórias acima do esperado
+//
+// A pergunta é "ganhaste mais do que era suposto?", não "ganhaste?".
+//
+// A taxa de vitórias crua foi medida no plantel real e rejeitada: premiava
+// amostras de 1 e 2 jogos e castigava em 21 pontos quem tinha a melhor
+// avaliação do grupo e quatro derrotas. Estes testes existem para ela não
+// voltar disfarçada.
+describe('notaAcimaDoEsperado', () => {
+  it('saldo zero é exatamente o esperado — 50', () => {
+    expect(notaAcimaDoEsperado(0, WAE_MIN_JOGOS)).toBe(50)
+  })
+
+  it('ganhar mais do que o previsto sobe, perder mais desce', () => {
+    expect(notaAcimaDoEsperado(1.5, WAE_MIN_JOGOS)).toBeGreaterThan(50)
+    expect(notaAcimaDoEsperado(-1.5, WAE_MIN_JOGOS)).toBeLessThan(50)
+  })
+
+  it('é simétrica: o mesmo desvio para cima e para baixo afasta-se o mesmo', () => {
+    const cima = notaAcimaDoEsperado(1, 5) - 50
+    const baixo = 50 - notaAcimaDoEsperado(-1, 5)
+    expect(cima).toBeCloseTo(baixo, 6)
+  })
+
+  it('a confiança puxa para 50 até WAE_MIN_JOGOS', () => {
+    // o mesmo saldo MÉDIO conta menos com menos rodadas
+    const uma = notaAcimaDoEsperado(0.4, 1)
+    const cinco = notaAcimaDoEsperado(2.0, 5) // mesmo saldo médio: 0,4
+    expect(uma).toBeLessThan(cinco)
+    expect(uma - 50).toBeCloseTo((cinco - 50) / WAE_MIN_JOGOS, 6)
+  })
+
+  it('a partir de WAE_MIN_JOGOS a confiança pára de crescer', () => {
+    const cinco = notaAcimaDoEsperado(2.0, 5) // médio 0,4
+    const vinte = notaAcimaDoEsperado(8.0, 20) // médio 0,4
+    expect(cinco).toBeCloseTo(vinte, 6)
+  })
+
+  it('nunca sai de 0–100, por muito extremo que seja o saldo', () => {
+    expect(notaAcimaDoEsperado(50, 5)).toBe(100)
+    expect(notaAcimaDoEsperado(-50, 5)).toBe(0)
+  })
+
+  it('sem rodadas devolve null — a parcela sai da conta em vez de valer 50', () => {
+    // esta é a diferença que evita castigar quem nunca jogou: com a taxa
+    // crua, 10 jogadores com zero jogos perdiam ~10 pontos por causa de uma
+    // parcela que nem se lhes aplicava
+    expect(notaAcimaDoEsperado(0, 0)).toBe(null)
+    expect(notaAcimaDoEsperado(null, 5)).toBe(null)
+    expect(notaAcimaDoEsperado(undefined, undefined)).toBe(null)
+  })
+
+  it('aceita numeric em texto, como vem do Postgres', () => {
+    expect(notaAcimaDoEsperado('0.5', '5')).toBeCloseTo(notaAcimaDoEsperado(0.5, 5), 6)
+  })
+})
+
+describe('a parcela das vitórias no overall', () => {
+  const perfil = { avg: 4, matches: 10, goals: 10, assists: 5, craques: 0, bagres: 0,
+                   post_rating_avg: 4, post_rating_count: 6 }
+
+  it('quem nunca teve rodada com forças gravadas não tem a parcela', () => {
+    const r = calcularOverall(perfil)
+    expect(r.vitorias).toBe(null)
+    expect(r.pesos.vitorias).toBe(0)
+    expect(r.pesosEfetivos.vitorias).toBe(0)
+  })
+
+  it('a parcela em falta NÃO é castigo: os outros pesos renormalizam', () => {
+    const sem = calcularOverall(perfil)
+    const neutro = calcularOverall({ ...perfil, wae_saldo: 0, wae_matches: 5 })
+    // com saldo exatamente no esperado (50), o overall fica próximo do de
+    // quem nem tem a parcela — a diferença é só o 50 puxar a média
+    expect(Math.abs(sem.overall - neutro.overall)).toBeLessThanOrEqual(4)
+  })
+
+  it('ganhar acima do esperado sobe o overall; abaixo, desce', () => {
+    const acima = calcularOverall({ ...perfil, wae_saldo: 1.5, wae_matches: 5 })
+    const neutro = calcularOverall({ ...perfil, wae_saldo: 0, wae_matches: 5 })
+    const abaixo = calcularOverall({ ...perfil, wae_saldo: -1.5, wae_matches: 5 })
+    expect(acima.overall).toBeGreaterThan(neutro.overall)
+    expect(abaixo.overall).toBeLessThan(neutro.overall)
+  })
+
+  it('uma rodada isolada quase não mexe — é a diferença face à taxa crua', () => {
+    const neutro = calcularOverall({ ...perfil, wae_saldo: 0, wae_matches: 5 })
+    // ganhou a única rodada que jogou, e bem acima do esperado
+    const umaSo = calcularOverall({ ...perfil, wae_saldo: 0.6, wae_matches: 1 })
+    expect(Math.abs(umaSo.overall - neutro.overall)).toBeLessThanOrEqual(3)
+  })
+
+  it('assinala-se como provisória até WAE_MIN_JOGOS', () => {
+    const poucas = calcularOverall({ ...perfil, wae_saldo: 0.5, wae_matches: 2 })
+    const bastantes = calcularOverall({ ...perfil, wae_saldo: 0.5, wae_matches: WAE_MIN_JOGOS })
+    expect(poucas.vitoriasProvisorio).toBe(true)
+    expect(bastantes.vitoriasProvisorio).toBe(false)
+  })
+
+  it('não entra na v1 — a fórmula antiga fica congelada', () => {
+    const r = calcularOverall({ avg: 4, matches: 10, goals: 10, assists: 5,
+                                wae_saldo: 2, wae_matches: 8 })
+    expect(r.versao).toBe(1)
+    expect(r.pesos.vitorias).toBe(0)
+    expect(r.pesosEfetivos.vitorias).toBe(0)
   })
 })

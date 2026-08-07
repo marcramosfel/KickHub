@@ -6,6 +6,7 @@ import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
   BONUS_CRAQUE_MAX,
   PARTICIPACOES_TOPO,
+  WAE_MIN_JOGOS,
   PENAL_BAGRE_MAX,
   PESO_DESEMPENHO,
   PESO_DESEMPENHO_V2,
@@ -153,6 +154,19 @@ function OverallExplicado({ o }) {
                 cor={colors.grass}
               />
             )}
+            {/* A pergunta não é "ganhaste?" — é "ganhaste mais do que era
+                suposto?". 50 = exatamente o que a diferença de forças do
+                sorteio previa. */}
+            {o.vitorias != null && (
+              <Parcela
+                label={`🏆 Vitórias acima do esperado (${pct(o.pesosEfetivos.vitorias)})`}
+                nota={`${o.waeSaldo > 0 ? '+' : ''}${num(o.waeSaldo)} em ${o.waeJogos} ${
+                  o.waeJogos === 1 ? 'rodada' : 'rodadas'
+                } = ${num(o.vitorias)} × ${pct(o.pesosEfetivos.vitorias)}`}
+                valor={`+${num(o.pesosEfetivos.vitorias * o.vitorias)}`}
+                cor={colors.grass}
+              />
+            )}
             <Parcela
               label={`Desempenho em campo (${pct(o.pesosEfetivos.desempenho)})`}
               nota={`${num(o.ppj)} gols+assist. por jogo = ${num(o.desempenho)} × ${pct(o.pesosEfetivos.desempenho)}`}
@@ -213,6 +227,13 @@ function OverallExplicado({ o }) {
               <p style={{ fontSize: 12, color: colors.teamA, marginTop: 8 }}>
                 ⏳ Esta média vem de <strong>uma só avaliação</strong> — já conta por inteiro,
                 mas assenta à medida que mais companheiros forem votando.
+              </p>
+            )}
+            {o.vitoriasProvisorio && (
+              <p style={{ fontSize: 12, color: colors.teamA, marginTop: 8 }}>
+                🏆 As vitórias contam com {o.waeJogos} de {WAE_MIN_JOGOS} rodadas — até lá a nota
+                é puxada para os 50 (o esperado), porque com poucos jogos o desvio é quase todo
+                sorte.
               </p>
             )}
             <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>

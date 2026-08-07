@@ -4,7 +4,8 @@
 // Há DUAS versões da fórmula a viver ao mesmo tempo, e é de propósito:
 //
 //   v1 (a de sempre): 70% opinião do grupo + 30% desempenho
-//   v2 (esta):        50% opinião + 25% desempenho + 25% avaliação pós-jogo
+//   v2 (esta):        40% opinião + 20% desempenho + 25% avaliação pós-jogo
+//                     + 15% vitórias acima do esperado
 //
 // Um jogador só passa para a v2 quando recebe a PRIMEIRA avaliação pós-jogo
 // válida (só existem em jogos da versão 2 — ver `overall_version` na
@@ -29,10 +30,11 @@ export const OVERALL_VERSION = 2
 export const PESO_GRUPO = 0.7
 export const PESO_DESEMPENHO = 0.3
 
-// v2 — a soma continua a dar 1; o que saiu da opinião do grupo (20 pontos
-// percentuais) e do desempenho (5) foi para a avaliação dos companheiros.
-export const PESO_GRUPO_V2 = 0.5
-export const PESO_DESEMPENHO_V2 = 0.25
+// v2 — a soma dá 1. Os 15 pontos das vitórias saíram da opinião do grupo
+// (10) e do desempenho (5).
+export const PESO_GRUPO_V2 = 0.4
+export const PESO_VITORIAS_V2 = 0.15
+export const PESO_DESEMPENHO_V2 = 0.2
 export const PESO_POS_JOGO_V2 = 0.25
 export const ESTRELAS_MAX = 5
 
@@ -47,6 +49,44 @@ export const ESTRELAS_MAX = 5
 // O que resta desse desenho é a transparência: o painel do perfil diz sempre
 // quantas avaliações compõem a média, para um 5,0 de uma pessoa não se ler
 // como um 5,0 de sete.
+
+// ---------- Vitórias acima do esperado ----------
+//
+// A pergunta não é "ganhaste?" — é "ganhaste mais do que era suposto?".
+//
+// A taxa de vitórias crua não serve, e isso foi medido no plantel real, não
+// argumentado: o que ela premiava eram amostras de 1 e 2 jogos, e castigava
+// em 21 pontos quem tinha a melhor avaliação do grupo e quatro derrotas. Pior,
+// luta contra o próprio sorteio — o motor existe para IGUALAR as equipas, por
+// isso se ele funcionar as taxas convergem para 50% e a parcela mede ruído.
+//
+// O servidor (migração 0026) manda o SALDO cru: por cada rodada, o resultado
+// real menos o que a diferença de forças previa. Ganhar sendo favorito a 93%
+// vale +0,07; ganhar sendo favorito a 74% vale +0,26.
+//
+// Aqui converte-se para a escala 0–100 onde **50 = exatamente o esperado**.
+export const WAE_NEUTRO = 50
+export const WAE_ESCALA = 100 // saldo médio de +0,5 por jogo → nota 100
+// Abaixo disto a nota é puxada para 50 — não é castigo, é o mesmo mecanismo
+// de confiança do overall de goleiro (`RODADAS_CONFIANCA`). Com uma rodada
+// só, o desvio é quase todo sorte, e a parcela não pode fingir que sabe.
+export const WAE_MIN_JOGOS = 5
+
+// `saldo` é a soma dos desvios; `jogos`, quantas rodadas contribuíram.
+// Devolve `null` quando não há rodadas com forças gravadas — e `null` faz a
+// parcela sair da conta, em vez de contar como "exatamente o esperado".
+export function notaAcimaDoEsperado(saldo, jogos) {
+  // `Number(null)` é 0, e um 0 aqui não é "saldo zero" — é ausência de
+  // dados, que tem de sair da conta em vez de virar "exatamente o esperado".
+  // É a mesma armadilha que já mordeu no overall de goleiro.
+  if (saldo == null || saldo === '') return null
+  const n = Number(jogos)
+  const s = Number(saldo)
+  if (!Number.isFinite(n) || n <= 0 || !Number.isFinite(s)) return null
+  const confianca = Math.min(n / WAE_MIN_JOGOS, 1)
+  const nota = WAE_NEUTRO + (s / n) * WAE_ESCALA * confianca
+  return Math.max(0, Math.min(100, nota))
+}
 
 export const PARTICIPACOES_TOPO = 3 // gols + assistências por jogo que valem 100
 // Os prémios contam pela TAXA, não pelo total: craque em todas as rodadas
@@ -77,6 +117,9 @@ export function calcularOverall(perfil) {
   const bagres = Number(perfil?.bagres || 0)
   const estrelas = numeroOuNulo(perfil?.post_rating_avg ?? perfil?.postRatingAvg)
   const avaliacoes = Number(perfil?.post_rating_count ?? perfil?.postRatingCount ?? 0)
+  // saldo cru das vitórias acima do esperado (migração 0026)
+  const waeSaldo = numeroOuNulo(perfil?.wae_saldo ?? perfil?.waeSaldo)
+  const waeJogos = Number(perfil?.wae_matches ?? perfil?.waeMatches ?? 0)
 
   const base = avg == null ? null : avg * 20 // 0–100, a opinião do grupo
   const ppj = matches > 0 ? (goals + assists) / matches : 0 // participações por jogo
@@ -98,6 +141,12 @@ export function calcularOverall(perfil) {
   // isso é ausência de dados (e vale a fórmula antiga), não uma média fraca.
   const pesoPosJogo = temPosJogo ? PESO_POS_JOGO_V2 : 0
 
+  // `null` quando não há rodadas com forças gravadas (as anteriores ao
+  // sorteio agendado, ou as criadas à mão). Aí a parcela sai da conta e os
+  // pesos das outras renormalizam — não vale 50 nem 0.
+  const vitorias = notaAcimaDoEsperado(waeSaldo, waeJogos)
+  const pesoVitorias = vitorias == null ? 0 : PESO_VITORIAS_V2
+
   const partes = {
     base,
     desempenho,
@@ -110,16 +159,27 @@ export function calcularOverall(perfil) {
     estrelas,
     avaliacoes,
     posJogo,
+    vitorias,
+    waeSaldo,
+    waeJogos,
+    // com poucas rodadas a nota está a ser puxada para 50 — a UI diz isso
+    // em vez de deixar parecer que o jogador é mesmo médio
+    vitoriasProvisorio: vitorias != null && waeJogos < WAE_MIN_JOGOS,
     // uma única avaliação já conta por inteiro, mas ainda não é uma média —
     // a UI diz de quantas notas vem o número, sem lhe mexer no peso
     posJogoProvisorio: temPosJogo && avaliacoes === 1,
     pesos:
       versao === 2
-        ? { grupo: PESO_GRUPO_V2, desempenho: PESO_DESEMPENHO_V2, posJogo: pesoPosJogo }
-        : { grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 },
+        ? {
+            grupo: PESO_GRUPO_V2,
+            vitorias: pesoVitorias,
+            desempenho: PESO_DESEMPENHO_V2,
+            posJogo: pesoPosJogo,
+          }
+        : { grupo: PESO_GRUPO, vitorias: 0, desempenho: PESO_DESEMPENHO, posJogo: 0 },
     // Preenchido a seguir por cada ramo. São os pesos DEPOIS de as parcelas
     // em falta saírem da conta — os únicos que explicam o número final.
-    pesosEfetivos: { grupo: 0, desempenho: 0, posJogo: 0 },
+    pesosEfetivos: { grupo: 0, vitorias: 0, desempenho: 0, posJogo: 0 },
   }
 
   // Os pesos nominais (50/25/25) não explicam o overall quando falta uma
@@ -129,7 +189,7 @@ export function calcularOverall(perfil) {
   // precisamente para o número não parecer arbitrário.
   const efetivos = (pares) => {
     const total = pares.reduce((s, [, p]) => s + p, 0)
-    const out = { grupo: 0, desempenho: 0, posJogo: 0 }
+    const out = { grupo: 0, vitorias: 0, desempenho: 0, posJogo: 0 }
     if (total <= 0) return out
     for (const [nome, p] of pares) out[nome] = p / total
     return out
@@ -149,7 +209,7 @@ export function calcularOverall(perfil) {
     if (base == null) {
       return {
         ...partes,
-        pesosEfetivos: { grupo: 0, desempenho: 1, posJogo: 0 },
+        pesosEfetivos: { grupo: 0, vitorias: 0, desempenho: 1, posJogo: 0 },
         overallBase: desempenho,
         overall: limitar(desempenho),
         provisorio: true,
@@ -159,7 +219,7 @@ export function calcularOverall(perfil) {
     if (matches === 0) {
       return {
         ...partes,
-        pesosEfetivos: { grupo: 1, desempenho: 0, posJogo: 0 },
+        pesosEfetivos: { grupo: 1, vitorias: 0, desempenho: 0, posJogo: 0 },
         overallBase: base,
         overall: limitar(base),
         provisorio: true,
@@ -168,24 +228,25 @@ export function calcularOverall(perfil) {
     const overallBase = PESO_GRUPO * base + PESO_DESEMPENHO * desempenho
     return {
       ...partes,
-      pesosEfetivos: { grupo: PESO_GRUPO, desempenho: PESO_DESEMPENHO, posJogo: 0 },
+      pesosEfetivos: { grupo: PESO_GRUPO, vitorias: 0, desempenho: PESO_DESEMPENHO, posJogo: 0 },
       overallBase,
       overall: limitar(overallBase + bonusCraque - penalBagre),
       provisorio: false,
     }
   }
 
-  // ---------- v2: 50% grupo + 25% campo + 25% companheiros ----------
+  // ---------- v2: 40% grupo + 15% vitórias + 20% campo + 25% companheiros ----------
   // Média ponderada só com as parcelas que EXISTEM. Um jogador sem notas do
-  // grupo (ou sem rodadas de campo) não leva zero na parcela em falta: ela
-  // sai da conta e os pesos das outras são renormalizados.
+  // grupo (ou sem rodadas de campo, ou sem rodadas com forças gravadas) não
+  // leva zero na parcela em falta: ela sai da conta e os pesos das outras são
+  // renormalizados.
   //
-  // O peso dos companheiros é o dos 25% JÁ MULTIPLICADO pela confiança: com
-  // uma avaliação pesa ~4%, com seis pesa os 25% cheios. A renormalização
-  // trata do resto — o que a parcela ainda não vale vai para as outras, em
-  // vez de puxar o número para baixo por falta de dados.
+  // É isto que evita o efeito colateral da taxa de vitórias crua, onde quem
+  // nunca jogou perdia ~10 pontos por causa de uma parcela que nem se lhe
+  // aplicava.
   const parcelas = [['posJogo', posJogo, pesoPosJogo]]
   if (base != null) parcelas.push(['grupo', base, PESO_GRUPO_V2])
+  if (vitorias != null) parcelas.push(['vitorias', vitorias, PESO_VITORIAS_V2])
   if (matches > 0) parcelas.push(['desempenho', desempenho, PESO_DESEMPENHO_V2])
 
   const pesoTotal = parcelas.reduce((s, [, , p]) => s + p, 0)
