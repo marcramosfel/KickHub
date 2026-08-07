@@ -4,7 +4,6 @@ import { formatDia } from '../lib/format'
 import Avatar from './Avatar'
 import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
-  AVALIACOES_CONFIANCA,
   BONUS_CRAQUE_MAX,
   PARTICIPACOES_TOPO,
   PENAL_BAGRE_MAX,
@@ -212,11 +211,8 @@ function OverallExplicado({ o }) {
             </div>
             {o.posJogoProvisorio && (
               <p style={{ fontSize: 12, color: colors.teamA, marginTop: 8 }}>
-                ⏳ {o.avaliacoes === 1 ? 'Só 1 avaliação' : `Só ${o.avaliacoes} avaliações`}{' '}
-                pós-jogo até agora, de {AVALIACOES_CONFIANCA}. Enquanto forem poucas, a nota dos
-                companheiros pesa menos e o resto do overall pesa mais — não é castigo, é não
-                deixar um voto isolado decidir o teu número. As avaliações somam-se de pelada
-                para pelada: faltam {o.avaliacoesEmFalta} para valer por inteiro.
+                ⏳ Esta média vem de <strong>uma só avaliação</strong> — já conta por inteiro,
+                mas assenta à medida que mais companheiros forem votando.
               </p>
             )}
             <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 8 }}>

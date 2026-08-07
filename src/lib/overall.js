@@ -36,18 +36,17 @@ export const PESO_DESEMPENHO_V2 = 0.25
 export const PESO_POS_JOGO_V2 = 0.25
 export const ESTRELAS_MAX = 5
 
-// Confiança na avaliação dos companheiros.
+// A avaliação dos companheiros vale os 25% a partir da PRIMEIRA nota.
 //
-// Sem isto, UMA estrela valia os 25% inteiros: bastava um 5★ de um amigo
-// para mexer um quarto do overall de alguém. Com a participação baixa que
-// motivou este redesenho, isso não é uma parcela — é ruído com peso.
+// Houve uma versão que amortecia a parcela até seis avaliações, para um
+// voto isolado não decidir um quarto do overall. Foi decisão do grupo tirá-la:
+// a média é a média de quem votou. Quem não vota dentro do prazo não tem de
+// influenciar a nota de quem foi avaliado — e o jogador avaliado não pode
+// ficar pendurado na participação dos outros.
 //
-// A parcela cresce com o número de avaliações recebidas até um jogo inteiro
-// de companheiros (6). Abaixo disso o peso é proporcional e o que sobra é
-// redistribuído pelas outras parcelas — não é castigo, é dizer que ainda não
-// se sabe o suficiente. É o mesmo mecanismo que o overall de goleiro já usa
-// com `RODADAS_CONFIANCA`.
-export const AVALIACOES_CONFIANCA = 6
+// O que resta desse desenho é a transparência: o painel do perfil diz sempre
+// quantas avaliações compõem a média, para um 5,0 de uma pessoa não se ler
+// como um 5,0 de sete.
 
 export const PARTICIPACOES_TOPO = 3 // gols + assistências por jogo que valem 100
 // Os prémios contam pela TAXA, não pelo total: craque em todas as rodadas
@@ -95,9 +94,9 @@ export function calcularOverall(perfil) {
   const posJogo = temPosJogo ? (estrelas / ESTRELAS_MAX) * 100 : null
   const versao = temPosJogo ? 2 : 1
 
-  // Quanto é que a parcela dos companheiros já vale, de 0 a 1.
-  const confiancaPosJogo = temPosJogo ? Math.min(avaliacoes / AVALIACOES_CONFIANCA, 1) : 0
-  const pesoPosJogo = PESO_POS_JOGO_V2 * confiancaPosJogo
+  // Peso cheio a partir da primeira avaliação. Sem nenhuma não há parcela —
+  // isso é ausência de dados (e vale a fórmula antiga), não uma média fraca.
+  const pesoPosJogo = temPosJogo ? PESO_POS_JOGO_V2 : 0
 
   const partes = {
     base,
@@ -111,11 +110,9 @@ export function calcularOverall(perfil) {
     estrelas,
     avaliacoes,
     posJogo,
-    confiancaPosJogo,
-    // ainda sem avaliações que cheguem para a parcela valer por inteiro —
-    // a UI diz que o número é provisório
-    posJogoProvisorio: temPosJogo && avaliacoes < AVALIACOES_CONFIANCA,
-    avaliacoesEmFalta: temPosJogo ? Math.max(0, AVALIACOES_CONFIANCA - avaliacoes) : 0,
+    // uma única avaliação já conta por inteiro, mas ainda não é uma média —
+    // a UI diz de quantas notas vem o número, sem lhe mexer no peso
+    posJogoProvisorio: temPosJogo && avaliacoes === 1,
     pesos:
       versao === 2
         ? { grupo: PESO_GRUPO_V2, desempenho: PESO_DESEMPENHO_V2, posJogo: pesoPosJogo }

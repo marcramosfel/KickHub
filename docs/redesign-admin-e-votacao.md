@@ -658,24 +658,30 @@ O pedido era aumentar a participação; a consequência inevitável é que **o
 overall tem de ser honesto sobre quantos dados tem**. Três alterações,
 por ordem de importância.
 
-### 7.1 Confiança na parcela pós-jogo (a mais importante)
+### 7.1 A média é a média de quem votou — **decidido**
 
-Hoje: `temPosJogo = avaliacoes > 0` ⇒ **uma** estrela vale os 25% inteiros
-(`overall.js:81`).
+Chegou a existir aqui uma proposta de amortecer a parcela até seis avaliações
+(`AVALIACOES_CONFIANCA`), para um voto isolado não decidir um quarto do
+overall. Foi implementada e depois **retirada por decisão do grupo**.
 
-Proposta — o mesmo mecanismo que o overall de goleiro já usa (`RODADAS_CONFIANCA`):
+A regra que vale: **a parcela dos companheiros pesa os 25% a partir da
+primeira nota.** Quem não vota dentro do prazo não influencia a nota de quem
+foi avaliado, e o jogador avaliado não fica pendurado na participação dos
+outros.
 
-```js
-export const AVALIACOES_CONFIANCA = 6   // ≈ um jogo inteiro de companheiros
+O argumento contra o amortecimento, e é bom: o jogador não escolhe quem vota
+nele. Amortecer transferia o custo da falta de participação para quem não
+teve culpa dela.
 
-const confianca = Math.min(avaliacoes / AVALIACOES_CONFIANCA, 1)
-const pesoPosJogo = PESO_POS_JOGO_V2 * confianca
-// os pesos restantes são renormalizados — o mecanismo de parcelas que já existe
-```
+O risco que se assume em troca: com uma avaliação só, um 5,0 vale tanto como
+um 5,0 de sete pessoas. As defesas que ficam são as outras — o prazo, o
+quórum nos prémios (§7.2) e a transparência (o painel diz sempre de quantas
+notas vem a média).
 
-Efeito: com 1 avaliação a parcela pesa ~4% em vez de 25%; com 6 ou mais pesa os
-25% cheios. **Ninguém sobe nem desce por causa de um voto isolado**, e o
-incentivo a votar mais fica embutido no número.
+O que sobreviveu da ideia é `pesosEfetivos`: os pesos **depois** de as
+parcelas em falta saírem da conta. São os únicos que explicam o número, e sem
+eles o painel "Como se calcula o overall?" mostrava linhas que não somavam ao
+total.
 
 ### 7.2 Quórum nos prémios
 
@@ -828,7 +834,7 @@ Quatro entregas independentes, cada uma com valor por si:
 | **1** | Router por hash + token de dispositivo + `BallotScreen` (cédula única) | é aqui que está o problema de participação; funciona **sem** nenhuma mudança no sorteio |
 | **2** | `admin_close_game` + prazo + mensagem/link partilháveis + faixa de lembrete | fecha o ciclo do voto; mede-se logo na rodada seguinte |
 | **3** | Formato no assistente (4 passos) + `sortearEquipasRotativo` + rodízio na UI | a maior mudança de código; entra com o problema de UX já resolvido |
-| **4** | Confiança no overall, quórum, revisão do admin, formações 6×6 | afinação, com dados reais das entregas 1-3 |
+| **4** | Quórum nos prémios, revisão do admin, formações 6×6 | afinação, com dados reais das entregas 1-3 |
 
 A entrega 1 sozinha deve dar o maior salto de participação: passa de
 **seis navegações + PIN** para **um toque no link**.
