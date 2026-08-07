@@ -407,16 +407,34 @@ a medir ruído.
 
 **Campos novos** em `get_player_stats` e `get_player_profile`: `wae_saldo` (numeric, `null` quando
 não há rodadas medidas) e `wae_matches` (int). São os números **crus** — a conversão para nota e a
-confiança vivem em `src/lib/overall.js`, como nos goleiros. Duas fórmulas em dois sítios divergem
-sempre.
+transição dos pesos vivem em `src/lib/overall.js`, como nos goleiros. Duas fórmulas em dois sítios
+divergem sempre.
 
 **Rodadas que NÃO contam:** as que não têm forças gravadas — ou seja, as anteriores à 0016 e as
 criadas à mão no painel "Rodadas antigas". Sem sorteio não há expectativa, e inventar uma seria
 pior do que não ter parcela. Hoje isso são 2 das 4 rodadas.
 
-**Pesos do overall passam de `50/25/25` para `40/15/20/25`** (grupo / vitórias / campo /
-companheiros). Só na v2 — a v1 continua congelada nos 70/30. Quem não tem rodadas medidas fica
-sem a parcela e os pesos das outras renormalizam, por isso **o overall dele não muda**.
+**Os pesos do overall TRANSITAM**, não saltam. À medida que um jogador acumula rodadas medidas,
+deslizam da fórmula anterior para a nova (grupo / vitórias / campo / companheiros):
+
+```
+0 rodadas → 50 /  0 / 25 / 25    ← exatamente a fórmula anterior
+2 rodadas → 46 /  6 / 23 / 25
+5 rodadas → 40 / 15 / 20 / 25    ← a nova, completa
+```
+
+Somam sempre 100%, em qualquer ponto. **Quem não tem rodadas medidas fica com o overall
+exatamente igual ao de antes** — a transição parte de lá.
+
+A alternativa era ligar a parcela de uma vez às 5 rodadas. Mais simples de explicar, mas mediu-se
+o custo: um jogador que rendeu **exatamente o esperado** perdia 5 pontos de um dia para o outro,
+só por cruzar a fronteira. Um número que cai sem nada ter acontecido em campo é impossível de
+explicar a quem o vê. Com a transição, o maior salto entre rodadas consecutivas é 1 ponto.
+
+A incerteza vive no **peso**, não na nota: a nota é o desvio cru e é o peso que diz quanto ela
+vale. Amortecer os dois seria contar a mesma coisa duas vezes.
+
+Só na v2 — a v1 continua congelada nos 70/30.
 
 **Sem códigos de erro novos.** Nenhuma função nova de escrita.
 
@@ -442,11 +460,16 @@ sem a parcela e os pesos das outras renormalizam, por isso **o overall dele não
 
 ### O que esperar da parcela das vitórias, no início
 
-Com poucas rodadas por jogador a nota é puxada para 50 (o esperado) de propósito, e **a parcela
-quase não mexe no overall**. Hoje a maior diferença no plantel são 7 pontos, e 14 jogadores ficam
-exatamente na mesma por não terem nenhuma rodada medida. Só começa a dizer alguma coisa a partir
-de **5 rodadas com sorteio** por jogador — não é sinal de estar mal ligada.
+**Quase nada, e é de propósito.** O peso cresce com as rodadas medidas de cada jogador: 3% à
+primeira, 6% à segunda, 15% só a partir da quinta. Medido no plantel real no dia em que entrou:
+**14 jogadores ficaram exatamente na mesma** (nenhuma rodada medida) e a maior mexida no resto
+foram 4 pontos.
+
+Só começa a dizer alguma coisa a partir de **5 rodadas com sorteio** por jogador. Se parecer que
+"não está a fazer nada", é isso mesmo a acontecer — não é sinal de estar mal ligada. Para
+confirmar, abre o perfil de alguém: a linha das vitórias mostra a percentagem em que está.
 
 Uma consequência prática: rodadas registadas à mão (sem passar pelo assistente) **nunca contam**
 para esta parcela. Se quiseres que contem, o jogo tem de nascer no assistente, que é quem grava as
-forças das equipas.
+forças das equipas. Hoje isso são 2 das 4 rodadas — metade do histórico é invisível para a
+parcela, e a única forma de o corrigir é daqui para a frente.
