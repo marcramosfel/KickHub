@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getPlayerChemistry, getPlayerProfile } from '../api'
 import { formatDia } from '../lib/format'
 import { ICONE } from '../lib/icones'
@@ -19,6 +19,8 @@ import {
 } from '../lib/overall'
 import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '../lib/trophies'
 import { badgesDoJogador } from '../lib/achievements'
+import { cardDoJogador } from '../lib/cards'
+import { calcularSequencias as sequenciasDasRodadas } from '../lib/streaks'
 import { ETIQUETA_STATUS, nomeDaPosicao, nomeDoTipo, POSITION_STATUS } from '../lib/positions'
 import AchievementBadge from './AchievementBadge'
 import MeuEstado from './MeuEstado'
@@ -331,17 +333,42 @@ export default function PlayerProfile({
     }
   }, [playerId])
 
-  // gera o card assim que o perfil chega
+  // O CARD que este jogador escolheu — o mesmo que o ranking e o modal
+  // mostram. Vinha de `lib/cards.js` para não haver três respostas
+  // diferentes à pergunta "qual é o card do Marcos?".
+  //
+  // As sequências saem do próprio histórico do perfil (`p.history`), que já
+  // veio do servidor: alguns cards ("Invencível", "Homem-Gol") dependem
+  // delas, e sem isto o perfil oferecia menos cards do que o modal.
+  const cardEscolhido = useMemo(() => {
+    if (!p || !jogador) return null
+    const rodadas = (p.history || []).map((h) => ({
+      id: h.match_id,
+      played_at: h.played_at,
+      score_a: h.score_a,
+      score_b: h.score_b,
+      players: [{ player_id: playerId, team: h.team, goals: h.goals, assists: h.assists }],
+    }))
+    return cardDoJogador({
+      jogador,
+      liderancas,
+      sequencias: sequenciasDasRodadas(rodadas),
+      totalRodadas,
+    })
+  }, [p, jogador, liderancas, totalRodadas, playerId])
+
+  // gera o card assim que o perfil chega — já com o card escolhido, para a
+  // imagem partilhada mostrar o título certo e não a moldura genérica
   useEffect(() => {
     if (!p) return
     let vivo = true
-    renderPlayerCard(p)
+    renderPlayerCard({ ...p, card: cardEscolhido })
       .then((url) => vivo && setCardUrl(url))
       .catch(() => {})
     return () => {
       vivo = false
     }
-  }, [p])
+  }, [p, cardEscolhido])
 
   const voltar = (
     <button

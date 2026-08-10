@@ -10,6 +10,7 @@ import { PLAYER_TYPE } from '../lib/positions'
 import { ICONE } from '../lib/icones'
 import { RODADAS_PROVISORIO } from '../lib/overall'
 import PlayerCard from './PlayerCard'
+import SelecaoDaPelada from './SelecaoDaPelada'
 import { SectionTitle } from './Ui'
 import { colors, fonts, styles } from '../theme'
 
@@ -97,7 +98,7 @@ const RECUO_DA_LINHA = '6px 12px 10px 54px'
 // baliza; sem a migração 0017 aplicada vêm todos a null. Escrevê-los com um
 // `?? 0` dizia "0 defesas, 0 gols sofridos" de um goleiro que jogou a época
 // toda — números inventados são piores do que a falta deles.
-function LinhaGoleiro({ g, i, liderancas, onProfile }) {
+function LinhaGoleiro({ g, i, liderancas, sequencias, totalRodadas, onProfile }) {
   const temNumeros = g.saves != null || g.goalsConceded != null || g.cleanSheets != null
 
   return (
@@ -105,6 +106,8 @@ function LinhaGoleiro({ g, i, liderancas, onProfile }) {
       <PlayerCard
         jogador={g}
         liderancas={liderancas}
+        sequencias={sequencias}
+        totalRodadas={totalRodadas}
         rank={i + 1}
         variante="linha"
         mostrarPosicao
@@ -145,7 +148,14 @@ function LinhaGoleiro({ g, i, liderancas, onProfile }) {
   )
 }
 
-export default function RankingScreen({ jogadores, liderancas, onProfile, initialTab = 'campo' }) {
+export default function RankingScreen({
+  jogadores,
+  liderancas,
+  sequencias,
+  totalRodadas = 0,
+  onProfile,
+  initialTab = 'campo',
+}) {
   const [tab, setTab] = useState(initialTab)
 
   const campo = useMemo(
@@ -232,6 +242,8 @@ export default function RankingScreen({ jogadores, liderancas, onProfile, initia
                   <PlayerCard
                     jogador={j}
                     liderancas={liderancas}
+                    sequencias={sequencias}
+                    totalRodadas={totalRodadas}
                     rank={i + 1}
                     variante="linha"
                     mostrarPosicao
@@ -254,7 +266,14 @@ export default function RankingScreen({ jogadores, liderancas, onProfile, initia
               <ul className="pb-stack" style={LISTA}>
                 {goleiros.map((g, i) => (
                   <li key={g.id}>
-                    <LinhaGoleiro g={g} i={i} liderancas={liderancas} onProfile={onProfile} />
+                    <LinhaGoleiro
+                      g={g}
+                      i={i}
+                      liderancas={liderancas}
+                      sequencias={sequencias}
+                      totalRodadas={totalRodadas}
+                      onProfile={onProfile}
+                    />
                   </li>
                 ))}
               </ul>
@@ -262,6 +281,9 @@ export default function RankingScreen({ jogadores, liderancas, onProfile, initia
             <ExplicacaoGoleiro />
           </>
         )}
+
+        {/* ---------- a seleção da pelada (e a anti-seleção) ---------- */}
+        {tab === 'selecao' && <SelecaoDaPelada jogadores={jogadores} />}
 
         {/* ---------- artilheiros / assistências / craques / vitórias ---------- */}
         {CAMPO_DA_ABA[tab] && (
@@ -279,6 +301,8 @@ export default function RankingScreen({ jogadores, liderancas, onProfile, initia
                     <PlayerCard
                       jogador={j}
                       liderancas={liderancas}
+                    sequencias={sequencias}
+                    totalRodadas={totalRodadas}
                       rank={i + 1}
                       variante="linha"
                       mostrarOverall={false}

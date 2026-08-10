@@ -22,7 +22,10 @@ export const NAV_PRINCIPAIS = [
 ]
 
 export const NAV_SECUNDARIAS = [
-  { id: 'players', label: 'Jogadores', icon: '👥' },
+  // "Plantel" e não "Jogadores": é a lista com quem é mensalista, quem está
+  // lesionado ou a viajar e o balanço de cada um — a pergunta que se faz
+  // antes de montar uma rodada.
+  { id: 'players', label: 'Plantel', icon: '👥' },
   { id: 'stats', label: 'Estatísticas', icon: '📊' },
   { id: 'history', label: 'Histórico', icon: '📜' },
 ]

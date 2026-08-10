@@ -2,6 +2,7 @@
 // dependências) para poder ser partilhado como imagem no grupo.
 
 import { calcularOverall } from './overall'
+import { raridade } from './cards'
 
 const W = 600
 const H = 840
@@ -28,7 +29,22 @@ export function carregarImagem(src) {
 }
 
 // Desenha o card e devolve um data URL PNG.
+//
+// `perfil.card` é o card ESCOLHIDO pelo jogador (de `lib/cards.js`). Sem ele
+// desenha-se o card genérico de sempre — é o que acontece a quem ainda não
+// conquistou nada, e mantém as chamadas antigas a funcionar.
+//
+// Isto faltava por completo: a imagem partilhada tinha uma moldura verde fixa
+// e nenhum título, portanto era igual para o Rei da Pelada, o Rei dos Craques
+// e o Garçom. Escolher um card mudava o ecrã e não mudava o que se mandava
+// para o grupo — que é precisamente a parte que as pessoas veem.
 export async function renderPlayerCard(perfil) {
+  const card = perfil?.card || null
+  const r = card ? raridade(card.raridade) : null
+  // A cor do card manda na moldura, no overall e no rodapé. Sem card, o
+  // verde de sempre.
+  const corPrincipal = card?.moldura?.borda || '#34D058'
+  const corBrilho = r?.cor || '#FFC531'
   // garante que as fontes (Oswald/Inter) já estão prontas para o canvas
   try {
     await document.fonts.ready
@@ -51,32 +67,60 @@ export async function renderPlayerCard(perfil) {
   roundRect(ctx, 0, 0, W, H, 28)
   ctx.fill()
 
-  // moldura com brilho verde
+  // ---- moldura, com as cores do card escolhido ----
   const frame = ctx.createLinearGradient(0, 0, W, H)
-  frame.addColorStop(0, '#34D058')
+  frame.addColorStop(0, corPrincipal)
   frame.addColorStop(0.5, '#1E7A3C')
-  frame.addColorStop(1, '#FFC531')
+  frame.addColorStop(1, corBrilho)
   ctx.strokeStyle = frame
-  ctx.lineWidth = 5
+  // um lendário merece uma borda mais grossa do que um comum
+  ctx.lineWidth = r && r.peso >= 4 ? 8 : 5
   roundRect(ctx, 3, 3, W - 6, H - 6, 26)
   ctx.stroke()
+
+  // ---- faixa do título (só quando há card conquistado) ----
+  // Vai no topo, como nas molduras do ecrã: é a primeira coisa que se lê
+  // num print mandado para o grupo.
+  let topo = 0
+  if (card) {
+    const faixaH = 62
+    ctx.fillStyle = corPrincipal
+    roundRect(ctx, 8, 8, W - 16, faixaH, 22)
+    ctx.fill()
+    // o texto tem de se ler em cima da cor da faixa, que varia muito
+    ctx.fillStyle = card.moldura?.corTexto || '#0A1512'
+    ctx.textAlign = 'left'
+    ctx.font = "700 30px Oswald, 'Arial Narrow', sans-serif"
+    ctx.fillText(card.icon || '', 30, 50)
+    ctx.font = "700 27px Oswald, 'Arial Narrow', sans-serif"
+    let titulo = String(card.titulo || '').toUpperCase()
+    while (ctx.measureText(titulo).width > W - 190 && parseInt(ctx.font) > 15) {
+      ctx.font = `700 ${parseInt(ctx.font) - 1}px Oswald, 'Arial Narrow', sans-serif`
+    }
+    ctx.fillText(titulo, 78, 49)
+    // raridade no canto direito da faixa
+    ctx.textAlign = 'right'
+    ctx.font = "600 17px Oswald, sans-serif"
+    ctx.fillText(String(r?.nome || '').toUpperCase(), W - 30, 48)
+    topo = faixaH
+  }
 
   // ---- overall (canto superior esquerdo) ----
   const { overall } = calcularOverall(perfil)
   ctx.textAlign = 'center'
-  ctx.fillStyle = '#34D058'
+  ctx.fillStyle = corPrincipal
   ctx.font = "700 92px Oswald, 'Arial Narrow', sans-serif"
-  ctx.fillText(overall == null ? '—' : String(overall), 96, 128)
+  ctx.fillText(overall == null ? '—' : String(overall), 96, 128 + topo)
   ctx.fillStyle = '#7FA090'
   ctx.font = "600 20px Oswald, sans-serif"
-  ctx.fillText('OVERALL', 96, 158)
+  ctx.fillText('OVERALL', 96, 158 + topo)
 
   // pequena linha decorativa
   ctx.strokeStyle = 'rgba(127,160,144,0.35)'
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(52, 178)
-  ctx.lineTo(140, 178)
+  ctx.moveTo(52, 178 + topo)
+  ctx.lineTo(140, 178 + topo)
   ctx.stroke()
 
   // a média 0–5 continua à vista — o overall é uma leitura extra
@@ -85,12 +129,12 @@ export async function renderPlayerCard(perfil) {
   ctx.fillText(
     perfil.avg == null ? 'SEM NOTAS' : `MÉDIA ${Number(perfil.avg).toFixed(2)}`,
     96,
-    202
+    202 + topo
   )
 
   // ---- foto (círculo) ----
   const cx = 340
-  const cy = 210
+  const cy = 210 + topo
   const raio = 118
   const foto = await carregarImagem(perfil.photo)
   ctx.save()
@@ -113,7 +157,7 @@ export async function renderPlayerCard(perfil) {
     ctx.fillText((perfil.name || '?').trim().charAt(0).toUpperCase(), cx, cy + 30)
   }
   ctx.restore()
-  ctx.strokeStyle = '#34D058'
+  ctx.strokeStyle = corPrincipal
   ctx.lineWidth = 4
   ctx.beginPath()
   ctx.arc(cx, cy, raio, 0, Math.PI * 2)
@@ -129,18 +173,18 @@ export async function renderPlayerCard(perfil) {
     const tam = parseInt(ctx.font) - 2
     ctx.font = `700 ${tam}px Oswald, 'Arial Narrow', sans-serif`
   }
-  ctx.fillText(nome, W / 2, 400)
+  ctx.fillText(nome, W / 2, 400 + topo)
 
   ctx.fillStyle = '#7FA090'
   ctx.font = "400 20px Inter, sans-serif"
-  ctx.fillText(`@${perfil.user_id || ''}`, W / 2, 430)
+  ctx.fillText(`@${perfil.user_id || ''}`, W / 2, 430 + topo)
 
   // separador
   ctx.strokeStyle = 'rgba(127,160,144,0.25)'
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(60, 466)
-  ctx.lineTo(W - 60, 466)
+  ctx.moveTo(60, 466 + topo)
+  ctx.lineTo(W - 60, 466 + topo)
   ctx.stroke()
 
   // ---- estatísticas (2 linhas × 3 colunas) ----
@@ -153,7 +197,7 @@ export async function renderPlayerCard(perfil) {
     ['VOTOS', perfil.votes ?? 0],
   ]
   const colX = [W / 2 - 170, W / 2, W / 2 + 170]
-  const rowY = [545, 675]
+  const rowY = [545 + topo, 668 + topo]
   stats.forEach((s, i) => {
     const x = colX[i % 3]
     const y = rowY[Math.floor(i / 3)]
@@ -166,8 +210,9 @@ export async function renderPlayerCard(perfil) {
   })
 
   // ---- rodapé ----
-  ctx.fillStyle = '#34D058'
+  ctx.fillStyle = corPrincipal
   ctx.font = "600 22px Oswald, sans-serif"
+  ctx.textAlign = 'center'
   ctx.fillText('PELADA BROWNS', W / 2, H - 46)
 
   return canvas.toDataURL('image/png')

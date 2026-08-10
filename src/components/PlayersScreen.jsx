@@ -6,7 +6,8 @@ import {
   POSITIONS,
   siglaDaPosicao,
 } from '../lib/positions'
-import { estadoVisivel, etiquetaDoEstado } from '../lib/plantel'
+import { ESTADO, estadoVisivel, etiquetaDoEstado } from '../lib/plantel'
+import { ICONE } from '../lib/icones'
 import Avatar from './Avatar'
 import { SectionTitle } from './Ui'
 import { colors, styles, chip } from '../theme'
@@ -79,6 +80,18 @@ function Cartao({ p, onProfile }) {
             <span style={chip(colors.muted)}>🔄 Versátil</span>
           )}
         </div>
+        {/* O balanço é a pergunta que o grupo faz sobre um jogador antes de
+            qualquer outra: "esse ganha?". Estava só no perfil. */}
+        {p.wins != null && (
+          <div style={{ fontSize: 12, color: colors.muted, marginTop: 6 }}>
+            {ICONE.vitorias} <strong style={{ color: colors.grass }}>{p.wins}</strong>
+            {' · '}
+            {ICONE.empates} {p.draws ?? 0}
+            {' · '}
+            {ICONE.derrotas} {p.losses ?? 0}
+            {p.matches ? ` · ${p.matches} ${p.matches === 1 ? 'jogo' : 'jogos'}` : ''}
+          </div>
+        )}
       </div>
       {p.overall != null && (
         <div style={{ flexShrink: 0, textAlign: 'center' }}>
@@ -125,15 +138,41 @@ function Cartao({ p, onProfile }) {
   )
 }
 
+// Os filtros do plantel. Respondem às perguntas que se fazem antes de montar
+// uma rodada — "quem é mensalista?", "quem está de fora?" — sem obrigar a
+// percorrer trinta cartões a contar.
+const FILTROS = [
+  { id: 'todos', rotulo: 'Todos', teste: () => true },
+  { id: 'mensalistas', rotulo: '⭐ Mensalistas', teste: (p) => p.isMember === true },
+  {
+    id: 'disponiveis',
+    rotulo: '🟢 Disponíveis',
+    teste: (p) => !estadoVisivel(p.availabilityStatus),
+  },
+  { id: 'fora', rotulo: '🤕 De fora', teste: (p) => estadoVisivel(p.availabilityStatus) },
+]
+
 export default function PlayersScreen({ jogadores, onProfile }) {
   const [procura, setProcura] = useState('')
   const [agrupar, setAgrupar] = useState(true)
+  const [filtro, setFiltro] = useState('todos')
 
   const filtrados = useMemo(() => {
     const q = semAcentos(procura.trim())
-    if (!q) return jogadores
-    return jogadores.filter((p) => semAcentos(p.name).includes(q))
-  }, [jogadores, procura])
+    const f = FILTROS.find((x) => x.id === filtro) || FILTROS[0]
+    return jogadores.filter((p) => f.teste(p) && (!q || semAcentos(p.name).includes(q)))
+  }, [jogadores, procura, filtro])
+
+  // O cabeçalho responde de uma vez ao "quantos somos e quantos faltam".
+  const resumo = useMemo(() => {
+    const fora = jogadores.filter((p) => estadoVisivel(p.availabilityStatus))
+    return {
+      mensalistas: jogadores.filter((p) => p.isMember).length,
+      fora: fora.length,
+      lesionados: fora.filter((p) => p.availabilityStatus === ESTADO.LESIONADO).length,
+      viagem: fora.filter((p) => p.availabilityStatus === ESTADO.VIAGEM).length,
+    }
+  }, [jogadores])
 
   const grupos = useMemo(() => {
     const goleiros = filtrados.filter(
@@ -152,12 +191,52 @@ export default function PlayersScreen({ jogadores, onProfile }) {
   return (
     <div>
       <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 4 }}>
-        Jogadores <span style={{ color: colors.grass }}>👥</span>
+        Plantel <span style={{ color: colors.grass }}>👥</span>
       </h1>
-      <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 14 }}>
-        {jogadores.length} {jogadores.length === 1 ? 'jogador aprovado' : 'jogadores aprovados'} no
-        plantel.
+      <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 12 }}>
+        {jogadores.length} {jogadores.length === 1 ? 'jogador' : 'jogadores'}
+        {resumo.mensalistas > 0 ? ` · ⭐ ${resumo.mensalistas} mensalistas` : ''}
+        {resumo.fora > 0 ? ` · ${resumo.fora} de fora` : ''}
+        {resumo.lesionados > 0 ? ` (🤕 ${resumo.lesionados}` : ''}
+        {resumo.lesionados > 0 && resumo.viagem > 0 ? ` · ✈️ ${resumo.viagem})` : ''}
+        {resumo.lesionados > 0 && resumo.viagem === 0 ? ')' : ''}
+        {resumo.lesionados === 0 && resumo.viagem > 0 ? ` (✈️ ${resumo.viagem})` : ''}
       </p>
+
+      {/* Filtros. Cada um é uma pergunta prática, não uma categoria. */}
+      <div
+        className="pb-scroll-x"
+        style={{ display: 'flex', gap: 6, marginBottom: 12, paddingBottom: 4 }}
+      >
+        {FILTROS.map((f) => {
+          const n = jogadores.filter(f.teste).length
+          const ativo = filtro === f.id
+          return (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFiltro(f.id)}
+              aria-pressed={ativo}
+              className="pb-tap"
+              style={{
+                flexShrink: 0,
+                minHeight: 38,
+                padding: '8px 14px',
+                borderRadius: 999,
+                border: `1px solid ${ativo ? colors.grass : colors.line}`,
+                background: ativo ? 'rgba(52,208,88,0.12)' : 'transparent',
+                color: ativo ? colors.grass : colors.muted,
+                font: 'inherit',
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {f.rotulo} <span style={{ opacity: 0.7 }}>{n}</span>
+            </button>
+          )
+        })}
+      </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         <input

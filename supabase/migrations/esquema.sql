@@ -264,6 +264,24 @@ create table if not exists ratings_arquivo (
 -- pode faltar a uma sexta-feira, e um jogador a viajar pode chegar a tempo
 -- da próxima. Uma linha por (jogo, jogador); sem linha = ainda não
 -- respondeu, que não é o mesmo que "não vai".
+-- ---------- CONTESTAR O SORTEIO ----------
+-- "Não acho justo" — uma linha por (jogo, jogador), com um motivo curto e
+-- opcional. A chave primária é a regra "um voto por pessoa"; mudar de ideias
+-- é um UPDATE, não uma segunda linha.
+--
+-- O motivo é limitado a 140 caracteres de propósito: isto é para dizer "os
+-- pretos ficaram com os dois melhores meias", não para abrir uma discussão.
+-- O grupo vê quantos contestaram; os motivos são para o admin, que é quem
+-- pode fazer alguma coisa com eles.
+create table if not exists draw_disputes (
+  match_id   uuid not null references matches(id) on delete cascade,
+  player_id  uuid not null references players(id) on delete cascade,
+  reason     text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (match_id, player_id),
+  constraint draw_disputes_reason_len check (reason is null or length(reason) <= 140)
+);
 create table if not exists match_availability (
   match_id     uuid not null references matches(id) on delete cascade,
   player_id    uuid not null references players(id) on delete cascade,
@@ -441,6 +459,7 @@ begin
 end
 $chk$;
 alter table match_availability enable row level security;
+alter table draw_disputes enable row level security;
 -- gera user_id para quem ainda não tem, por ordem de criação
 do $$
 declare rec record;
@@ -645,6 +664,7 @@ create index if not exists player_devices_player_idx on player_devices (player_i
 -- A PK cobre a busca por jogo; o perfil de um jogador pergunta ao contrário.
 create index if not exists match_availability_player_idx
   on match_availability (player_id);
+create index if not exists draw_disputes_player_idx on draw_disputes (player_id);
 
 -- =============================== VIEWS ==============================
 -- A view nasceu na 0019 com `select m.*` e ficou com as colunas que
@@ -793,7 +813,7 @@ begin
               'payload_resultado', 'position_json', 'position_ok', 'prazo_de_votacao',
               'preencher_gk_order', 'publicar_no_feed', 'publish_draw', 'recalcular_forcas_do_jogo',
               'registar_atividade', 'register', 'revoke_device', 'set_my_availability',
-              'set_my_gk_rotation', 'set_my_status',
+              'set_my_dispute', 'set_my_gk_rotation', 'set_my_status',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'sincronizar_post_rating_status',
               'slugify', 'submit_ratings', 'submit_round_vote', 'talvez_revelar_avaliacoes',
               'update_photo', 'vencedor_do_jogo'
@@ -2892,6 +2912,44 @@ begin
   return json_build_object('match_id', p_match, 'player_id', v_id,
                            'available', coalesce(p_available, false));
 end; $$;
+-- ---------- "NÃO ACHO JUSTO" ----------
+--
+-- Só se contesta um sorteio que já esteja PUBLICADO: enquanto é rascunho o
+-- grupo nem o viu, e depois do jogo já não há nada a discutir — a essa
+-- altura o placar respondeu.
+--
+-- Passar `p_contesta` a false retira a contestação (mudou de ideias).
+create or replace function set_my_dispute(
+  p_id uuid, p_pin text, p_match uuid, p_contesta boolean,
+  p_reason text default null, p_token uuid default null
+) returns json language plpgsql security definer set search_path = public, extensions as $$
+declare v_id uuid; v_status text; v_motivo text;
+begin
+  v_id := autenticar_votante(p_id, p_pin, p_token);
+
+  select m.status into v_status from matches m where m.id = p_match;
+  if v_status is null then raise exception 'INVALIDO'; end if;
+  if v_status = 'CANCELLED' then raise exception 'JOGOCANCELADO'; end if;
+  if v_status not in ('PUBLISHED','IN_PROGRESS') then raise exception 'JOGOFECHADO'; end if;
+
+  if not coalesce(p_contesta, false) then
+    delete from draw_disputes where match_id = p_match and player_id = v_id;
+    return json_build_object('match_id', p_match, 'player_id', v_id, 'contesta', false);
+  end if;
+
+  v_motivo := nullif(btrim(p_reason), '');
+  if v_motivo is not null and length(v_motivo) > 140 then
+    v_motivo := left(v_motivo, 140);
+  end if;
+
+  insert into draw_disputes(match_id, player_id, reason)
+  values (p_match, v_id, v_motivo)
+  on conflict (match_id, player_id) do update
+    set reason = excluded.reason, updated_at = now();
+
+  return json_build_object('match_id', p_match, 'player_id', v_id,
+                           'contesta', true, 'reason', v_motivo);
+end; $$;
 -- ---------- A CONVOCATÓRIA ----------
 --
 -- O jogo a que a pergunta "vais jogar?" se refere: o mais próximo que
@@ -3140,7 +3198,17 @@ returns json language sql stable security definer set search_path = public, exte
                'responded_at', a.responded_at)
              order by a.available desc, p.name), '[]'::json)
       from match_availability a join players p on p.id = a.player_id
-      where a.match_id = m.id)
+      where a.match_id = m.id),
+    -- Quem contestou o sorteio. O NOME vai (o grupo tem direito a saber quem
+    -- levantou a mão — contestar às escondidas não é contestar), o motivo
+    -- também: são 140 caracteres escritos para serem lidos.
+    'disputes', (
+      select coalesce(json_agg(json_build_object(
+               'player_id', d.player_id, 'name', p.name, 'photo', p.photo_url,
+               'reason', d.reason, 'created_at', d.created_at)
+             order by d.created_at), '[]'::json)
+      from draw_disputes d join players p on p.id = d.player_id
+      where d.match_id = m.id)
   )
   from matches m where m.id = p_id;
 $$;
@@ -4377,7 +4445,7 @@ begin
               'get_ratings_received', 'get_round_ballot', 'issue_device_token', 'login',
               'login_with_device', 'match_public_json', 'position_ok', 'prazo_de_votacao',
               'publish_draw', 'register', 'revoke_device', 'set_my_availability',
-              'set_my_gk_rotation', 'set_my_status',
+              'set_my_dispute', 'set_my_gk_rotation', 'set_my_status',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'submit_ratings',
               'submit_round_vote', 'update_photo'
             ])

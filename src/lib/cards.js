@@ -281,3 +281,30 @@ export function cardPrincipal(cards, escolhido) {
 // Só faz sentido escolher entre os que se tem — e o base não é escolha, é o
 // que sobra quando não há mais nada.
 export const cardsEscolhiveis = (cards) => (cards || []).filter((c) => c.id !== CARD_BASE.id)
+
+// O CARD DE UM JOGADOR. Um só, para a app inteira.
+//
+// Existia a mesma decisão tomada em quatro sítios com três regras
+// diferentes: o modal usava `cardPrincipal` (respeitava a escolha), o
+// ranking usava `molduraPrincipal` de achievements.js (ordenava só por
+// prioridade e nunca olhava para a escolha), o perfil não usava nenhuma, e a
+// imagem partilhada não sabia sequer que os cards existem.
+//
+// Resultado: quem escolhia "Rei dos Craques" continuava a aparecer como "Rei
+// da Pelada" no ranking. A escolha estava gravada e certa — o ranking é que
+// nunca a lia.
+//
+// Daqui para a frente é esta a única porta. Devolve sempre um card (o base,
+// no pior caso), por isso quem chama não tem de tratar do null.
+export function cardDoJogador({ jogador, liderancas, sequencias, totalRodadas = 0 } = {}) {
+  const cards = cardsDoJogador({ jogador, liderancas, sequencias, totalRodadas })
+  return cardPrincipal(cards, jogador?.primaryCard)
+}
+
+// O mesmo, mas devolve `null` para o card base: é o que a MOLDURA quer.
+// Toda a gente tem o card base, e emoldurar toda a gente é não emoldurar
+// ninguém — o `AchievementFrame` com `titulo` a null não põe nós no DOM.
+export function molduraDoJogador(args) {
+  const c = cardDoJogador(args)
+  return c && c.id !== CARD_BASE.id ? c : null
+}

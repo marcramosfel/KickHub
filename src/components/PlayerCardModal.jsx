@@ -211,6 +211,8 @@ export default function PlayerCardModal({
         craques: jogador.craques,
         bagres: jogador.bagres,
         votes: jogador.votes,
+        // o card ESCOLHIDO vai na imagem: é o que faz o print valer a pena
+        card: principal,
       })
       const r = await partilharCard(dataUrl, jogador.name)
       if (r !== 'cancelado') avisar(r === 'partilhado' ? 'Partilhado!' : 'Imagem gerada!')
@@ -232,6 +234,7 @@ export default function PlayerCardModal({
         craques: jogador.craques,
         bagres: jogador.bagres,
         votes: jogador.votes,
+        card: principal,
       })
       descarregarCard(dataUrl, jogador.name)
       avisar('Card descarregado!')

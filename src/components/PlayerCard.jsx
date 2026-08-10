@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react'
-import { badgesDoJogador, molduraPrincipal } from '../lib/achievements'
+import { badgesDoJogador } from '../lib/achievements'
+import { molduraDoJogador } from '../lib/cards'
 import {
   iconeDaPosicao,
   nomeDaPosicao,
@@ -49,6 +50,11 @@ const nomeTruncado = (fonte, peso) => ({
 function PlayerCardBase({
   jogador,
   liderancas,
+  // Precisos para saber que cards este jogador tem, e portanto se a escolha
+  // dele ainda é válida. Sem eles a moldura cai nas lideranças, que é o que
+  // esta linha sempre fez — degrada, não rebenta.
+  sequencias,
+  totalRodadas = 0,
   onClick,
   variante = 'linha',
   mostrarPosicao,
@@ -60,10 +66,16 @@ function PlayerCardBase({
 }) {
   const id = jogador?.id ?? null
 
-  // Um jogador sem títulos é o caso normal: nada disto custa render extra.
+  // A moldura respeita o card ESCOLHIDO pelo jogador. Antes ordenava só por
+  // prioridade, e quem escolhia "Rei dos Craques" continuava a ver-se como
+  // "Rei da Pelada" no ranking — a escolha estava gravada, mas esta linha
+  // nunca a lia. Agora vem toda de `lib/cards.js`, como o modal e o perfil.
   const principal = useMemo(
-    () => (id && liderancas ? molduraPrincipal(id, liderancas) : null),
-    [id, liderancas],
+    () =>
+      id && liderancas
+        ? molduraDoJogador({ jogador, liderancas, sequencias, totalRodadas })
+        : null,
+    [id, jogador, liderancas, sequencias, totalRodadas],
   )
   const badges = useMemo(() => {
     if (!id || !liderancas) return []

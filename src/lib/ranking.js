@@ -16,6 +16,8 @@ export const RANKING_TABS = [
   { id: 'assistencias', label: 'Assistências', icon: '🅰️' },
   { id: 'craques', label: 'Craques', icon: '👑' },
   { id: 'vitorias', label: 'Vitórias', icon: '🏆' },
+  // Não é um ranking — é a brincadeira que sai dos rankings. Fica no fim.
+  { id: 'selecao', label: 'Seleção da pelada', icon: '⭐' },
 ]
 
 // A aba 'vitorias' precisa de dados que o get_player_stats não traz; quando

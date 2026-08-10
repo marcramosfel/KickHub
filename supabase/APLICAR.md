@@ -66,6 +66,8 @@ valia.
 | `get_match_call()` | função nova | A convocatória: o jogo mais próximo por acontecer (mesmo em rascunho) e quem já respondeu. Devolve **só** data, local e respostas — nunca a escalação, que continua invisível até ser publicada. |
 | `set_my_availability(...)` | função nova | Autentica por PIN **ou** pelo token do telemóvel, como a votação. |
 | `admin_set_player_status` / `admin_set_member` | funções novas | Só admin. |
+| `draw_disputes` | tabela nova | "Não acho justo este sorteio": uma linha por (jogo, jogador), com um motivo opcional de 140 caracteres. Só se contesta um sorteio **publicado** — em rascunho o grupo nem o viu, e depois do jogo o placar já respondeu. |
+| `set_my_dispute(...)` | função nova | Contesta e retira. O nome de quem contesta é público (contestar às escondidas não é contestar); o motivo vai junto. |
 
 O estado do jogador e a disponibilidade para um jogo são **conceitos separados na base de
 dados**, e é para ficarem assim: um 🟢 disponível pode faltar a esta sexta, e um ✈️ a viajar pode
@@ -83,6 +85,21 @@ só pelo `login`. Mas quem desenha os cards é o `juntarEstatisticas` do fronten
 Resultado: `jogador.primaryCard` era sempre `null`, o `cardPrincipal()` caía sempre no card mais
 raro, e escolher um card não mudava nada — nem para os outros, nem para o próprio depois de
 recarregar a página. As duas colunas passam a sair do `get_players()`.
+
+### Bug corrigido: o card escolhido não chegava ao ranking
+
+`get_players()` já devolvia o `primary_card` (ver acima), mas o **ranking**
+continuava a decidir a moldura noutro sítio: `molduraPrincipal()` de
+`achievements.js`, que ordenava só por prioridade e nunca olhava para a
+escolha. Quem escolhia "Rei dos Craques" via-se na mesma como "Rei da Pelada".
+
+A decisão passou toda para `lib/cards.js` (`cardDoJogador` / `molduraDoJogador`),
+que é agora a única porta — usada pelo ranking, pelo modal, pelo perfil e pela
+imagem partilhada. Antes eram quatro sítios com três regras diferentes.
+
+A **imagem** partilhada também não sabia que os cards existem: tinha uma
+moldura verde fixa e nenhum título, portanto era igual para toda a gente.
+Passa a desenhar a faixa do título, a raridade e as cores do card escolhido.
 
 ### E ainda
 

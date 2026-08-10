@@ -585,6 +585,10 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
   const vem = respostas.filter((r) => r.available)
   const naoVem = respostas.filter((r) => !r.available)
 
+  // Quem acha o sorteio injusto, e porquê. O grupo vê a mesma lista na Home —
+  // isto aqui é para o admin poder agir (trocar dois jogadores, ou explicar).
+  const contestacoes = Array.isArray(jogo?.disputes) ? jogo.disputes : []
+
   // ---------- render ----------
   return (
     <div className="pb-stack">
@@ -679,6 +683,43 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
               </div>
             ))}
           </div>
+        </Seccao>
+      )}
+
+      {/* ---------- contestações do sorteio ---------- */}
+      {contestacoes.length > 0 && (
+        <Seccao
+          titulo={`Contestações ao sorteio (${contestacoes.length})`}
+          tom={colors.teamA}
+        >
+          <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+            Não é um veto — é o grupo a dizer o que acha. Podes trocar dois jogadores em
+            “Trocas” ou deixar como está.
+          </p>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {contestacoes.map((d) => (
+              <li
+                key={d.player_id}
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  alignItems: 'flex-start',
+                  padding: '6px 0',
+                  borderBottom: `1px solid ${colors.line}`,
+                }}
+              >
+                <Avatar name={d.name} photo={d.photo} size={26} />
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+                  <strong>{d.name}</strong>
+                  {d.reason ? (
+                    <span style={{ color: colors.muted }}> — “{d.reason}”</span>
+                  ) : (
+                    <span style={{ color: colors.muted }}> (sem motivo escrito)</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
         </Seccao>
       )}
 

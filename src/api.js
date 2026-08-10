@@ -337,6 +337,18 @@ export const setMyStatus = (id, pin, status, note = null, token = null) =>
     p_token: token,
   })
 
+// "Não acho justo este sorteio." `contesta` a false retira a contestação.
+// O motivo é opcional e o servidor corta aos 140 caracteres.
+export const setMyDispute = (id, pin, matchId, contesta, reason = null, token = null) =>
+  rpc('set_my_dispute', {
+    p_id: id,
+    p_pin: token ? null : pin,
+    p_match: matchId,
+    p_contesta: !!contesta,
+    p_reason: reason,
+    p_token: token,
+  })
+
 // Números crus para as frases da entrada. A redação vive em lib/frases.js.
 export const getCuriosidades = () => rpc('get_curiosidades')
 

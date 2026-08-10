@@ -482,6 +482,49 @@ export default function MatchWizard({
   // Quem já respondeu à convocatória deste jogo (ou do mais próximo).
   const respostas = useMemo(() => indiceDeRespostas(convocatoria), [convocatoria])
 
+  // ---------- pré-escalação com os mensalistas ----------
+  //
+  // São eles que pagam o mensal e são eles que costumam jogar: começar a
+  // rodada com a lista vazia era pedir ao admin que repetisse à mão, todas as
+  // semanas, a mesma escolha de catorze nomes.
+  //
+  // PRÉ-MARCA, não decide: quem entra fica marcado como qualquer outro e
+  // desmarca-se com um toque. E salta quem disse que não vai ou está
+  // lesionado/a viajar — pré-marcar quem já avisou que falta seria pior do
+  // que não pré-marcar ninguém.
+  const preEscalar = useCallback(() => {
+    const disponivel = (j) =>
+      respostas[j.id] !== false && !estadoVisivel(j.availabilityStatus)
+    const { mensalistas } = separarMensalistas(jogadores.filter((j) => !goleiros.includes(j.id)))
+    const escolhidosAgora = mensalistas.filter(disponivel).slice(0, elenco.campo)
+    setCampo(escolhidosAgora.map((j) => j.id))
+    return {
+      marcados: escolhidosAgora.length,
+      // quantos mensalistas ficaram de fora por terem avisado
+      forcaDeFora: mensalistas.length - mensalistas.filter(disponivel).length,
+      faltam: Math.max(0, elenco.campo - escolhidosAgora.length),
+    }
+  }, [jogadores, goleiros, respostas, elenco.campo])
+
+  // Corre uma vez por jogo, ao entrar no passo 2 com a lista ainda vazia.
+  // `jogoPreEscalado` impede que voltar atrás e avançar outra vez apague as
+  // mudanças que o admin já fez à mão.
+  //
+  // Ajustado DURANTE o render e não num efeito — é o mesmo padrão da
+  // `conversaoAplicada` aqui em cima, e pela mesma razão: um efeito só corre
+  // depois de pintar, portanto o passo 2 aparecia um instante com a lista
+  // vazia antes de os mensalistas saltarem para lá.
+  const [jogoPreEscalado, setJogoPreEscalado] = useState(null)
+  const [avisoPre, setAvisoPre] = useState(null)
+  if (passo === 2 && jogo?.id && jogo.id !== jogoPreEscalado) {
+    setJogoPreEscalado(jogo.id)
+    // rascunho retomado com gente já escolhida: não se mexe no que lá está
+    if (campo.length === 0) {
+      const r = preEscalar()
+      if (r.marcados > 0) setAvisoPre(r)
+    }
+  }
+
   // A lista de escolha em dois blocos: ⭐ mensalistas primeiro, resto do
   // plantel a seguir. É só ORDEM — nenhum jogador fica marcado por isto, e o
   // admin continua a poder chamar quem quiser do segundo bloco.
@@ -1082,6 +1125,55 @@ export default function MatchWizard({
               </div>
             </details>
           )}
+
+          {/* ---- pré-escalação ---- */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: `1px solid ${colors.line}`,
+              background: 'rgba(255,197,49,0.05)',
+              marginBottom: 12,
+            }}
+          >
+            <span aria-hidden>⭐</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+              {avisoPre ? (
+                <>
+                  Pré-escalei <strong>{avisoPre.marcados}</strong>{' '}
+                  {avisoPre.marcados === 1 ? 'mensalista' : 'mensalistas'} disponíveis.
+                  {avisoPre.forcaDeFora > 0 && (
+                    <>
+                      {' '}
+                      <span style={{ color: colors.teamA }}>
+                        {avisoPre.forcaDeFora} de fora (não vão ou estão lesionados/a viajar).
+                      </span>
+                    </>
+                  )}
+                  {avisoPre.faltam > 0 && (
+                    <>
+                      {' '}
+                      Faltam <strong>{avisoPre.faltam}</strong> — chama do restante do plantel.
+                    </>
+                  )}
+                </>
+              ) : (
+                'Começa a escalação pelos mensalistas disponíveis. Confirmas e mexes à vontade.'
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => setAvisoPre(preEscalar())}
+              className="pb-tap"
+              style={{ ...styles.link, flexShrink: 0, color: colors.teamA }}
+            >
+              {campo.length ? 'refazer' : 'usar mensalistas'}
+            </button>
+          </div>
 
           {/* ---- elenco ---- */}
           <div style={{ ...styles.label, marginBottom: 6 }}>

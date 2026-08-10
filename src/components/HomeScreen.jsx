@@ -9,6 +9,7 @@ import { nomeDaEquipa } from '../lib/substitutions'
 import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import AchievementBadge from './AchievementBadge'
+import Contestar from './Contestar'
 import Disponibilidade from './Disponibilidade'
 import FraseDoDia from './FraseDoDia'
 import NextMatch from './NextMatch'
@@ -285,7 +286,17 @@ export default function HomeScreen({
         />
       </section>
 
-      {/* ---------- 4. a minha conta ---------- */}
+      {/* ---------- 4. o sorteio é justo? ---------- */}
+      {/* Logo a seguir às equipas, que é onde a pergunta nasce. */}
+      <Contestar
+        jogo={proximoJogo}
+        session={session}
+        token={token}
+        onPedirPin={onPedirPin}
+        onAtualizado={onRecarregar}
+      />
+
+      {/* ---------- 5. a minha conta ---------- */}
       <section>
         <div className="pb-grid">
           <div className="pb-col-6 pb-col-md-12">

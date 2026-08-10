@@ -547,7 +547,13 @@ export default function App() {
       )}
 
       {view === 'ranking' && (
-        <RankingScreen jogadores={jogadores} liderancas={liderancas} onProfile={abrirCard} />
+        <RankingScreen
+          jogadores={jogadores}
+          liderancas={liderancas}
+          sequencias={sequencias}
+          totalRodadas={dados?.matches?.length || 0}
+          onProfile={abrirCard}
+        />
       )}
 
       {view === 'players' && <PlayersScreen jogadores={jogadores} onProfile={abrirCard} />}

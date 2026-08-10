@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CAMPO_DA_ABA,
   RANKING_TABS,
   contarResultados,
   juntarEstatisticas,
@@ -320,7 +321,7 @@ describe('juntarEstatisticas — avaliação pós-jogo (0023)', () => {
 })
 
 describe('RANKING_TABS', () => {
-  it('tem as seis abas pela ordem combinada', () => {
+  it('tem as abas pela ordem combinada', () => {
     expect(RANKING_TABS.map((t) => t.id)).toEqual([
       'campo',
       'goleiros',
@@ -328,7 +329,20 @@ describe('RANKING_TABS', () => {
       'assistencias',
       'craques',
       'vitorias',
+      // A seleção da pelada não é um ranking — é a brincadeira que sai
+      // deles, e por isso fica no fim.
+      'selecao',
     ])
     expect(RANKING_TABS.every((t) => t.label && t.icon)).toBe(true)
+  })
+
+  // As abas de totais leem um campo do jogador; a `campo`, a `goleiros` e a
+  // `selecao` têm ecrã próprio. Sem esta correspondência, uma aba nova
+  // aparecia vazia sem ninguém perceber porquê.
+  it('todas as abas de totais têm campo, e as outras não', () => {
+    for (const t of RANKING_TABS) {
+      const temCampo = Boolean(CAMPO_DA_ABA[t.id])
+      expect(temCampo, t.id).toBe(!['campo', 'goleiros', 'selecao'].includes(t.id))
+    }
   })
 })
