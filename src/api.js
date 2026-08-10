@@ -326,6 +326,20 @@ export const adminSetPlayerStatus = (pw, playerId, status, note = null) =>
 export const adminSetMember = (pw, playerId, isMember) =>
   rpc('admin_set_member', { p_pw: pw, p_id: playerId, p_is_member: !!isMember })
 
+// O próprio jogador muda o seu estado — a mesma coluna que o admin escreve,
+// por outra porta. Quem sabe que torceu o tornozelo é ele.
+export const setMyStatus = (id, pin, status, note = null, token = null) =>
+  rpc('set_my_status', {
+    p_id: id,
+    p_pin: token ? null : pin,
+    p_status: status,
+    p_note: note,
+    p_token: token,
+  })
+
+// Números crus para as frases da entrada. A redação vive em lib/frases.js.
+export const getCuriosidades = () => rpc('get_curiosidades')
+
 // A convocatória: o jogo mais próximo por acontecer (mesmo em rascunho) e
 // quem já respondeu. Só data, local e respostas — nunca a escalação.
 export const getMatchCall = () => rpc('get_match_call')

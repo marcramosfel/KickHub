@@ -20,6 +20,7 @@ import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '..
 import { badgesDoJogador } from '../lib/achievements'
 import { ETIQUETA_STATUS, nomeDaPosicao, nomeDoTipo, POSITION_STATUS } from '../lib/positions'
 import AchievementBadge from './AchievementBadge'
+import MeuEstado from './MeuEstado'
 import RatingsReceived from './RatingsReceived'
 import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
@@ -300,6 +301,12 @@ export default function PlayerProfile({
   // migração só para isso quando a app já tem os dados carregados.
   jogador,
   embutido = false,
+  // A sessão de quem está a ver. Só serve para uma coisa: perceber se este
+  // perfil é o do próprio, e nesse caso deixá-lo mexer no que é dele.
+  session,
+  token,
+  onPedirPin,
+  onAtualizado,
 }) {
   // Dentro da casca de navegação o contentor já vem de fora.
   const pageStyle = embutido ? undefined : styles.page
@@ -374,6 +381,8 @@ export default function PlayerProfile({
   const ovr = calcularOverall(p)
   // títulos que este jogador lidera (rei da pelada, artilheiro, paredão…)
   const badges = liderancas ? badgesDoJogador(playerId, liderancas) : []
+  // Este perfil é o de quem está a ver? É o que decide mostrar os controlos.
+  const souEu = Boolean(session?.id) && session.id === playerId
   // `jogador` pode ainda não ter chegado (perfil aberto durante o carregamento
   // da lista): nesse caso não se afirma nada sobre posição ou tipo.
   const etiquetaPosicao =
@@ -401,6 +410,20 @@ export default function PlayerProfile({
         <h1 style={{ ...styles.title, fontSize: 20 }}>Perfil</h1>
         {voltar}
       </div>
+
+      {/* O que só o próprio pode mexer. Fica em cima porque é a única coisa
+          desta página que é uma ACÇÃO — o resto é tudo leitura. */}
+      {souEu && (
+        <div style={{ marginBottom: 14 }}>
+          <MeuEstado
+            session={session}
+            token={token}
+            estadoAtual={jogador?.availabilityStatus}
+            onPedirPin={onPedirPin}
+            onAtualizado={onAtualizado}
+          />
+        </div>
+      )}
 
       {/* posição e títulos — o que este jogador é dentro da pelada */}
       <div className="pb-card" style={{ marginBottom: 14 }}>

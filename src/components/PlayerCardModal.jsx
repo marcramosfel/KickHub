@@ -388,7 +388,7 @@ export default function PlayerCardModal({
         )}
 
         {aba === 'colecao' && (
-          <div className="pb-stack-sm">
+          <div className="pb-stack-sm pb-stagger">
             {escolhiveis.length === 0 ? (
               <p style={{ ...styles.mutedText, fontSize: 13 }}>
                 Ainda sem cards conquistados. Todos começam com o card de jogador da pelada — os
@@ -398,9 +398,16 @@ export default function PlayerCardModal({
               escolhiveis.map((c) => {
                 const r = raridade(c.raridade)
                 const ativo = principal?.id === c.id
+                // "Em uso" e "escolhido à mão" não são a mesma coisa: sem
+                // escolha, o card em uso é só o mais raro que ele tem, e o
+                // dia em que perder a artilharia o card muda sozinho. Dizer
+                // qual é qual é o que torna o botão compreensível.
+                const escolhidoAMao = jogador.primaryCard === c.id
+                const brilha = c.raridade === 'lendario' || c.raridade === 'epico'
                 return (
                   <div
                     key={c.id}
+                    className={brilha ? 'pb-shine' : undefined}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -409,6 +416,8 @@ export default function PlayerCardModal({
                       borderRadius: 12,
                       border: `1px solid ${ativo ? r.cor : colors.line}`,
                       background: ativo ? `${r.cor}0F` : 'transparent',
+                      boxShadow: ativo && r.brilho ? `0 0 18px ${r.brilho}` : undefined,
+                      transition: 'border-color 200ms ease, background-color 200ms ease',
                     }}
                   >
                     <span aria-hidden style={{ fontSize: 22, flexShrink: 0 }}>
@@ -420,6 +429,9 @@ export default function PlayerCardModal({
                         style={{ display: 'block', fontFamily: fonts.title, fontSize: 14, color: r.cor }}
                       >
                         {c.titulo}
+                        {escolhidoAMao && (
+                          <span style={{ color: colors.grass, fontSize: 12 }}> ★</span>
+                        )}
                       </span>
                       <span style={{ fontSize: 11, color: colors.muted, display: 'block' }}>
                         {r.nome} · {c.motivo}
@@ -428,17 +440,33 @@ export default function PlayerCardModal({
                     {souEu && (
                       <button
                         type="button"
-                        onClick={() => escolherCard(ativo ? null : c.id)}
+                        onClick={() => escolherCard(escolhidoAMao ? null : c.id)}
                         disabled={busy}
-                        className="pb-tab"
-                        style={{ fontSize: 12, flexShrink: 0 }}
+                        className="pb-tab pb-tap"
+                        title={
+                          escolhidoAMao
+                            ? 'Voltar ao automático (mostra sempre o mais raro que tiveres)'
+                            : 'Passar a mostrar este card a toda a gente'
+                        }
+                        style={{
+                          fontSize: 12,
+                          flexShrink: 0,
+                          color: escolhidoAMao ? colors.grass : undefined,
+                        }}
                       >
-                        {ativo ? 'Em uso' : 'Usar'}
+                        {escolhidoAMao ? '★ O teu' : ativo ? 'Fixar' : 'Usar'}
                       </button>
                     )}
                   </div>
                 )
               })
+            )}
+
+            {souEu && escolhiveis.length > 1 && (
+              <p style={{ ...styles.mutedText, fontSize: 11 }}>
+                O card marcado com ★ é o que escolheste — é esse que o grupo vê no teu perfil e no
+                ranking. Sem escolha, mostra-se sempre o mais raro que tiveres nesse momento.
+              </p>
             )}
 
             {souEu && (

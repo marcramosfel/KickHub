@@ -447,7 +447,7 @@ export default function RodadasPanel({
         </div>
       )}
 
-      <div className="pb-stack-sm">
+      <div className="pb-stack-sm pb-stagger">
         {filtro.resultado.map((m) => {
           const craque = awardWinners(m.craque)
           const bagre = awardWinners(m.bagre)

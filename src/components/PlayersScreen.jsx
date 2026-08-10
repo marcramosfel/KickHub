@@ -108,7 +108,7 @@ function Cartao({ p, onProfile }) {
   }
 
   return (
-    <div className="pb-card pb-card-hover" style={{ padding: 12 }}>
+    <div className="pb-card pb-card-hover pb-tap" style={{ padding: 12 }}>
       {onProfile ? (
         <button
           type="button"
@@ -192,7 +192,7 @@ export default function PlayersScreen({ jogadores, onProfile }) {
       )}
 
       {!agrupar && (
-        <div className="pb-cards">
+        <div className="pb-cards pb-stagger">
           {filtrados.map((p) => (
             <Cartao key={p.id} p={p} onProfile={onProfile} />
           ))}

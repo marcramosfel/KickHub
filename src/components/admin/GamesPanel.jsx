@@ -175,7 +175,7 @@ export default function GamesPanel({
             </button>
           </div>
 
-          <div className="pb-stack-sm">
+          <div className="pb-stack-sm pb-stagger">
             {jogos.map((j) => {
               const fase = faseDoJogo(j)
               const e = ETIQUETA_DA_FASE[fase] || { texto: fase, icone: '•', tom: 'neutro' }
@@ -191,7 +191,7 @@ export default function GamesPanel({
                   key={j.id}
                   type="button"
                   onClick={() => setAbertoId(j.id)}
-                  className="pb-card pb-card-hover"
+                  className="pb-card pb-card-hover pb-tap"
                   style={{
                     display: 'flex',
                     alignItems: 'center',

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ackPositionNotice,
+  getCuriosidades,
   getGoalkeeperStats,
   getLatestMatch,
   getMatchCall,
@@ -95,7 +96,7 @@ export default function App() {
     try {
       // Só `getPlayers` é obrigatório. Tudo o resto degrada: sem uma migração
       // aplicada, a secção respetiva desaparece em vez de a app rebentar.
-      const [players, playerStats, gkStats, matches, proximo, latest, draw, porVotar, pending, chamada] =
+      const [players, playerStats, gkStats, matches, proximo, latest, draw, porVotar, pending, chamada, curiosidades] =
         await Promise.all([
           getPlayers(),
           getPlayerStats().catch(() => []),
@@ -114,6 +115,9 @@ export default function App() {
           // respondeu. Sem a migração aplicada fica a null e a pergunta
           // simplesmente não aparece.
           getMatchCall().catch(() => null),
+          // As frases da entrada. Não-fatal: sem a função, a Home fica igual
+          // menos uma linha.
+          getCuriosidades().catch(() => null),
         ])
 
       // O feed saiu da Home (agora só mostra o estado atual) e passou a viver
@@ -132,6 +136,7 @@ export default function App() {
         latestMatch: latest,
         draw,
         convocatoria: chamada,
+        curiosidades,
         pendingRatings: pending,
         // só o que tem mesmo alguma coisa por fazer: a rodada continuar
         // aberta não é razão para avisar quem já votou em tudo
@@ -511,6 +516,7 @@ export default function App() {
           liderancas={liderancas}
           proximoJogo={dados?.proximoJogo}
           convocatoria={dados?.convocatoria}
+          curiosidades={dados?.curiosidades}
           latestMatch={dados?.latestMatch}
           porVotar={dados?.porVotar || []}
           faltamAvaliar={faltamAvaliar}
@@ -573,6 +579,10 @@ export default function App() {
           liderancas={liderancas}
           jogador={jogadores.find((j) => j.id === perfilId)}
           embutido
+          session={session}
+          token={deviceToken}
+          onPedirPin={pedirPin}
+          onAtualizado={carregar}
           onBack={() => navegar(voltarDoPerfil)}
         />
       )}

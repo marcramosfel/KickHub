@@ -782,6 +782,7 @@ begin
               'avaliacoes_completas', 'avaliacoes_em_falta', 'avaliacoes_reveladas', 'change_pin',
               'corrigir_ordem_rodizio', 'elegiveis_premio', 'fechar_votacao', 'fechar_votacoes_expiradas',
               'gen_user_id', 'get_feed', 'get_goalkeeper_stats', 'get_latest_match',
+              'get_curiosidades',
               'get_match', 'get_match_call', 'get_match_gk_stats', 'get_matches',
               'get_my_open_votes',
               'get_next_match', 'get_pending_ratings', 'get_player_chemistry', 'get_player_profile',
@@ -792,7 +793,7 @@ begin
               'payload_resultado', 'position_json', 'position_ok', 'prazo_de_votacao',
               'preencher_gk_order', 'publicar_no_feed', 'publish_draw', 'recalcular_forcas_do_jogo',
               'registar_atividade', 'register', 'revoke_device', 'set_my_availability',
-              'set_my_gk_rotation',
+              'set_my_gk_rotation', 'set_my_status',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'sincronizar_post_rating_status',
               'slugify', 'submit_ratings', 'submit_round_vote', 'talvez_revelar_avaliacoes',
               'update_photo', 'vencedor_do_jogo'
@@ -2830,6 +2831,32 @@ begin
     availability_updated_at = now()
   where id = p_id;
 end; $$;
+-- O PRÓPRIO jogador muda o seu estado.
+--
+-- Bidirecional de propósito: quem sabe que torceu o tornozelo é ele, não o
+-- admin. O admin continua a poder corrigir (`admin_set_player_status`) —
+-- são a mesma coluna, escrita por duas portas com autenticações diferentes.
+--
+-- Aceita PIN ou token do telemóvel, como a votação: dizer "estou lesionado"
+-- não é mexer na conta, e exigir o PIN escrito era o caminho mais curto
+-- para ninguém atualizar nada.
+create or replace function set_my_status(
+  p_id uuid, p_pin text, p_status text, p_note text default null, p_token uuid default null
+) returns json language plpgsql security definer set search_path = public, extensions as $$
+declare v_id uuid; v_status text;
+begin
+  v_id := autenticar_votante(p_id, p_pin, p_token);
+  v_status := coalesce(nullif(btrim(p_status), ''), 'AVAILABLE');
+  if v_status not in ('AVAILABLE','TRAVELING','INJURED','UNAVAILABLE') then
+    raise exception 'ESTADOINVALIDO';
+  end if;
+  update players set
+    availability_status = v_status,
+    availability_note   = nullif(btrim(p_note), ''),
+    availability_updated_at = now()
+  where id = v_id;
+  return json_build_object('player_id', v_id, 'availability_status', v_status);
+end; $$;
 -- ---------- ⭐ MENSALISTA ----------
 create or replace function admin_set_member(p_pw text, p_id uuid, p_is_member boolean)
 returns void language plpgsql security definer set search_path = public, extensions as $$
@@ -2942,7 +2969,8 @@ returns table(
   player_type text, primary_position text, secondary_position text,
   accepts_other_positions boolean, position_status text,
   gk_rotation_ok boolean, gk_starts bigint, last_gk_start date,
-  is_member boolean, availability_status text, availability_note text)
+  is_member boolean, availability_status text, availability_note text,
+  primary_card text, nickname text)
 language sql security definer set search_path = public, extensions as $$
   select p.id, p.name, p.dob, p.photo_url,
          round(avg(r.score)::numeric, 2) as avg,
@@ -2958,7 +2986,17 @@ language sql security definer set search_path = public, extensions as $$
            join matches m on m.id = l.match_id
           where l.player_id = p.id and l.is_goalkeeper
             and m.status <> 'CANCELLED') as last_gk_start,
-         p.is_member, p.availability_status, p.availability_note
+         p.is_member, p.availability_status, p.availability_note,
+         -- O card escolhido e o apelido TÊM de sair daqui.
+         --
+         -- Estavam a ser gravados (`set_my_primary_card`, `set_my_nickname`)
+         -- e lidos só pelo `login`, que enche a sessão — mas quem desenha os
+         -- cards é o `juntarEstatisticas`, e esse come `get_players()`. Sem
+         -- estas duas colunas, `jogador.primaryCard` era sempre null, o
+         -- `cardPrincipal` caía sempre no mais raro, e escolher um card não
+         -- fazia nada visível: nem para os outros, nem para o próprio depois
+         -- de recarregar.
+         p.primary_card, p.nickname
   from players p
   left join ratings r on r.target_id = p.id
   where p.approved
@@ -3258,6 +3296,85 @@ begin
     ) t
   );
 end; $$;
+-- ---------- CURIOSIDADES DA PELADA ----------
+--
+-- Os números CRUS de onde saem as frases da entrada ("os Pretos vão 5-3 nos
+-- confrontos", "o Flash e o Wallace ganharam as 5 que jogaram juntos"). A
+-- redação vive em `src/lib/frases.js` — aqui só se apuram factos, pela mesma
+-- razão de sempre: uma frase escrita em SQL é uma frase que ninguém consegue
+-- testar nem traduzir.
+--
+-- Sobre as notas: devolve-se o VALOR mais baixo e o mais alto alguma vez
+-- dados, e mais nada. Nem quem deu, nem a quem — nem sequer o número de
+-- pessoas envolvidas. A graça está em "alguém deu um 0.1"; dizer quem a quem
+-- transformava uma piada numa acusação, e a app já tem uma regra para isso
+-- (`avaliacoes_reveladas`), que só abre as notas a QUEM AS RECEBEU.
+create or replace function get_curiosidades()
+returns json language sql stable security definer set search_path = public, extensions as $$
+  with jogos as (
+    select m.id, m.score_a, m.score_b,
+           case when m.score_a > m.score_b then 'A'
+                when m.score_b > m.score_a then 'B'
+           end as vencedor
+    from matches_validas m
+    where m.score_a is not null and m.score_b is not null
+  ),
+  duplas as (
+    select p1.player_id as a_id, p2.player_id as b_id,
+           count(*)::int as jogos,
+           count(*) filter (where j.vencedor = p1.team)::int as vitorias
+    from participantes_do_jogo p1
+    join participantes_do_jogo p2
+      on p2.match_id = p1.match_id
+     and p2.team = p1.team
+     and p2.player_id > p1.player_id
+    join jogos j on j.id = p1.match_id
+    where p1.team in ('A','B')
+    group by p1.player_id, p2.player_id
+    having count(*) >= 3
+  )
+  select json_build_object(
+    'rodadas', (select count(*)::int from jogos),
+    -- confronto histórico entre as duas equipas
+    'equipas', json_build_object(
+      'a', (select count(*)::int from jogos where vencedor = 'A'),
+      'b', (select count(*)::int from jogos where vencedor = 'B'),
+      'empates', (select count(*)::int from jogos where vencedor is null)),
+    -- extremos das notas do grupo, sem nomes (ver comentário acima)
+    'notas', (select json_build_object('min', min(r.score), 'max', max(r.score),
+                                       'total', count(*)::int)
+                from ratings r where r.score is not null),
+    -- a dupla que mais ganha junta (mínimo 3 jogos lado a lado)
+    'dupla', (select json_build_object(
+                'a', pa.name, 'b', pb.name,
+                'jogos', d.jogos, 'vitorias', d.vitorias,
+                'pct', round(100.0 * d.vitorias / d.jogos))
+                from duplas d
+                join players pa on pa.id = d.a_id
+                join players pb on pb.id = d.b_id
+               order by (d.vitorias::numeric / d.jogos) desc, d.jogos desc, pa.name
+               limit 1),
+    -- a goleada de sempre
+    'goleada', (select json_build_object(
+                  'score_a', j.score_a, 'score_b', j.score_b,
+                  'diferenca', abs(j.score_a - j.score_b))
+                  from jogos j
+                 order by abs(j.score_a - j.score_b) desc, j.score_a + j.score_b desc
+                 limit 1),
+    -- o artilheiro, e quantos gols o separam do segundo
+    'artilheiro', (select json_build_object('nome', p.name, 'gols', t.gols)
+                     from (select ms.player_id, sum(ms.goals)::int as gols
+                             from match_stats ms
+                             join matches_validas mv on mv.id = ms.match_id
+                            group by ms.player_id
+                           having sum(ms.goals) > 0
+                            order by 2 desc limit 1) t
+                     join players p on p.id = t.player_id),
+    'autogolos', (select coalesce(sum(ms.own_goals), 0)::int
+                    from match_stats ms
+                    join matches_validas mv on mv.id = ms.match_id)
+  );
+$$;
 -- ---------- UM JOGO QUALQUER, PARA O ADMIN ----------
 --
 -- `admin_matches_upcoming` só traz o que ainda está aberto, e é por isso
@@ -4252,6 +4369,7 @@ begin
               'admin_swap_players', 'admin_undo_substitution', 'admin_undo_swap', 'admin_update_post',
               'admin_users', 'admin_voting_review', 'avaliacoes_completas', 'avaliacoes_reveladas',
               'change_pin', 'get_feed', 'get_goalkeeper_stats', 'get_latest_match',
+              'get_curiosidades',
               'get_match', 'get_match_call', 'get_match_gk_stats', 'get_matches',
               'get_my_open_votes',
               'get_next_match', 'get_pending_ratings', 'get_player_chemistry', 'get_player_profile',
@@ -4259,7 +4377,7 @@ begin
               'get_ratings_received', 'get_round_ballot', 'issue_device_token', 'login',
               'login_with_device', 'match_public_json', 'position_ok', 'prazo_de_votacao',
               'publish_draw', 'register', 'revoke_device', 'set_my_availability',
-              'set_my_gk_rotation',
+              'set_my_gk_rotation', 'set_my_status',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'submit_ratings',
               'submit_round_vote', 'update_photo'
             ])

@@ -10,6 +10,7 @@ import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import AchievementBadge from './AchievementBadge'
 import Disponibilidade from './Disponibilidade'
+import FraseDoDia from './FraseDoDia'
 import NextMatch from './NextMatch'
 import { ErrorBox, SkeletonCard } from './Ui'
 import { colors, fonts, styles, chip } from '../theme'
@@ -47,14 +48,18 @@ function EstadoAtual({ estado, latestMatch, onVotar, onRate, onNavigate }) {
 
   return (
     <div
-      className="pb-card"
+      className={`pb-card pb-pop${estado.urgente ? ' pb-pulse' : ''}`}
       style={{
         borderColor: cor,
         background: estado.urgente ? 'rgba(255,197,49,0.06)' : 'rgba(52,208,88,0.05)',
       }}
     >
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <span aria-hidden style={{ fontSize: 30, lineHeight: 1, flexShrink: 0 }}>
+        <span
+          aria-hidden
+          className="pb-float"
+          style={{ fontSize: 30, lineHeight: 1, flexShrink: 0 }}
+        >
           {estado.icone}
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -95,6 +100,7 @@ function EstadoAtual({ estado, latestMatch, onVotar, onRate, onNavigate }) {
             <button
               type="button"
               onClick={agir}
+              className="pb-tap"
               style={{ ...styles.button, marginTop: 14, width: 'auto', padding: '12px 22px' }}
             >
               {estado.acao}
@@ -112,6 +118,7 @@ export default function HomeScreen({
   liderancas,
   proximoJogo,
   convocatoria,
+  curiosidades,
   latestMatch,
   porVotar,
   faltamAvaliar,
@@ -247,6 +254,9 @@ export default function HomeScreen({
       <h1 style={{ ...styles.title, fontSize: 22, margin: 0 }}>
         Olá, <span style={{ color: colors.grass }}>{session.name.split(' ')[0]}</span> 👋
       </h1>
+
+      {/* A provocação do dia — uma linha, tirada dos números reais. */}
+      <FraseDoDia curiosidades={curiosidades} playerId={session.id} />
 
       {/* ---------- 1. o estado da pelada, uma coisa só ---------- */}
       <EstadoAtual
@@ -491,7 +501,7 @@ export default function HomeScreen({
 
       {/* O histórico saiu da Home e vive nos ecrãs próprios — daqui fica só o
           caminho para lá, para quem o vinha procurar aqui. */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div className="pb-stagger" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {[
           { id: 'ranking', rotulo: '🏅 Ranking' },
           { id: 'history', rotulo: '📜 Rodadas e últimas' },
@@ -502,6 +512,7 @@ export default function HomeScreen({
             key={l.id}
             type="button"
             onClick={() => onNavigate?.(l.id)}
+            className="pb-tap"
             style={{ ...styles.buttonGhost, width: 'auto', flex: '1 1 150px', fontSize: 13 }}
           >
             {l.rotulo}

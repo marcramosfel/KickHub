@@ -108,8 +108,211 @@ img {
 .rise-in {
   animation: riseIn 260ms ease-out both;
 }
+
+/* =============================================================================
+   Movimento
+   -----------------------------------------------------------------------------
+   Regras que valem para tudo o que está aqui em baixo:
+
+   1. Nada que se mexa sozinho para sempre, excepto o `pb-float` (2s, 6px) e o
+      `pb-pulse`, que existe só onde há mesmo uma coisa a fazer. Uma app que
+      pisca constantemente cansa ao terceiro dia.
+   2. Nada anima `width`, `height`, `top` nem `left` — só `transform` e
+      `opacity`, que a GPU trata sem repintar a página. Num telemóvel a
+      diferença entre isto e animar layout é a diferença entre fluido e
+      aos solavancos.
+   3. Tudo desaparece com `prefers-reduced-motion`. Não é acessibilidade
+      decorativa: para quem tem enxaquecas vestibulares isto é a diferença
+      entre usar a app e fechá-la.
+   ========================================================================== */
+
+/* Aparecer com um saltinho — para o que nasce depois de uma acção do
+   utilizador (um card que abre, uma resposta que chega). */
+@keyframes pbPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.pb-pop {
+  animation: pbPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Lista que entra em cascata. O atraso é por posição e pára aos 8 — numa
+   lista de 30 jogadores, esperar 30 × 40ms pelo último era mais de um
+   segundo a olhar para nada. */
+.pb-stagger > * {
+  animation: riseIn 300ms ease-out both;
+}
+.pb-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.pb-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.pb-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.pb-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.pb-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.pb-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.pb-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.pb-stagger > *:nth-child(n + 8) { animation-delay: 280ms; }
+
+/* Brilho que atravessa um card raro, de vez em quando. É o gesto que faz um
+   lendário parecer lendário. */
+@keyframes pbShine {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  /* a pausa é a parte importante: 12% a passar, 88% quieto */
+  100% {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+.pb-shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.pb-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.14),
+    transparent
+  );
+  animation: pbShine 4.5s ease-in-out infinite;
+}
+
+/* Chamar a atenção para UMA coisa accionável. A sombra pulsa, o elemento não
+   muda de tamanho — crescer empurrava o que está à volta. */
+@keyframes pbPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 197, 49, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 197, 49, 0);
+  }
+}
+.pb-pulse {
+  animation: pbPulse 2.2s ease-out infinite;
+}
+
+/* Flutuar devagarinho — só para ícones grandes e decorativos. */
+@keyframes pbFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.pb-float {
+  animation: pbFloat 3s ease-in-out infinite;
+}
+
+/* Resposta ao toque, mais firme do que o `scale(0.97)` global: para os
+   alvos grandes (cards clicáveis) onde o toque tem de se sentir. */
+.pb-tap {
+  transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pb-tap:active:not(:disabled) {
+  transform: scale(0.965);
+}
+
+/* Um número que muda tem de se notar que mudou. */
+@keyframes pbBump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.pb-bump {
+  animation: pbBump 260ms ease-out;
+}
+
+/* Abanar — só para o erro, e uma vez. */
+@keyframes pbShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+.pb-shake {
+  animation: pbShake 320ms ease-in-out;
+}
+
+/* A folha do telemóvel a subir, em vez de aparecer do nada. */
+@keyframes pbSlideUp {
+  from {
+    transform: translateY(14%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@media (max-width: 767.98px) {
+  .pb-sheet {
+    animation: pbSlideUp 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes pbFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.pb-overlay,
+.pb-modal-overlay {
+  animation: pbFadeIn 180ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .rise-in {
-    animation: none;
+  .rise-in,
+  .pb-pop,
+  .pb-shine::after,
+  .pb-pulse,
+  .pb-float,
+  .pb-bump,
+  .pb-shake,
+  .pb-sheet,
+  .pb-overlay,
+  .pb-modal-overlay,
+  .pb-stagger > * {
+    animation: none !important;
+  }
+  .pb-tap,
+  .pb-tap:active {
+    transition: none;
+    transform: none;
   }
 }

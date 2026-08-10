@@ -71,9 +71,30 @@ O estado do jogador e a disponibilidade para um jogo são **conceitos separados 
 dados**, e é para ficarem assim: um 🟢 disponível pode faltar a esta sexta, e um ✈️ a viajar pode
 chegar a tempo da próxima. Cruzá-los numa coluna só perdia as duas informações.
 
-`get_players()` passou a devolver mais três colunas (`is_member`, `availability_status`,
-`availability_note`). O bloco de drops no topo das funções trata disso sozinho — `create or
-replace` não muda tipos de retorno, e é essa a razão de esse bloco existir.
+`get_players()` passou a devolver mais colunas. O bloco de drops no topo das funções trata disso
+sozinho — `create or replace` não muda tipos de retorno, e é essa a razão de esse bloco existir.
+
+### Bug corrigido: escolher um card não fazia nada
+
+`primary_card` e `nickname` eram **gravados** (`set_my_primary_card`, `set_my_nickname`) e lidos
+só pelo `login`. Mas quem desenha os cards é o `juntarEstatisticas` do frontend, e esse come o
+`get_players()` — que nunca devolveu nenhuma das duas colunas.
+
+Resultado: `jogador.primaryCard` era sempre `null`, o `cardPrincipal()` caía sempre no card mais
+raro, e escolher um card não mudava nada — nem para os outros, nem para o próprio depois de
+recarregar a página. As duas colunas passam a sair do `get_players()`.
+
+### E ainda
+
+| O quê | Onde |
+| --- | --- |
+| `set_my_status(...)` | O **próprio jogador** muda o seu estado (🟢✈️🤕🔴). Mesma coluna que o `admin_set_player_status` escreve, por outra porta — autentica por PIN ou pelo token do telemóvel. O admin continua a poder corrigir. |
+| `get_curiosidades()` | Números crus para as frases da entrada: confronto Pretos–Brancos, a dupla que mais ganha junta, a maior goleada, o artilheiro, os extremos das notas. A redação vive em `src/lib/frases.js`. |
+
+Sobre as notas nas curiosidades: devolve-se o **valor** mais baixo e o mais alto alguma vez
+dados, e mais nada — nem quem deu, nem a quem. "Alguém deu um 0,1" é uma piada de grupo; "o X deu
+um 0,1 ao Y" é uma acusação. As notas com nome continuam a passar só pela `avaliacoes_reveladas`,
+que as mostra a quem as recebeu.
 
 ---
 
