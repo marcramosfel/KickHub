@@ -27,6 +27,7 @@ export const NAV_SECUNDARIAS = [
   // antes de montar uma rodada.
   { id: 'players', label: 'Plantel', icon: '👥' },
   { id: 'stats', label: 'Estatísticas', icon: '📊' },
+  { id: 'selecao', label: 'Seleção da pelada', icon: '⭐' },
   { id: 'history', label: 'Histórico', icon: '📜' },
 ]
 

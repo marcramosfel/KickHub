@@ -1,0 +1,39 @@
+{
+  "name": "Pelada Browns",
+  "short_name": "Pelada",
+  "description": "Sorteios equilibrados, rankings e votações da pelada do Browns.",
+  "lang": "pt-PT",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a1512",
+  "theme_color": "#0a1512",
+  "categories": ["sports"],
+  "icons": [
+    {
+      "src": "/icons/icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icone-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icone-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -19,11 +19,12 @@ import {
 } from '../lib/overall'
 import { balanco, calcularConquistas, calcularSequencias, resultadoDe } from '../lib/trophies'
 import { badgesDoJogador } from '../lib/achievements'
-import { cardDoJogador } from '../lib/cards'
+import { cardDoJogador, cardsDoJogador } from '../lib/cards'
 import { calcularSequencias as sequenciasDasRodadas } from '../lib/streaks'
 import { ETIQUETA_STATUS, nomeDaPosicao, nomeDoTipo, POSITION_STATUS } from '../lib/positions'
 import AchievementBadge from './AchievementBadge'
 import MeuEstado from './MeuEstado'
+import MeusCards from './MeusCards'
 import RatingsReceived from './RatingsReceived'
 import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
@@ -333,6 +334,23 @@ export default function PlayerProfile({
     }
   }, [playerId])
 
+  // As sequencias saem do proprio historico do perfil (`p.history`), que ja
+  // veio do servidor: alguns cards ("Invencivel", "Homem-Gol") dependem
+  // delas, e sem isto o perfil oferecia menos cards do que o modal.
+  const sequenciasDoPerfil = useMemo(
+    () =>
+      sequenciasDasRodadas(
+        (p?.history || []).map((h) => ({
+          id: h.match_id,
+          played_at: h.played_at,
+          score_a: h.score_a,
+          score_b: h.score_b,
+          players: [{ player_id: playerId, team: h.team, goals: h.goals, assists: h.assists }],
+        }))
+      ),
+    [p, playerId]
+  )
+
   // O CARD que este jogador escolheu — o mesmo que o ranking e o modal
   // mostram. Vinha de `lib/cards.js` para não haver três respostas
   // diferentes à pergunta "qual é o card do Marcos?".
@@ -340,22 +358,25 @@ export default function PlayerProfile({
   // As sequências saem do próprio histórico do perfil (`p.history`), que já
   // veio do servidor: alguns cards ("Invencível", "Homem-Gol") dependem
   // delas, e sem isto o perfil oferecia menos cards do que o modal.
+  const colecao = useMemo(() => {
+    if (!p || !jogador) return []
+    return cardsDoJogador({
+      jogador,
+      liderancas,
+      sequencias: sequenciasDoPerfil,
+      totalRodadas,
+    })
+  }, [p, jogador, liderancas, sequenciasDoPerfil, totalRodadas])
+
   const cardEscolhido = useMemo(() => {
     if (!p || !jogador) return null
-    const rodadas = (p.history || []).map((h) => ({
-      id: h.match_id,
-      played_at: h.played_at,
-      score_a: h.score_a,
-      score_b: h.score_b,
-      players: [{ player_id: playerId, team: h.team, goals: h.goals, assists: h.assists }],
-    }))
     return cardDoJogador({
       jogador,
       liderancas,
-      sequencias: sequenciasDasRodadas(rodadas),
+      sequencias: sequenciasDoPerfil,
       totalRodadas,
     })
-  }, [p, jogador, liderancas, totalRodadas, playerId])
+  }, [p, jogador, liderancas, sequenciasDoPerfil, totalRodadas])
 
   // gera o card assim que o perfil chega — já com o card escolhido, para a
   // imagem partilhada mostrar o título certo e não a moldura genérica
@@ -444,11 +465,19 @@ export default function PlayerProfile({
       {/* O que só o próprio pode mexer. Fica em cima porque é a única coisa
           desta página que é uma ACÇÃO — o resto é tudo leitura. */}
       {souEu && (
-        <div style={{ marginBottom: 14 }}>
+        <div className="pb-stack" style={{ marginBottom: 14 }}>
           <MeuEstado
             session={session}
             token={token}
             estadoAtual={jogador?.availabilityStatus}
+            onPedirPin={onPedirPin}
+            onAtualizado={onAtualizado}
+          />
+          <MeusCards
+            cards={colecao}
+            escolhido={jogador?.primaryCard}
+            atual={cardEscolhido}
+            session={session}
             onPedirPin={onPedirPin}
             onAtualizado={onAtualizado}
           />

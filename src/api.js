@@ -68,6 +68,9 @@ const ERROS = {
   TOKENINVALIDO: 'Esta ligação expirou. Entra com o teu PIN.',
   // estado do jogador no plantel
   ESTADOINVALIDO: 'Esse estado de jogador não existe.',
+  // palpites do próximo jogo
+  PALPITEFECHADO: 'Os palpites deste jogo já fecharam.',
+  PALPITEINVALIDO: 'Esse palpite não existe.',
 }
 
 export class ApiError extends Error {
@@ -348,6 +351,19 @@ export const setMyDispute = (id, pin, matchId, contesta, reason = null, token = 
     p_reason: reason,
     p_token: token,
   })
+
+// "Quem ganha?" — 'A', 'B' ou 'EMPATE'. Só antes do apito.
+export const setMyPrediction = (id, pin, matchId, palpite, token = null) =>
+  rpc('set_my_prediction', {
+    p_id: id,
+    p_pin: token ? null : pin,
+    p_match: matchId,
+    p_palpite: palpite,
+    p_token: token,
+  })
+
+// Quem mais acerta os palpites, de sempre.
+export const getPalpiteiros = () => rpc('get_palpiteiros')
 
 // Números crus para as frases da entrada. A redação vive em lib/frases.js.
 export const getCuriosidades = () => rpc('get_curiosidades')

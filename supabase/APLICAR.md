@@ -68,6 +68,8 @@ valia.
 | `admin_set_player_status` / `admin_set_member` | funções novas | Só admin. |
 | `draw_disputes` | tabela nova | "Não acho justo este sorteio": uma linha por (jogo, jogador), com um motivo opcional de 140 caracteres. Só se contesta um sorteio **publicado** — em rascunho o grupo nem o viu, e depois do jogo o placar já respondeu. |
 | `set_my_dispute(...)` | função nova | Contesta e retira. O nome de quem contesta é público (contestar às escondidas não é contestar); o motivo vai junto. |
+| `match_predictions` | tabela nova | Os palpites: `A`, `B` ou `EMPATE`, um por pessoa por jogo, aceites só enquanto o jogo está `PUBLISHED`/`IN_PROGRESS`. O acerto **não** se guarda — deriva-se do placar de agora, senão um resultado corrigido pelo admin deixava a tabela a mentir. |
+| `set_my_prediction(...)` / `get_palpiteiros()` | funções novas | Dar o palpite e o ranking de quem mais acerta. |
 
 O estado do jogador e a disponibilidade para um jogo são **conceitos separados na base de
 dados**, e é para ficarem assim: um 🟢 disponível pode faltar a esta sexta, e um ✈️ a viajar pode

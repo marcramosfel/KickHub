@@ -44,12 +44,23 @@ import PositionSetupScreen from './components/PositionSetupScreen'
 import QuickLogin from './components/QuickLogin'
 import RankingScreen from './components/RankingScreen'
 import RateScreen from './components/RateScreen'
+import SelecaoDaPelada from './components/SelecaoDaPelada'
 import StatsScreen from './components/StatsScreen'
 import VotingBanner from './components/VotingBanner'
 import { colors, styles } from './theme'
 
 // As páginas que vivem dentro da casca com navegação.
-const VIEWS_COM_SHELL = ['home', 'next', 'ranking', 'draws', 'players', 'stats', 'history', 'profile']
+const VIEWS_COM_SHELL = [
+  'home',
+  'next',
+  'ranking',
+  'draws',
+  'players',
+  'stats',
+  'history',
+  'selecao',
+  'profile',
+]
 
 export default function App() {
   // Sessão do jogador: { id, name, is_admin, voted, pin, ...posições } — só em memória.
@@ -557,6 +568,18 @@ export default function App() {
       )}
 
       {view === 'players' && <PlayersScreen jogadores={jogadores} onProfile={abrirCard} />}
+
+      {view === 'selecao' && (
+        <>
+          <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 4 }}>
+            Seleção da pelada <span style={{ color: colors.grass }}>⭐</span>
+          </h1>
+          <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 14 }}>
+            O melhor onze possível — e o outro. Não decide nada: é para discutir.
+          </p>
+          <SelecaoDaPelada jogadores={jogadores} />
+        </>
+      )}
 
       {view === 'draws' && (
         <DrawsScreen

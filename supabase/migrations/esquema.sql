@@ -264,6 +264,21 @@ create table if not exists ratings_arquivo (
 -- pode faltar a uma sexta-feira, e um jogador a viajar pode chegar a tempo
 -- da próxima. Uma linha por (jogo, jogador); sem linha = ainda não
 -- respondeu, que não é o mesmo que "não vai".
+-- ---------- PALPITES ----------
+-- "Quem e que ganha?" - uma aposta por pessoa por jogo, dada ANTES do apito.
+--
+-- A chave primaria e a regra "um palpite por pessoa"; mudar de ideias e um
+-- UPDATE. O acerto NAO se guarda: deriva-se do placar quando ele existir,
+-- porque guarda-lo era abrir a porta a ficar dessincronizado de um resultado
+-- corrigido pelo admin.
+create table if not exists match_predictions (
+  match_id   uuid not null references matches(id) on delete cascade,
+  player_id  uuid not null references players(id) on delete cascade,
+  palpite    text not null check (palpite in ('A','B','EMPATE')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (match_id, player_id)
+);
 -- ---------- CONTESTAR O SORTEIO ----------
 -- "Não acho justo" — uma linha por (jogo, jogador), com um motivo curto e
 -- opcional. A chave primária é a regra "um voto por pessoa"; mudar de ideias
@@ -460,6 +475,7 @@ end
 $chk$;
 alter table match_availability enable row level security;
 alter table draw_disputes enable row level security;
+alter table match_predictions enable row level security;
 -- gera user_id para quem ainda não tem, por ordem de criação
 do $$
 declare rec record;
@@ -665,6 +681,7 @@ create index if not exists player_devices_player_idx on player_devices (player_i
 create index if not exists match_availability_player_idx
   on match_availability (player_id);
 create index if not exists draw_disputes_player_idx on draw_disputes (player_id);
+create index if not exists match_predictions_player_idx on match_predictions (player_id);
 
 -- =============================== VIEWS ==============================
 -- A view nasceu na 0019 com `select m.*` e ficou com as colunas que
@@ -803,9 +820,11 @@ begin
               'corrigir_ordem_rodizio', 'elegiveis_premio', 'fechar_votacao', 'fechar_votacoes_expiradas',
               'gen_user_id', 'get_feed', 'get_goalkeeper_stats', 'get_latest_match',
               'get_curiosidades',
+              'get_palpiteiros',
               'get_match', 'get_match_call', 'get_match_gk_stats', 'get_matches',
               'get_my_open_votes',
-              'get_next_match', 'get_pending_ratings', 'get_player_chemistry', 'get_player_profile',
+              'get_next_match', 'get_palpiteiros', 'get_pending_ratings',
+              'get_player_chemistry', 'get_player_profile',
               'get_player_stats', 'get_player_stats_range', 'get_players', 'get_published_draw',
               'get_ratings_received', 'get_round_ballot', 'issue_device_token', 'jogadores_do_jogo',
               'lider_do_premio', 'limpar_votos_invalidos', 'login', 'login_with_device',
@@ -813,7 +832,8 @@ begin
               'payload_resultado', 'position_json', 'position_ok', 'prazo_de_votacao',
               'preencher_gk_order', 'publicar_no_feed', 'publish_draw', 'recalcular_forcas_do_jogo',
               'registar_atividade', 'register', 'revoke_device', 'set_my_availability',
-              'set_my_dispute', 'set_my_gk_rotation', 'set_my_status',
+              'set_my_dispute', 'set_my_gk_rotation', 'set_my_prediction',
+              'set_my_status',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'sincronizar_post_rating_status',
               'slugify', 'submit_ratings', 'submit_round_vote', 'talvez_revelar_avaliacoes',
               'update_photo', 'vencedor_do_jogo'
@@ -2950,7 +2970,65 @@ begin
   return json_build_object('match_id', p_match, 'player_id', v_id,
                            'contesta', true, 'reason', v_motivo);
 end; $$;
--- ---------- A CONVOCATÓRIA ----------
+-- ---------- O PALPITE ----------
+--
+-- So ANTES do jogo: um palpite dado depois de se saber o resultado nao e um
+-- palpite. A regua e o estado - PUBLISHED/IN_PROGRESS aceita, COMPLETED e
+-- CANCELLED nao.
+create or replace function set_my_prediction(
+  p_id uuid, p_pin text, p_match uuid, p_palpite text, p_token uuid default null
+) returns json language plpgsql security definer set search_path = public, extensions as $$
+declare v_id uuid; v_status text; v_p text;
+begin
+  v_id := autenticar_votante(p_id, p_pin, p_token);
+
+  select m.status into v_status from matches m where m.id = p_match;
+  if v_status is null then raise exception 'INVALIDO'; end if;
+  if v_status = 'CANCELLED' then raise exception 'JOGOCANCELADO'; end if;
+  if v_status not in ('PUBLISHED','IN_PROGRESS') then raise exception 'PALPITEFECHADO'; end if;
+
+  v_p := upper(btrim(coalesce(p_palpite, '')));
+  if v_p not in ('A','B','EMPATE') then raise exception 'PALPITEINVALIDO'; end if;
+
+  insert into match_predictions(match_id, player_id, palpite)
+  values (p_match, v_id, v_p)
+  on conflict (match_id, player_id) do update
+    set palpite = excluded.palpite, updated_at = now();
+
+  return json_build_object('match_id', p_match, 'player_id', v_id, 'palpite', v_p);
+end; $$;
+-- ---------- O RANKING DOS PALPITEIROS ----------
+--
+-- Quem acertou o que, em todas as rodadas ja decididas. O acerto e calculado
+-- a partir do placar de agora - se o admin corrigir um resultado, a tabela
+-- corrige-se com ele.
+create or replace function get_palpiteiros()
+returns json language sql stable security definer set search_path = public, extensions as $$
+  with decididos as (
+    select m.id,
+           case when m.score_a > m.score_b then 'A'
+                when m.score_b > m.score_a then 'B'
+                else 'EMPATE'
+           end as resultado
+    from matches_validas m
+    where m.score_a is not null and m.score_b is not null
+  ),
+  contas as (
+    select mp.player_id,
+           count(*)::int as palpites,
+           count(*) filter (where mp.palpite = d.resultado)::int as acertos
+    from match_predictions mp
+    join decididos d on d.id = mp.match_id
+    group by mp.player_id
+  )
+  select coalesce(json_agg(json_build_object(
+           'player_id', c.player_id, 'name', p.name, 'photo', p.photo_url,
+           'palpites', c.palpites, 'acertos', c.acertos,
+           'pct', round(100.0 * c.acertos / c.palpites))
+         order by c.acertos desc, c.palpites desc, p.name), '[]'::json)
+  from contas c join players p on p.id = c.player_id;
+$$;
+-- ---------- A CONVOCATORIA ----------
 --
 -- O jogo a que a pergunta "vais jogar?" se refere: o mais próximo que
 -- ainda não aconteceu, mesmo em rascunho.
@@ -3208,7 +3286,16 @@ returns json language sql stable security definer set search_path = public, exte
                'reason', d.reason, 'created_at', d.created_at)
              order by d.created_at), '[]'::json)
       from draw_disputes d join players p on p.id = d.player_id
-      where d.match_id = m.id)
+      where d.match_id = m.id),
+    -- Os palpites deste jogo. O nome vai: metade da graca e ver quem apostou
+    -- contra a propria equipa.
+    'predictions', (
+      select coalesce(json_agg(json_build_object(
+               'player_id', mp.player_id, 'name', p.name, 'photo', p.photo_url,
+               'palpite', mp.palpite)
+             order by p.name), '[]'::json)
+      from match_predictions mp join players p on p.id = mp.player_id
+      where mp.match_id = m.id)
   )
   from matches m where m.id = p_id;
 $$;
@@ -4440,12 +4527,14 @@ begin
               'get_curiosidades',
               'get_match', 'get_match_call', 'get_match_gk_stats', 'get_matches',
               'get_my_open_votes',
-              'get_next_match', 'get_pending_ratings', 'get_player_chemistry', 'get_player_profile',
+              'get_next_match', 'get_palpiteiros', 'get_pending_ratings',
+              'get_player_chemistry', 'get_player_profile',
               'get_player_stats', 'get_player_stats_range', 'get_players', 'get_published_draw',
               'get_ratings_received', 'get_round_ballot', 'issue_device_token', 'login',
               'login_with_device', 'match_public_json', 'position_ok', 'prazo_de_votacao',
               'publish_draw', 'register', 'revoke_device', 'set_my_availability',
-              'set_my_dispute', 'set_my_gk_rotation', 'set_my_status',
+              'set_my_dispute', 'set_my_gk_rotation', 'set_my_prediction',
+              'set_my_status',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'submit_ratings',
               'submit_round_vote', 'update_photo'
             ])
