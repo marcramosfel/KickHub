@@ -46,6 +46,15 @@
   --pb-header-h: 60px;
   --pb-bottomnav-h: 56px;
   --pb-safe-b: env(safe-area-inset-bottom, 0px);
+  /* A faixa do relogio e da bateria, no iPhone.
+     No browser e sempre 0 — a barra do Safari ja ocupa esse espaco. Instalada
+     no ecra inicial (standalone, com `black-translucent`) a pagina passa a
+     comecar no topo FISICO do ecra, e sem reservar isto a barra de cima ia
+     parar debaixo do relogio: o logotipo ilegivel e o botao "Mais" sem
+     resposta, porque o iOS nao entrega toques nessa faixa a pagina. */
+  --pb-safe-t: env(safe-area-inset-top, 0px);
+  --pb-safe-l: env(safe-area-inset-left, 0px);
+  --pb-safe-r: env(safe-area-inset-right, 0px);
 }
 
 /* -----------------------------------------------------------------------------
@@ -98,7 +107,11 @@ body {
   width: 100%;
   max-width: var(--pb-max);
   margin: 0 auto;
-  padding: 0 var(--pb-pad-x);
+  /* `max()` e nao soma: em retrato os insets sao 0 e a padding fica a de
+     sempre; deitado, o entalhe do iPhone come um dos lados e e ai que isto
+     conta. Somar dava margens ao dobro em retrato. */
+  padding-left: max(var(--pb-pad-x), var(--pb-safe-l));
+  padding-right: max(var(--pb-pad-x), var(--pb-safe-r));
 }
 
 .pb-grid {
@@ -319,6 +332,8 @@ body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--pb-line);
+  /* como a `.pb-topbar` — vale para o iPad instalado no ecra inicial */
+  padding-top: var(--pb-safe-t);
 }
 
 /* Abaixo de 768px a navegacao vive na barra inferior. */
@@ -411,6 +426,10 @@ body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--pb-line);
+  /* Empurra o conteudo para baixo do relogio, e deixa o fundo da barra
+     continuar por tras dele — que e o que faz a app instalada parecer nativa
+     em vez de uma pagina cortada. No browser isto vale 0. */
+  padding-top: var(--pb-safe-t);
 }
 
 .pb-topbar-inner {
@@ -495,8 +514,11 @@ body {
     align-items: stretch;
     background: var(--pb-panel);
     border-top: 1px solid var(--pb-line);
-    /* safe area do iOS: a barra sobe acima do indicador de "home" */
+    /* safe area do iOS: a barra sobe acima do indicador de "home", e afasta-se
+       do entalhe quando o telemovel esta deitado */
     padding-bottom: var(--pb-safe-b);
+    padding-left: var(--pb-safe-l);
+    padding-right: var(--pb-safe-r);
     /* `min-height` e nao `height`: com box-sizing:border-box uma altura fixa
        descontava a padding da safe area e a borda, e os itens (min-height 56px)
        transbordavam a barra. */
@@ -626,7 +648,9 @@ body {
   .pb-sheet {
     width: 100%;
     max-width: 100%;
-    max-height: 88vh;
+    /* Menos a faixa do relogio: instalada no ecra inicial, 88vh contam a
+       partir do topo FISICO, e uma folha cheia encostava-se-lhe. */
+    max-height: calc(88vh - var(--pb-safe-t));
     border-radius: var(--pb-radius) var(--pb-radius) 0 0;
     border-bottom: none;
     /* respeita a safe area para o conteudo nao ficar debaixo do indicador */

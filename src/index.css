@@ -270,7 +270,9 @@ img {
 /* A folha do telemóvel a subir, em vez de aparecer do nada. */
 @keyframes pbSlideUp {
   from {
-    transform: translateY(14%);
+    /* Px e não %: 14% de uma folha alta são 100px de salto em 240ms, e a
+       mesma folha curta mal se mexia. Um valor fixo sobe sempre igual. */
+    transform: translateY(28px);
     opacity: 0.6;
   }
   to {
