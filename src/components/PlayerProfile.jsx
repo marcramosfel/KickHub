@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getPlayerChemistry, getPlayerProfile } from '../api'
 import { formatDia } from '../lib/format'
+import { ICONE } from '../lib/icones'
 import Avatar from './Avatar'
 import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
@@ -513,17 +514,17 @@ export default function PlayerProfile({
           valor={ovr.estrelas == null ? '—' : num1(ovr.estrelas)}
           cor={colors.teamA}
         />
-        <StatBox label="JOGOS" valor={p.matches} />
-        <StatBox label="GOLS" valor={p.goals} />
-        <StatBox label="ASSIST." valor={p.assists} />
+        <StatBox label={`${ICONE.jogos} JOGOS`} valor={p.matches} />
+        <StatBox label={`${ICONE.gols} GOLS`} valor={p.goals} />
+        <StatBox label={`${ICONE.assistencias} ASSIST.`} valor={p.assists} />
         {/* Autogolos só aparecem a quem tem algum. À parte dos gols, sempre:
             marcar na própria baliza não conta como gol nem sobe o overall. */}
         {(p.own_goals || 0) > 0 && (
-          <StatBox label="AG" valor={p.own_goals} cor={colors.muted} />
+          <StatBox label={`${ICONE.autogolos} AG`} valor={p.own_goals} cor={colors.muted} />
         )}
-        <StatBox label="VOTOS" valor={p.votes} />
-        <StatBox label="👑 CRAQUE" valor={p.craques} cor={colors.teamA} />
-        <StatBox label="🐟 BAGRE" valor={p.bagres} cor={colors.teamB} />
+        <StatBox label={`${ICONE.estrelas} VOTOS`} valor={p.votes} />
+        <StatBox label={`${ICONE.craque} CRAQUE`} valor={p.craques} cor={colors.teamA} />
+        <StatBox label={`${ICONE.bagre} BAGRE`} valor={p.bagres} cor={colors.teamB} />
         <StatBox
           label="V-E-D"
           valor={`${bal.V}-${bal.E}-${bal.D}`}
@@ -709,10 +710,23 @@ export default function PlayerProfile({
                   </div>
                 </div>
                 <span style={{ fontSize: 12, color: colors.muted, flexShrink: 0 }}>
-                  {h.goals > 0 && <span style={{ color: colors.text }}>⚽{h.goals} </span>}
-                  {h.assists > 0 && <span style={{ color: colors.text }}>🅰️{h.assists} </span>}
+                  {h.goals > 0 && (
+                    <span style={{ color: colors.text }}>
+                      {ICONE.gols}
+                      {h.goals}{' '}
+                    </span>
+                  )}
+                  {h.assists > 0 && (
+                    <span style={{ color: colors.text }}>
+                      {ICONE.assistencias}
+                      {h.assists}{' '}
+                    </span>
+                  )}
                   {h.own_goals > 0 && (
-                    <span title="Autogolos nesta rodada">🥅{h.own_goals} </span>
+                    <span title="Autogolos nesta rodada">
+                      {ICONE.autogolos}
+                      {h.own_goals}{' '}
+                    </span>
                   )}
                   {h.post_rating_avg != null && (
                     <span style={{ color: colors.teamA }} title="Média dos companheiros nesta rodada">

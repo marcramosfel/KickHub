@@ -7,6 +7,7 @@ import {
   RANKING_TABS,
 } from '../lib/ranking'
 import { PLAYER_TYPE } from '../lib/positions'
+import { ICONE } from '../lib/icones'
 import { RODADAS_PROVISORIO } from '../lib/overall'
 import PlayerCard from './PlayerCard'
 import { SectionTitle } from './Ui'
@@ -125,7 +126,9 @@ function LinhaGoleiro({ g, i, liderancas, onProfile }) {
           <span>
             🎯 {g.savePct != null ? `${Math.round(g.savePct)}%` : '—'} de defesas
           </span>
-          <span>🥅 {g.goalsConceded ?? '—'} sofridos</span>
+          <span>
+            {ICONE.golsSofridos} {g.goalsConceded ?? '—'} sofridos
+          </span>
           <span>
             📉{' '}
             {g.goalsConcededPerMatch != null ? g.goalsConcededPerMatch.toFixed(2) : '—'} por jogo

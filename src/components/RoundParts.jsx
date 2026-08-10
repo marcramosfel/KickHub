@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Avatar from './Avatar'
 import { StarScore } from './StarRating'
 import { assisters, matchWinner, ownScorers, scorers, teamPlayers } from '../lib/format'
+import { ICONE } from '../lib/icones'
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import {
   copiarTexto,
@@ -603,7 +604,7 @@ export function RoundBody({ m, full = false, onProfile, bloqueado = false, onVot
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <StatLine
-          icon="⚽"
+          icon={ICONE.gols}
           label="Gols"
           campo="goals"
           list={scorers(m)}
@@ -611,7 +612,7 @@ export function RoundBody({ m, full = false, onProfile, bloqueado = false, onVot
           onProfile={onProfile}
         />
         <StatLine
-          icon="🅰️"
+          icon={ICONE.assistencias}
           label="Assistências"
           campo="assists"
           list={assisters(m)}
@@ -622,7 +623,7 @@ export function RoundBody({ m, full = false, onProfile, bloqueado = false, onVot
             todas as rodadas seria ruído, e as rodadas antigas têm todas 0. */}
         {ownScorers(m).length > 0 && (
           <StatLine
-            icon="🥅"
+            icon={ICONE.autogolos}
             label="Autogolos"
             campo="own_goals"
             list={ownScorers(m)}

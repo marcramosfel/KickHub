@@ -1,4 +1,5 @@
 import { separarEscalacao } from '../../lib/goleiros'
+import { ICONE } from '../../lib/icones'
 import { nomeDaEquipa, corDaEquipa } from '../../lib/substitutions'
 import Avatar from '../Avatar'
 import Stepper from './Stepper'
@@ -62,13 +63,13 @@ function LinhaJogador({
         {!goleiroFixo && (
           <>
             <Stepper
-              icon="⚽"
+              icon={ICONE.gols}
               label={`gols de ${nome}`}
               value={stats?.goals || 0}
               onChange={(v) => onStat(id, 'goals', v)}
             />
             <Stepper
-              icon="🅰️"
+              icon={ICONE.assistencias}
               label={`assistências de ${nome}`}
               value={stats?.assists || 0}
               onChange={(v) => onStat(id, 'assists', v)}
@@ -76,7 +77,7 @@ function LinhaJogador({
             {/* Autogolo. Conta-se à parte e nunca soma aos gols do jogador —
                 nem aqui, nem no ranking, nem no overall. */}
             <Stepper
-              icon="🥅"
+              icon={ICONE.autogolos}
               label={`autogolos de ${nome}`}
               value={stats?.own || 0}
               onChange={(v) => onStat(id, 'own', v)}
@@ -111,13 +112,13 @@ function LinhaJogador({
         {gk && (
           <>
             <Stepper
-              icon="🧤"
+              icon={ICONE.defesas}
               label={`defesas de ${nome}`}
               value={gk.saves || 0}
               onChange={(v) => onGk(id, 'saves', v)}
             />
             <Stepper
-              icon="🥅"
+              icon={ICONE.golsSofridos}
               label={`gols sofridos por ${nome}`}
               value={gk.conceded || 0}
               onChange={(v) => onGk(id, 'conceded', v)}
@@ -280,8 +281,9 @@ export default function ResultadoForm({
     <>
       <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 6 }}>
         Esta rodada não passou pelo sorteio, por isso é aqui que se marca quem jogou e por que
-        equipa. Gols ⚽, assistências 🅰️ e autogolos 🥅 por jogador; quem esteve na baliza leva
-        🧤 defesas e gols sofridos.
+        equipa. Gols {ICONE.gols}, assistências {ICONE.assistencias} e autogolos{' '}
+        {ICONE.autogolos} por jogador; quem esteve na baliza leva {ICONE.defesas} defesas e{' '}
+        {ICONE.golsSofridos} gols sofridos.
       </p>
       <div className="pb-split" style={{ '--pb-split-min': '440px' }}>
         {plantel.map((p) => {
@@ -355,19 +357,19 @@ function LinhaSemCabecalho({ id, nome, stats, gk, onStat, onGk }) {
       }}
     >
       <Stepper
-        icon="⚽"
+        icon={ICONE.gols}
         label={`gols de ${nome}`}
         value={stats?.goals || 0}
         onChange={(v) => onStat(id, 'goals', v)}
       />
       <Stepper
-        icon="🅰️"
+        icon={ICONE.assistencias}
         label={`assistências de ${nome}`}
         value={stats?.assists || 0}
         onChange={(v) => onStat(id, 'assists', v)}
       />
       <Stepper
-        icon="🥅"
+        icon={ICONE.autogolos}
         label={`autogolos de ${nome}`}
         value={stats?.own || 0}
         onChange={(v) => onStat(id, 'own', v)}
@@ -392,13 +394,13 @@ function LinhaSemCabecalho({ id, nome, stats, gk, onStat, onGk }) {
       {gk && (
         <>
           <Stepper
-            icon="🧤"
+            icon={ICONE.defesas}
             label={`defesas de ${nome}`}
             value={gk.saves || 0}
             onChange={(v) => onGk(id, 'saves', v)}
           />
           <Stepper
-            icon="🥅"
+            icon={ICONE.golsSofridos}
             label={`gols sofridos por ${nome}`}
             value={gk.conceded || 0}
             onChange={(v) => onGk(id, 'conceded', v)}

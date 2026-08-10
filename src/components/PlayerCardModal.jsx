@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { setMyNickname, setMyPrimaryCard } from '../api'
 import { atributosComDados, calcularAtributos, ehGoleiro, overallDoCard } from '../lib/attributes'
 import { CARD_BASE, cardPrincipal, cardsDoJogador, cardsEscolhiveis, raridade } from '../lib/cards'
+import { ICONE } from '../lib/icones'
 import { nomeDaPosicao, siglaDaPosicao, iconeDaPosicao } from '../lib/positions'
 import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import { useModal } from '../hooks/useModal'
@@ -64,20 +65,32 @@ function Atributo({ a }) {
   )
 }
 
-function Numero({ rotulo, valor }) {
+// Um número da grelha. O ícone vai POR CIMA e não colado ao rótulo: com oito
+// células numa linha de 375px, "⚽ GOLS" partia em duas linhas em metade
+// delas e a grelha ficava com alturas diferentes.
+function Numero({ icone, rotulo, valor, cor }) {
   return (
     <div style={{ textAlign: 'center', minWidth: 0 }}>
+      <div aria-hidden style={{ fontSize: 13, lineHeight: 1.2 }}>
+        {icone}
+      </div>
       <div
         style={{
           fontFamily: fonts.title,
           fontSize: 20,
           fontWeight: 700,
           fontVariantNumeric: 'tabular-nums',
+          color: cor,
         }}
       >
         {valor ?? '—'}
       </div>
-      <div style={{ fontSize: 10, color: colors.muted, letterSpacing: 0.5 }}>{rotulo}</div>
+      <div
+        className="pb-truncate"
+        style={{ fontSize: 10, color: colors.muted, letterSpacing: 0.5 }}
+      >
+        {rotulo}
+      </div>
     </div>
   )
 }
@@ -356,33 +369,50 @@ export default function PlayerCardModal({
               </div>
             )}
 
+            {/* `auto-fit` e não quatro colunas fixas: o autogolo só aparece a
+                quem tem algum, e com colunas fixas a grelha passava de duas
+                linhas certinhas para uma última linha com uma célula solta. */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(74px, 100%), 1fr))',
                 gap: 8,
                 marginTop: 14,
                 paddingTop: 12,
                 borderTop: `1px solid ${colors.line}`,
               }}
             >
-              <Numero rotulo="JOGOS" valor={jogador.matches} />
+              <Numero icone={ICONE.jogos} rotulo="JOGOS" valor={jogador.matches} />
               {gk ? (
                 <>
-                  <Numero rotulo="DEFESAS" valor={jogador.saves} />
-                  <Numero rotulo="SEM SOFRER" valor={jogador.cleanSheets} />
+                  <Numero icone={ICONE.defesas} rotulo="DEFESAS" valor={jogador.saves} />
+                  <Numero
+                    icone={ICONE.semSofrer}
+                    rotulo="SEM SOFRER"
+                    valor={jogador.cleanSheets}
+                  />
                 </>
               ) : (
                 <>
-                  <Numero rotulo="GOLS" valor={jogador.goals} />
-                  <Numero rotulo="ASSIST." valor={jogador.assists} />
+                  <Numero icone={ICONE.gols} rotulo="GOLS" valor={jogador.goals} />
+                  <Numero icone={ICONE.assistencias} rotulo="ASSIST." valor={jogador.assists} />
+                  {/* Só a quem tem: uma coluna de zeros em trinta jogadores
+                      não diz nada, e um autogolo é para se notar. */}
+                  {jogador.ownGoals > 0 && (
+                    <Numero
+                      icone={ICONE.autogolos}
+                      rotulo="AUTOGOLOS"
+                      valor={jogador.ownGoals}
+                      cor={colors.muted}
+                    />
+                  )}
                 </>
               )}
-              <Numero rotulo="CRAQUE" valor={jogador.craques} />
-              <Numero rotulo="VITÓRIAS" valor={jogador.wins} />
-              <Numero rotulo="EMPATES" valor={jogador.draws} />
-              <Numero rotulo="DERROTAS" valor={jogador.losses} />
-              <Numero rotulo="BAGRE" valor={jogador.bagres} />
+              <Numero icone={ICONE.craque} rotulo="CRAQUE" valor={jogador.craques} cor={colors.teamA} />
+              <Numero icone={ICONE.vitorias} rotulo="VITÓRIAS" valor={jogador.wins} cor={colors.grass} />
+              <Numero icone={ICONE.empates} rotulo="EMPATES" valor={jogador.draws} />
+              <Numero icone={ICONE.derrotas} rotulo="DERROTAS" valor={jogador.losses} />
+              <Numero icone={ICONE.bagre} rotulo="BAGRE" valor={jogador.bagres} cor={colors.teamB} />
             </div>
           </>
         )}

@@ -17,6 +17,7 @@ import {
   tempoAteFechar,
 } from '../lib/voting'
 import { liderancas } from '../lib/trophies'
+import { ICONE } from '../lib/icones'
 import { NomeClicavel } from './RoundParts'
 import Avatar from './Avatar'
 import Feed from './Feed'
@@ -149,7 +150,7 @@ function MatchPanel({ match, onDetail, onProfile, bloqueado, onVotar }) {
       {/* autogolos: só quando existem — nunca somam aos ⚽ de ninguém */}
       {ownGoals.length > 0 && (
         <p style={{ fontSize: 13, marginBottom: 8 }}>
-          🥅{' '}
+          {ICONE.autogolos}{' '}
           <span style={{ color: colors.muted }}>AG: </span>
           {ownGoals.map((p, i) => (
             <span key={p.player_id}>
@@ -482,13 +483,13 @@ export default function StatsScreen({
                 <span style={{ width: 36 }} />
                 <span style={{ flex: 1 }}>Jogador</span>
                 <span style={statCol}>J</span>
-                <span style={statCol}>⚽</span>
-                <span style={statCol}>🅰️</span>
+                <span style={statCol}>{ICONE.gols}</span>
+                <span style={statCol}>{ICONE.assistencias}</span>
                 {/* a coluna dos autogolos só existe quando alguém tem algum:
                     num plantel inteiro a zeros era uma coluna de zeros */}
-                {temAutogolos && <span style={statCol}>AG</span>}
-                <span style={statCol}>👑</span>
-                <span style={statCol}>🐟</span>
+                {temAutogolos && <span style={statCol}>{ICONE.autogolos}</span>}
+                <span style={statCol}>{ICONE.craque}</span>
+                <span style={statCol}>{ICONE.bagre}</span>
               </div>
               {stats.map((p, i) => (
                 <div
@@ -552,9 +553,9 @@ export default function StatsScreen({
             </div>
           )}
           <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
-            J = jogos · ⚽ gols · 🅰️ assistências
-            {temAutogolos ? ' · AG autogolos (não contam como gols)' : ''} · 👑 craque da rodada ·
-            🐟 bagre da rodada
+            J = jogos · {ICONE.gols} gols · {ICONE.assistencias} assistências
+            {temAutogolos ? ` · ${ICONE.autogolos} autogolos (não contam como gols)` : ''} ·{' '}
+            {ICONE.craque} craque da rodada · {ICONE.bagre} bagre da rodada
           </p>
 
           {/* quadro de troféus do grupo */}
