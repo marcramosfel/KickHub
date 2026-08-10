@@ -240,6 +240,10 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
     const matches = Math.max(matchesDeCampo, matchesDeBaliza)
     const goals = num(stats.goals ?? row.goals)
     const assists = num(stats.assists ?? row.assists)
+    // Autogolos. Ficam à parte de propósito e NÃO entram em `goals` nem em
+    // nenhuma parcela do overall — marcar na própria baliza não pode fazer
+    // ninguém subir no ranking de artilheiros.
+    const ownGoals = num(stats.own_goals ?? row.own_goals ?? row.ownGoals)
     const craques = num(stats.craques ?? row.craques)
     const bagres = num(stats.bagres ?? row.bagres)
     const avg = numOuNulo(row.avg ?? stats.avg)
@@ -298,6 +302,12 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
       gkRotationOk: (row.gk_rotation_ok ?? row.gkRotationOk) !== false,
       gkStarts: num(row.gk_starts ?? row.gkStarts),
       lastGkStart: row.last_gk_start ?? row.lastGkStart ?? null,
+      // ⭐ mensalista e 🟢/✈️/🤕/🔴 estado no plantel. Nenhum dos dois toca
+      // no overall: são gestão do grupo, não desempenho.
+      isMember: (row.is_member ?? row.isMember ?? stats.is_member) === true,
+      availabilityStatus:
+        row.availability_status ?? row.availabilityStatus ?? stats.availability_status ?? null,
+      availabilityNote: row.availability_note ?? row.availabilityNote ?? null,
       positionStatus: row.position_status ?? row.positionStatus ?? POSITION_STATUS.NOT_SELECTED,
       // escolhas do jogador para o card (migração 0022)
       nickname: row.nickname ?? row.apelido ?? null,
@@ -307,6 +317,7 @@ export function juntarEstatisticas({ players, playerStats, goalkeeperStats, resu
       matches,
       goals,
       assists,
+      ownGoals,
       craques,
       bagres,
       postRatingAvg,

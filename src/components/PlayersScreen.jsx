@@ -6,6 +6,7 @@ import {
   POSITIONS,
   siglaDaPosicao,
 } from '../lib/positions'
+import { estadoVisivel, etiquetaDoEstado } from '../lib/plantel'
 import Avatar from './Avatar'
 import { SectionTitle } from './Ui'
 import { colors, styles, chip } from '../theme'
@@ -23,6 +24,14 @@ const TOM = {
   neutro: colors.muted,
 }
 
+// O estado no plantel usa os mesmos tons (`lib/plantel.js` devolve o nome).
+const TOM_ESTADO = {
+  ok: colors.grass,
+  info: colors.teamB,
+  aviso: colors.teamA,
+  erro: colors.error,
+}
+
 // Metade do grupo tem acento no nome (André, Márcio, João) e ninguém os
 // escreve na caixa de procura. Sem tirar os diacríticos aos dois lados,
 // escrever "andre" não encontrava o André.
@@ -38,14 +47,30 @@ function Cartao({ p, onProfile }) {
     <>
       <Avatar name={p.name} photo={p.photo} size={44} />
       <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-        <div className="pb-truncate" style={{ fontSize: 15, fontWeight: 700 }}>
-          {p.name}
+        <div
+          className="pb-truncate"
+          style={{ fontSize: 15, fontWeight: 700, display: 'flex', gap: 6 }}
+        >
+          {p.isMember && (
+            <span aria-label="mensalista" title="Mensalista">
+              ⭐
+            </span>
+          )}
+          <span className="pb-truncate">{p.name}</span>
         </div>
         <div style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
           {p.primaryPosition ? nomeDaPosicao(p.primaryPosition) : 'Sem posição definida'}
           {p.secondaryPosition ? ` · 2.ª ${siglaDaPosicao(p.secondaryPosition)}` : ''}
         </div>
         <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {/* O estado só aparece quando diz alguma coisa: "🟢 Disponível" em
+              trinta cartões é ruído — quem interessa ver é quem NÃO está. */}
+          {estadoVisivel(p.availabilityStatus) && (
+            <span style={chip(TOM_ESTADO[etiquetaDoEstado(p.availabilityStatus).tom] || colors.muted)}>
+              <span aria-hidden>{etiquetaDoEstado(p.availabilityStatus).icone}</span>
+              {etiquetaDoEstado(p.availabilityStatus).rotulo}
+            </span>
+          )}
           <span style={chip(TOM[e.tom] || colors.muted)}>
             <span aria-hidden>{e.icone}</span>
             {e.texto}

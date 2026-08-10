@@ -493,6 +493,11 @@ export default function PlayerProfile({
         <StatBox label="JOGOS" valor={p.matches} />
         <StatBox label="GOLS" valor={p.goals} />
         <StatBox label="ASSIST." valor={p.assists} />
+        {/* Autogolos só aparecem a quem tem algum. À parte dos gols, sempre:
+            marcar na própria baliza não conta como gol nem sobe o overall. */}
+        {(p.own_goals || 0) > 0 && (
+          <StatBox label="AG" valor={p.own_goals} cor={colors.muted} />
+        )}
         <StatBox label="VOTOS" valor={p.votes} />
         <StatBox label="👑 CRAQUE" valor={p.craques} cor={colors.teamA} />
         <StatBox label="🐟 BAGRE" valor={p.bagres} cor={colors.teamB} />
@@ -683,6 +688,9 @@ export default function PlayerProfile({
                 <span style={{ fontSize: 12, color: colors.muted, flexShrink: 0 }}>
                   {h.goals > 0 && <span style={{ color: colors.text }}>⚽{h.goals} </span>}
                   {h.assists > 0 && <span style={{ color: colors.text }}>🅰️{h.assists} </span>}
+                  {h.own_goals > 0 && (
+                    <span title="Autogolos nesta rodada">🥅{h.own_goals} </span>
+                  )}
                   {h.post_rating_avg != null && (
                     <span style={{ color: colors.teamA }} title="Média dos companheiros nesta rodada">
                       ⭐{num1(h.post_rating_avg)}{' '}

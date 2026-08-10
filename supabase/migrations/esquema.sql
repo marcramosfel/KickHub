@@ -255,6 +255,23 @@ create table if not exists ratings_arquivo (
   arquivado_em timestamptz not null default now(),
   primary key (ronda, rater_id, target_id)
 );
+-- ---------- DISPONIBILIDADE PARA UM JOGO ----------
+-- Tabela À PARTE do `availability_status` do jogador, e de propósito.
+--
+-- São duas perguntas diferentes e misturá-las numa coluna só perdia as
+-- duas: "🟢 disponível" é o estado geral (não está lesionado nem fora do
+-- país) e "❌ não vou" é a resposta a ESTE jogo. Um mensalista disponível
+-- pode faltar a uma sexta-feira, e um jogador a viajar pode chegar a tempo
+-- da próxima. Uma linha por (jogo, jogador); sem linha = ainda não
+-- respondeu, que não é o mesmo que "não vai".
+create table if not exists match_availability (
+  match_id     uuid not null references matches(id) on delete cascade,
+  player_id    uuid not null references players(id) on delete cascade,
+  available    boolean not null,
+  note         text,
+  responded_at timestamptz not null default now(),
+  primary key (match_id, player_id)
+);
 
 -- ====================== COLUNAS E RESTRICOES ========================
 -- Todas com `if not exists` ou dentro de um bloco guardado: numa base
@@ -384,6 +401,46 @@ alter table app_config add column if not exists ratings_revealed_at timestamptz;
 alter table app_config add column if not exists ratings_opened_at   timestamptz;
 alter table ratings alter column score drop not null;
 alter table ratings alter column score type numeric(2,1) using score::numeric(2,1);
+-- ---------- AUTOGOLOS ----------
+-- Coluna nova, `default 0`: as rodadas que já existem herdam-no no próprio
+-- ADD COLUMN, sem UPDATE nenhum, e continuam a valer exatamente o que
+-- valiam. Um autogolo NÃO é um gol do jogador — vive numa coluna própria e
+-- nunca entra no `sum(goals)` de lado nenhum (nem no overall, nem no
+-- ranking de artilheiros).
+alter table match_stats add column if not exists own_goals int not null default 0;
+do $chk$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'match_stats_own_goals_chk' and conrelid = 'public.match_stats'::regclass
+  ) then
+    alter table match_stats add constraint match_stats_own_goals_chk
+      check (own_goals between 0 and 99);
+  end if;
+end
+$chk$;
+-- ---------- ESTADO DO JOGADOR E MENSALISTAS ----------
+-- `availability_status` é o estado GERAL (o que se vê no plantel), não a
+-- resposta a um jogo — essa vive em `match_availability`.
+alter table players add column if not exists availability_status text not null default 'AVAILABLE';
+alter table players add column if not exists availability_note   text;
+alter table players add column if not exists availability_updated_at timestamptz;
+-- ⭐ Mensalista: paga o mensal, por isso tem prioridade na escolha do
+-- elenco. Prioridade na ORDEM da lista — nunca seleção automática: quem
+-- escolhe os 14 continua a ser o admin.
+alter table players add column if not exists is_member boolean not null default false;
+do $chk$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'players_availability_status_chk' and conrelid = 'public.players'::regclass
+  ) then
+    alter table players add constraint players_availability_status_chk
+      check (availability_status in ('AVAILABLE','TRAVELING','INJURED','UNAVAILABLE'));
+  end if;
+end
+$chk$;
+alter table match_availability enable row level security;
 -- gera user_id para quem ainda não tem, por ordem de criação
 do $$
 declare rec record;
@@ -585,6 +642,9 @@ create index if not exists match_lineup_gk_starts_idx
 create index if not exists matches_voting_open_idx
   on matches (voting_deadline) where voting_status = 'OPEN';
 create index if not exists player_devices_player_idx on player_devices (player_id);
+-- A PK cobre a busca por jogo; o perfil de um jogador pergunta ao contrário.
+create index if not exists match_availability_player_idx
+  on match_availability (player_id);
 
 -- =============================== VIEWS ==============================
 -- A view nasceu na 0019 com `select m.*` e ficou com as colunas que
@@ -707,19 +767,23 @@ begin
               'ack_position_notice', 'admin_add_media', 'admin_approve', 'admin_approve_positions',
               'admin_cancel_match', 'admin_clear_card_choices', 'admin_close_game', 'admin_delete_match',
               'admin_delete_media', 'admin_delete_post', 'admin_delete_schedule', 'admin_export',
-              'admin_finalize_voting', 'admin_match_activity', 'admin_matches_upcoming', 'admin_ok',
+              'admin_finalize_voting', 'admin_get_match', 'admin_match_activity', 'admin_matches_upcoming',
+              'admin_ok',
               'admin_pending', 'admin_position_history', 'admin_positions_overview', 'admin_publish_match',
               'admin_publish_result', 'admin_ratings_progress', 'admin_regen_user_id', 'admin_reject',
               'admin_reset_ratings', 'admin_reset_ratings_for', 'admin_reveal_ratings', 'admin_revoke_devices',
               'admin_save_gk_stats', 'admin_save_lineup', 'admin_save_match', 'admin_save_result',
-              'admin_save_schedule', 'admin_set_gk_rotation', 'admin_set_match_status', 'admin_set_pin',
+              'admin_save_schedule', 'admin_set_gk_rotation', 'admin_set_match_status', 'admin_set_member',
+              'admin_set_pin',
+              'admin_set_player_status',
               'admin_set_positions', 'admin_set_primary_media', 'admin_set_user_id', 'admin_set_voting',
               'admin_substitute_player', 'admin_swap_players', 'admin_undo_substitution', 'admin_undo_swap',
               'admin_update_post', 'admin_users', 'admin_voting_review', 'autenticar_votante',
               'avaliacoes_completas', 'avaliacoes_em_falta', 'avaliacoes_reveladas', 'change_pin',
               'corrigir_ordem_rodizio', 'elegiveis_premio', 'fechar_votacao', 'fechar_votacoes_expiradas',
               'gen_user_id', 'get_feed', 'get_goalkeeper_stats', 'get_latest_match',
-              'get_match', 'get_match_gk_stats', 'get_matches', 'get_my_open_votes',
+              'get_match', 'get_match_call', 'get_match_gk_stats', 'get_matches',
+              'get_my_open_votes',
               'get_next_match', 'get_pending_ratings', 'get_player_chemistry', 'get_player_profile',
               'get_player_stats', 'get_player_stats_range', 'get_players', 'get_published_draw',
               'get_ratings_received', 'get_round_ballot', 'issue_device_token', 'jogadores_do_jogo',
@@ -727,7 +791,8 @@ begin
               'match_admin_json', 'match_json', 'match_public_json', 'participacao_da_votacao',
               'payload_resultado', 'position_json', 'position_ok', 'prazo_de_votacao',
               'preencher_gk_order', 'publicar_no_feed', 'publish_draw', 'recalcular_forcas_do_jogo',
-              'registar_atividade', 'register', 'revoke_device', 'set_my_gk_rotation',
+              'registar_atividade', 'register', 'revoke_device', 'set_my_availability',
+              'set_my_gk_rotation',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'sincronizar_post_rating_status',
               'slugify', 'submit_ratings', 'submit_round_vote', 'talvez_revelar_avaliacoes',
               'update_photo', 'vencedor_do_jogo'
@@ -1432,7 +1497,7 @@ create or replace function admin_save_match(
   p_winner_photo text, p_location_photo text, p_notes text,
   p_stats jsonb
 ) returns uuid language plpgsql security definer set search_path = public, extensions as $$
-declare v_match uuid; r_row record; v_goals int; v_assists int; v_team text;
+declare v_match uuid; r_row record; v_goals int; v_assists int; v_own int; v_team text;
 begin
   if not admin_ok(p_pw) then raise exception 'ADMIN'; end if;
   if p_played_at is null then raise exception 'DATA'; end if;
@@ -1471,11 +1536,15 @@ begin
   for r_row in select value from jsonb_array_elements(p_stats) loop
     v_goals   := coalesce((r_row.value->>'goals')::int, 0);
     v_assists := coalesce((r_row.value->>'assists')::int, 0);
+    -- `own_goals` ausente = 0: uma app antiga (ou um payload guardado) que
+    -- não conheça a chave continua a gravar como sempre gravou.
+    v_own     := coalesce((r_row.value->>'own_goals')::int, 0);
     v_team    := nullif(r_row.value->>'team', '');
-    if v_goals < 0 or v_goals > 99 or v_assists < 0 or v_assists > 99 then raise exception 'STATS'; end if;
+    if v_goals < 0 or v_goals > 99 or v_assists < 0 or v_assists > 99
+       or v_own < 0 or v_own > 99 then raise exception 'STATS'; end if;
     if v_team is not null and v_team not in ('A','B') then raise exception 'STATS'; end if;
-    insert into match_stats(match_id, player_id, team, goals, assists)
-    values (v_match, (r_row.value->>'player_id')::uuid, v_team, v_goals, v_assists);
+    insert into match_stats(match_id, player_id, team, goals, assists, own_goals)
+    values (v_match, (r_row.value->>'player_id')::uuid, v_team, v_goals, v_assists, v_own);
   end loop;
 
   perform registar_atividade(v_match, 'RESULTADO_PUBLICADO',
@@ -2257,7 +2326,7 @@ create or replace function admin_save_result(
 ) returns json language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_status text; v_result text;
-  r_row record; v_goals int; v_assists int; v_team text;
+  r_row record; v_goals int; v_assists int; v_own int; v_team text;
 begin
   if not admin_ok(p_pw) then raise exception 'ADMIN'; end if;
 
@@ -2278,11 +2347,15 @@ begin
   for r_row in select value from jsonb_array_elements(p_stats) loop
     v_goals   := coalesce((r_row.value->>'goals')::int, 0);
     v_assists := coalesce((r_row.value->>'assists')::int, 0);
+    -- ver `admin_save_match`: chave ausente = 0, para nada partir a meio
+    -- de um deploy em que o browser ainda é o antigo.
+    v_own     := coalesce((r_row.value->>'own_goals')::int, 0);
     v_team    := nullif(r_row.value->>'team', '');
-    if v_goals < 0 or v_goals > 99 or v_assists < 0 or v_assists > 99 then raise exception 'STATS'; end if;
+    if v_goals < 0 or v_goals > 99 or v_assists < 0 or v_assists > 99
+       or v_own < 0 or v_own > 99 then raise exception 'STATS'; end if;
     if v_team is not null and v_team not in ('A','B') then raise exception 'STATS'; end if;
-    insert into match_stats(match_id, player_id, team, goals, assists)
-    values (p_match, (r_row.value->>'player_id')::uuid, v_team, v_goals, v_assists);
+    insert into match_stats(match_id, player_id, team, goals, assists, own_goals)
+    values (p_match, (r_row.value->>'player_id')::uuid, v_team, v_goals, v_assists, v_own);
   end loop;
 
   delete from goalkeeper_match_stats where match_id = p_match;
@@ -2498,7 +2571,8 @@ returns json language sql stable security definer set search_path = public, exte
     'players', (
       select coalesce(json_agg(json_build_object(
                'player_id', ms.player_id, 'name', p.name, 'photo', p.photo_url,
-               'team', ms.team, 'goals', ms.goals, 'assists', ms.assists)
+               'team', ms.team, 'goals', ms.goals, 'assists', ms.assists,
+               'own_goals', ms.own_goals)
              order by ms.goals desc, ms.assists desc, p.name), '[]'::json)
       from match_stats ms join players p on p.id = ms.player_id
       where ms.match_id = m.id),
@@ -2733,6 +2807,104 @@ begin
   if not exists (select 1 from players where id = p_id) then raise exception 'SEMJOGADOR'; end if;
   update players set gk_rotation_ok = coalesce(p_ok, true) where id = p_id;
 end; $$;
+-- ---------- ESTADO DO JOGADOR (plantel) ----------
+-- 🟢 disponível · ✈️ a viajar · 🤕 lesionado · 🔴 indisponível.
+--
+-- É o estado GERAL, e é só o admin que lhe mexe. A resposta a um jogo
+-- concreto é outra coisa e vive em `set_my_availability` — o próprio
+-- jogador é que a dá.
+create or replace function admin_set_player_status(
+  p_pw text, p_id uuid, p_status text, p_note text default null
+) returns void language plpgsql security definer set search_path = public, extensions as $$
+declare v_status text;
+begin
+  if not admin_ok(p_pw) then raise exception 'ADMIN'; end if;
+  if not exists (select 1 from players where id = p_id) then raise exception 'SEMJOGADOR'; end if;
+  v_status := coalesce(nullif(btrim(p_status), ''), 'AVAILABLE');
+  if v_status not in ('AVAILABLE','TRAVELING','INJURED','UNAVAILABLE') then
+    raise exception 'ESTADOINVALIDO';
+  end if;
+  update players set
+    availability_status = v_status,
+    availability_note   = nullif(btrim(p_note), ''),
+    availability_updated_at = now()
+  where id = p_id;
+end; $$;
+-- ---------- ⭐ MENSALISTA ----------
+create or replace function admin_set_member(p_pw text, p_id uuid, p_is_member boolean)
+returns void language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not admin_ok(p_pw) then raise exception 'ADMIN'; end if;
+  if not exists (select 1 from players where id = p_id) then raise exception 'SEMJOGADOR'; end if;
+  update players set is_member = coalesce(p_is_member, false) where id = p_id;
+end; $$;
+-- ---------- "VOU / NÃO VOU" AO PRÓXIMO JOGO ----------
+--
+-- Autentica pelo PIN ou pelo token do telemóvel, como a votação: dizer que
+-- se vai jogar é do mesmo calibre que votar, e obrigar a escrever o PIN
+-- para carregar num botão era o caminho mais curto para ninguém responder.
+--
+-- Um jogo já terminado não recebe respostas — a convocatória fechou.
+create or replace function set_my_availability(
+  p_id uuid, p_pin text, p_match uuid, p_available boolean, p_token uuid default null
+) returns json language plpgsql security definer set search_path = public, extensions as $$
+declare v_id uuid; v_status text;
+begin
+  v_id := autenticar_votante(p_id, p_pin, p_token);
+
+  select m.status into v_status from matches m where m.id = p_match;
+  if v_status is null then raise exception 'INVALIDO'; end if;
+  if v_status = 'CANCELLED' then raise exception 'JOGOCANCELADO'; end if;
+  if v_status = 'COMPLETED' then raise exception 'JOGOFECHADO'; end if;
+
+  insert into match_availability(match_id, player_id, available, responded_at)
+  values (p_match, v_id, coalesce(p_available, false), now())
+  on conflict (match_id, player_id) do update
+    set available = excluded.available, responded_at = now();
+
+  return json_build_object('match_id', p_match, 'player_id', v_id,
+                           'available', coalesce(p_available, false));
+end; $$;
+-- ---------- A CONVOCATÓRIA ----------
+--
+-- O jogo a que a pergunta "vais jogar?" se refere: o mais próximo que
+-- ainda não aconteceu, mesmo em rascunho.
+--
+-- Devolve DE PROPÓSITO só data, local e respostas — nunca a escalação. O
+-- admin precisa de saber quem vem ANTES de escolher os 14, portanto a
+-- pergunta tem de chegar aos jogadores enquanto o jogo é rascunho; o
+-- sorteio, esse, continua invisível até ser publicado.
+create or replace function get_match_call()
+returns json language sql stable security definer set search_path = public, extensions as $$
+  with alvo as (
+    select m.id,
+           coalesce(m.kickoff_at, m.played_at::timestamp at time zone 'Europe/Lisbon') as quando
+    from matches m
+    where m.status in ('DRAFT','PUBLISHED','IN_PROGRESS')
+    order by (coalesce(m.kickoff_at, m.played_at::timestamp at time zone 'Europe/Lisbon') < now()),
+             case when coalesce(m.kickoff_at, m.played_at::timestamp at time zone 'Europe/Lisbon') >= now()
+                  then coalesce(m.kickoff_at, m.played_at::timestamp at time zone 'Europe/Lisbon') end asc,
+             coalesce(m.kickoff_at, m.played_at::timestamp at time zone 'Europe/Lisbon') desc
+    limit 1
+  )
+  select json_build_object(
+    'id', m.id,
+    'kickoff_at', m.kickoff_at,
+    'played_at', m.played_at,
+    'location', m.location,
+    'status', m.status,
+    'answers', (
+      select coalesce(json_agg(json_build_object(
+               'player_id', a.player_id, 'name', p.name, 'photo', p.photo_url,
+               'available', a.available, 'is_member', p.is_member,
+               'availability_status', p.availability_status,
+               'responded_at', a.responded_at)
+             order by a.available desc, p.is_member desc, p.name), '[]'::json)
+      from match_availability a join players p on p.id = a.player_id
+      where a.match_id = m.id and p.approved)
+  )
+  from alvo t join matches m on m.id = t.id;
+$$;
 -- Reparação manual, para o caso de uma escalação antiga ficar inconsistente.
 -- Renumera 1..N por equipa e faz `is_goalkeeper` seguir a vez nº 1.
 create or replace function corrigir_ordem_rodizio(p_match uuid)
@@ -2769,7 +2941,8 @@ returns table(
   id uuid, name text, dob date, photo_url text, avg numeric, votes bigint,
   player_type text, primary_position text, secondary_position text,
   accepts_other_positions boolean, position_status text,
-  gk_rotation_ok boolean, gk_starts bigint, last_gk_start date)
+  gk_rotation_ok boolean, gk_starts bigint, last_gk_start date,
+  is_member boolean, availability_status text, availability_note text)
 language sql security definer set search_path = public, extensions as $$
   select p.id, p.name, p.dob, p.photo_url,
          round(avg(r.score)::numeric, 2) as avg,
@@ -2784,7 +2957,8 @@ language sql security definer set search_path = public, extensions as $$
          (select max(m.played_at) from match_lineup l
            join matches m on m.id = l.match_id
           where l.player_id = p.id and l.is_goalkeeper
-            and m.status <> 'CANCELLED') as last_gk_start
+            and m.status <> 'CANCELLED') as last_gk_start,
+         p.is_member, p.availability_status, p.availability_note
   from players p
   left join ratings r on r.target_id = p.id
   where p.approved
@@ -2907,7 +3081,8 @@ returns json language sql stable security definer set search_path = public, exte
     'stats', (
       select coalesce(json_agg(json_build_object(
                'player_id', ms.player_id, 'name', p.name,
-               'team', ms.team, 'goals', ms.goals, 'assists', ms.assists)
+               'team', ms.team, 'goals', ms.goals, 'assists', ms.assists,
+               'own_goals', ms.own_goals)
              order by p.name), '[]'::json)
       from match_stats ms join players p on p.id = ms.player_id
       where ms.match_id = m.id),
@@ -2917,7 +3092,17 @@ returns json language sql stable security definer set search_path = public, exte
                'team', g.team, 'saves', g.saves, 'goals_conceded', g.goals_conceded)
              order by p.name), '[]'::json)
       from goalkeeper_match_stats g join players p on p.id = g.goalkeeper_id
-      where g.match_id = m.id)
+      where g.match_id = m.id),
+    -- Quem já disse se vem. Sem linha = não respondeu, e isso é diferente
+    -- de "não vem" — por isso a lista traz só quem respondeu mesmo.
+    'availability', (
+      select coalesce(json_agg(json_build_object(
+               'player_id', a.player_id, 'name', p.name, 'photo', p.photo_url,
+               'available', a.available, 'note', a.note,
+               'responded_at', a.responded_at)
+             order by a.available desc, p.name), '[]'::json)
+      from match_availability a join players p on p.id = a.player_id
+      where a.match_id = m.id)
   )
   from matches m where m.id = p_id;
 $$;
@@ -3072,6 +3257,22 @@ begin
          or m.voting_status in ('OPEN','REVIEW')
     ) t
   );
+end; $$;
+-- ---------- UM JOGO QUALQUER, PARA O ADMIN ----------
+--
+-- `admin_matches_upcoming` só traz o que ainda está aberto, e é por isso
+-- que as rodadas antigas tinham de ter um painel próprio para serem
+-- editadas — com um formulário à parte, que divergiu do do pós-jogo.
+--
+-- Com isto, a página de UM jogo serve qualquer jogo: o de sexta-feira e o
+-- de 2024. Uma rodada velha vem sem `lineup` (nunca teve sorteio) e é a UI
+-- que trata disso; aqui o payload é o mesmo, chave a chave.
+create or replace function admin_get_match(p_pw text, p_id uuid)
+returns json language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  if not admin_ok(p_pw) then raise exception 'ADMIN'; end if;
+  if not exists (select 1 from matches where id = p_id) then raise exception 'INVALIDO'; end if;
+  return match_admin_json(p_id);
 end; $$;
 create or replace function admin_revoke_devices(p_pw text, p_id uuid)
 returns int language plpgsql security definer set search_path = public, extensions as $$
@@ -3664,6 +3865,12 @@ returns json language sql stable security definer set search_path = public, exte
     'assists', (select coalesce(sum(ms.assists), 0) from match_stats ms
                  where ms.player_id = p.id
                    and ms.match_id in (select id from matches_validas)),
+    -- à parte dos gols, sempre (ver `get_player_stats`)
+    'own_goals', (select coalesce(sum(ms.own_goals), 0) from match_stats ms
+                   where ms.player_id = p.id
+                     and ms.match_id in (select id from matches_validas)),
+    'is_member', p.is_member,
+    'availability_status', p.availability_status,
     'craques', (select count(*) from craque_top ct where ct.pid = p.id and ct.n = ct.top)
              + (select count(*) from matches_validas mv
                  where mv.craque_override = p.id
@@ -3683,6 +3890,7 @@ returns json language sql stable security definer set search_path = public, exte
       select coalesce(json_agg(json_build_object(
                'match_id', m.id, 'played_at', m.played_at,
                'team', ms.team, 'goals', ms.goals, 'assists', ms.assists,
+               'own_goals', ms.own_goals,
                'score_a', m.score_a, 'score_b', m.score_b,
                'team_a_name', m.team_a_name, 'team_b_name', m.team_b_name,
                'post_rating_avg', (select round(avg(pr.stars)::numeric, 2)
@@ -3748,7 +3956,11 @@ returns json language sql security definer set search_path = public, extensions 
       select pr.match_id, pr.bagre_final from premios_da_rodada pr where pr.bagre_final is not null
     ) w group by player_id
   ), totals as (
-    select ms.player_id, count(*) as matches, sum(ms.goals) as goals, sum(ms.assists) as assists
+    -- `own_goals` sai à parte e NUNCA soma a `goals`: um autogolo não é um
+    -- gol do jogador, e contá-lo aqui punha-o a subir no ranking de
+    -- artilheiros e no overall por ter marcado na própria baliza.
+    select ms.player_id, count(*) as matches, sum(ms.goals) as goals,
+           sum(ms.assists) as assists, sum(ms.own_goals) as own_goals
     from match_stats ms
     where ms.match_id in (select id from validas)
     group by ms.player_id
@@ -3764,6 +3976,9 @@ returns json language sql security definer set search_path = public, extensions 
            'matches', coalesce(t.matches, 0),
            'goals',   coalesce(t.goals, 0),
            'assists', coalesce(t.assists, 0),
+           'own_goals', coalesce(t.own_goals, 0),
+           'is_member', p.is_member,
+           'availability_status', p.availability_status,
            'craques', coalesce(cw.wins, 0),
            'bagres',  coalesce(bw.wins, 0),
            'post_rating_avg',   ps.media,
@@ -4024,22 +4239,27 @@ begin
               'ack_position_notice', 'admin_add_media', 'admin_approve', 'admin_approve_positions',
               'admin_cancel_match', 'admin_clear_card_choices', 'admin_close_game', 'admin_delete_match',
               'admin_delete_media', 'admin_delete_post', 'admin_delete_schedule', 'admin_export',
-              'admin_finalize_voting', 'admin_match_activity', 'admin_matches_upcoming', 'admin_pending',
+              'admin_finalize_voting', 'admin_get_match', 'admin_match_activity', 'admin_matches_upcoming',
+              'admin_pending',
               'admin_position_history', 'admin_positions_overview', 'admin_publish_match', 'admin_publish_result',
               'admin_ratings_progress', 'admin_regen_user_id', 'admin_reject', 'admin_reset_ratings',
               'admin_reset_ratings_for', 'admin_reveal_ratings', 'admin_revoke_devices', 'admin_save_gk_stats',
               'admin_save_lineup', 'admin_save_match', 'admin_save_result', 'admin_save_schedule',
-              'admin_set_gk_rotation', 'admin_set_match_status', 'admin_set_pin', 'admin_set_positions',
+              'admin_set_gk_rotation', 'admin_set_match_status', 'admin_set_member', 'admin_set_pin',
+              'admin_set_player_status',
+              'admin_set_positions',
               'admin_set_primary_media', 'admin_set_user_id', 'admin_set_voting', 'admin_substitute_player',
               'admin_swap_players', 'admin_undo_substitution', 'admin_undo_swap', 'admin_update_post',
               'admin_users', 'admin_voting_review', 'avaliacoes_completas', 'avaliacoes_reveladas',
               'change_pin', 'get_feed', 'get_goalkeeper_stats', 'get_latest_match',
-              'get_match', 'get_match_gk_stats', 'get_matches', 'get_my_open_votes',
+              'get_match', 'get_match_call', 'get_match_gk_stats', 'get_matches',
+              'get_my_open_votes',
               'get_next_match', 'get_pending_ratings', 'get_player_chemistry', 'get_player_profile',
               'get_player_stats', 'get_player_stats_range', 'get_players', 'get_published_draw',
               'get_ratings_received', 'get_round_ballot', 'issue_device_token', 'login',
               'login_with_device', 'match_public_json', 'position_ok', 'prazo_de_votacao',
-              'publish_draw', 'register', 'revoke_device', 'set_my_gk_rotation',
+              'publish_draw', 'register', 'revoke_device', 'set_my_availability',
+              'set_my_gk_rotation',
               'set_my_nickname', 'set_my_positions', 'set_my_primary_card', 'submit_ratings',
               'submit_round_vote', 'update_photo'
             ])

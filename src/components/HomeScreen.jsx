@@ -1,116 +1,107 @@
 import { useMemo, useRef, useState } from 'react'
 import { changePin, setMyGkRotation, updatePhoto } from '../api'
 import { fileToDataURL } from '../lib/image'
-import { ordenarJogadoresDeCampo } from '../lib/ranking'
+import { estadoDaPelada, ESTADO_PELADA } from '../lib/estadoDaPelada'
 import { PLAYER_TYPE } from '../lib/positions'
 import { TITULOS_POR_ID } from '../lib/achievements'
-import { resultadoBloqueado, tempoAteFechar } from '../lib/voting'
+import { tempoAteFechar } from '../lib/voting'
+import { nomeDaEquipa } from '../lib/substitutions'
 import { ADMIN_NAME } from '../config'
 import Avatar from './Avatar'
 import AchievementBadge from './AchievementBadge'
-import DrawView from './DrawView'
-import Feed from './Feed'
+import Disponibilidade from './Disponibilidade'
 import NextMatch from './NextMatch'
-import PlayerCard from './PlayerCard'
-import RoundResult from './RoundResult'
-import { ErrorBox, SectionTitle, SkeletonCard } from './Ui'
+import { ErrorBox, SkeletonCard } from './Ui'
 import { colors, fonts, styles, chip } from '../theme'
 
 // Página inicial.
 //
-// No computador o conteúdo distribui-se pela grelha de 12 colunas: o campo do
-// próximo jogo ao lado da contagem regressiva, depois uma fila de destaques e
-// outra com o que aconteceu. No telemóvel tudo empilha, pela mesma ordem.
+// A filosofia mudou: a Home mostra o ESTADO ATUAL da pelada, não o histórico.
+//
+// Antes tinha o feed, o último resultado, o último sorteio, os campeões da
+// semana e cinco cartões de líderes — e boa parte disso falava do MESMO jogo
+// por outras palavras. Era comprida, repetida, e não respondia depressa às
+// perguntas que quem abre a app tem: qual é o próximo jogo, estou convocado,
+// há alguma coisa que eu tenha de fazer.
+//
+// Agora são três blocos, por esta ordem:
+//   1. o que está a acontecer AGORA (uma coisa só — ver `lib/estadoDaPelada`)
+//   2. vou ou não vou ao próximo jogo
+//   3. o próximo jogo, com equipas e contagem regressiva
+//   4. a minha conta (foto, PIN, baliza)
+//
+// O histórico não desapareceu — mudou de sítio: Ranking, Estatísticas,
+// Histórico (com o feed no separador "Últimas") e Sorteios.
 
-// Uma data inválida não rebenta o `toLocaleDateString` — devolve a string
-// "Invalid Date", que o `catch` nunca chega a ver. Daí o teste explícito.
-function formatDate(iso) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('pt-PT', {
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+// ---------- o cartão principal ----------
+function EstadoAtual({ estado, latestMatch, onVotar, onRate, onNavigate }) {
+  const cor = estado.urgente ? colors.teamA : colors.grass
+  const prazo = estado.deadline ? tempoAteFechar(estado.deadline) : null
 
-// Cartão de um líder de categoria (artilheiro, craque, etc.).
-function CartaoDestaque({ tituloId, liderancas, jogadores, onProfile }) {
-  const t = TITULOS_POR_ID[tituloId]
-  const lider = liderancas?.[tituloId]
-  if (!t) return null
-
-  const vencedores = (lider?.playerIds || [])
-    .map((id) => jogadores.find((j) => j.id === id))
-    .filter(Boolean)
+  const agir = () => {
+    if (estado.tipo === ESTADO_PELADA.VOTAR) return onVotar?.(estado.matchId)
+    if (estado.tipo === ESTADO_PELADA.AVALIAR) return onRate?.()
+    if (estado.destino) return onNavigate?.(estado.destino, { matchId: estado.matchId })
+    return undefined
+  }
 
   return (
-    <div className="pb-card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span aria-hidden style={{ fontSize: 18 }}>
-          {t.icon}
+    <div
+      className="pb-card"
+      style={{
+        borderColor: cor,
+        background: estado.urgente ? 'rgba(255,197,49,0.06)' : 'rgba(52,208,88,0.05)',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <span aria-hidden style={{ fontSize: 30, lineHeight: 1, flexShrink: 0 }}>
+          {estado.icone}
         </span>
-        <span
-          style={{
-            fontFamily: fonts.title,
-            fontSize: 12,
-            letterSpacing: 1,
-            color: t.moldura?.cor || colors.muted,
-            textTransform: 'uppercase',
-          }}
-        >
-          {t.titulo}
-        </span>
-      </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ ...styles.title, fontSize: 19, lineHeight: 1.2 }}>{estado.titulo}</div>
 
-      {vencedores.length === 0 ? (
-        <p style={{ ...styles.mutedText, fontSize: 13, margin: 'auto 0' }}>
-          Ainda sem dados para este título.
-        </p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {vencedores.map((j) => (
-            <button
-              key={j.id}
-              type="button"
-              onClick={() => onProfile?.(j.id)}
-              aria-label={`Ver perfil de ${j.name}`}
+          {/* Um resultado mostra-se com o placar, não com uma frase. */}
+          {estado.tipo === ESTADO_PELADA.RESULTADO && latestMatch ? (
+            <div
               style={{
+                fontFamily: fonts.title,
+                fontSize: 20,
+                marginTop: 8,
                 display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                font: 'inherit',
-                color: 'inherit',
-                textAlign: 'left',
-                width: '100%',
+                gap: 8,
+                flexWrap: 'wrap',
+                alignItems: 'baseline',
               }}
             >
-              <Avatar name={j.name} photo={j.photo} size={38} />
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="pb-truncate" style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>
-                  {j.name}
-                </span>
-                <span style={{ fontSize: 12, color: colors.muted }}>
-                  {lider.valor}{' '}
-                  {tituloId === 'artilheiro'
-                    ? 'gols'
-                    : tituloId === 'rei-assistencias'
-                      ? 'assistências'
-                      : tituloId === 'rei-craques'
-                        ? 'vezes craque'
-                        : tituloId === 'rei-vitorias'
-                          ? 'vitórias'
-                          : 'de overall'}
-                </span>
+              <span>{nomeDaEquipa('A')}</span>
+              <span style={{ color: colors.grass }}>
+                {latestMatch.score_a} × {latestMatch.score_b}
               </span>
+              <span>{nomeDaEquipa('B')}</span>
+            </div>
+          ) : (
+            estado.texto && (
+              <p style={{ ...styles.mutedText, fontSize: 14, marginTop: 6 }}>{estado.texto}</p>
+            )
+          )}
+
+          {prazo?.conhecido && !prazo.expirado && (
+            <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 6 }}>
+              Fecha em {prazo.texto}. Leva menos de um minuto.
+            </p>
+          )}
+
+          {estado.acao && (
+            <button
+              type="button"
+              onClick={agir}
+              style={{ ...styles.button, marginTop: 14, width: 'auto', padding: '12px 22px' }}
+            >
+              {estado.acao}
             </button>
-          ))}
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -120,14 +111,13 @@ export default function HomeScreen({
   jogadores,
   liderancas,
   proximoJogo,
-  feed,
-  draw,
+  convocatoria,
   latestMatch,
-  totalRodadas,
   porVotar,
   faltamAvaliar,
   loading,
   error,
+  token,
   onVotar,
   onPedirPin,
   onRate,
@@ -161,6 +151,11 @@ export default function HomeScreen({
   // o que o servidor diz, até o próprio mudar aqui
   const golAtual = golOk ?? me?.gkRotationOk ?? true
 
+  const estado = useMemo(
+    () => estadoDaPelada({ proximoJogo, latestMatch, porVotar, faltamAvaliar }),
+    [proximoJogo, latestMatch, porVotar, faltamAvaliar]
+  )
+
   const mudarGol = async () => {
     if (golBusy) return
     const novo = !golAtual
@@ -178,13 +173,6 @@ export default function HomeScreen({
     }
   }
 
-  const top5 = useMemo(
-    () =>
-      ordenarJogadoresDeCampo(
-        jogadores.filter((j) => j.playerType !== PLAYER_TYPE.GOALKEEPER)
-      ).slice(0, 5),
-    [jogadores]
-  )
   const meusBadges = useMemo(() => {
     if (!liderancas || !me) return []
     return Object.entries(liderancas)
@@ -245,16 +233,9 @@ export default function HomeScreen({
 
   if (loading) {
     return (
-      <div className="pb-grid">
-        <div className="pb-col-8 pb-col-md-12">
-          <SkeletonCard lines={5} />
-        </div>
-        <div className="pb-col-4 pb-col-md-12">
-          <SkeletonCard lines={3} />
-        </div>
-        <div className="pb-col-12">
-          <SkeletonCard lines={4} />
-        </div>
+      <div className="pb-stack">
+        <SkeletonCard lines={3} />
+        <SkeletonCard lines={5} />
       </div>
     )
   }
@@ -262,14 +243,30 @@ export default function HomeScreen({
   if (error) return <ErrorBox>{error}</ErrorBox>
 
   return (
-    <div className="pb-stack" style={{ gap: 22 }}>
-      {/* O título da página existe para leitores de ecrã e para a estrutura de
-          cabeçalhos fazer sentido; visualmente a Home já se identifica sozinha. */}
+    <div className="pb-stack" style={{ gap: 20 }}>
       <h1 style={{ ...styles.title, fontSize: 22, margin: 0 }}>
         Olá, <span style={{ color: colors.grass }}>{session.name.split(' ')[0]}</span> 👋
       </h1>
 
-      {/* ---------- 1.ª linha: próximo jogo + contagem ---------- */}
+      {/* ---------- 1. o estado da pelada, uma coisa só ---------- */}
+      <EstadoAtual
+        estado={estado}
+        latestMatch={latestMatch}
+        onVotar={onVotar}
+        onRate={onRate}
+        onNavigate={onNavigate}
+      />
+
+      {/* ---------- 2. vais jogar? ---------- */}
+      <Disponibilidade
+        convocatoria={convocatoria}
+        session={session}
+        token={token}
+        onPedirPin={onPedirPin}
+        onRespondido={onRecarregar}
+      />
+
+      {/* ---------- 3. o próximo jogo ---------- */}
       <section aria-label="Próximo jogo">
         <NextMatch
           jogo={proximoJogo}
@@ -278,198 +275,8 @@ export default function HomeScreen({
         />
       </section>
 
-      {/* ---------- o feed: o que o admin publicou, mais recente primeiro ---------- */}
-      {feed?.length > 0 && (
-        <section aria-label="Últimas da pelada">
-          <SectionTitle>📰 Últimas da pelada</SectionTitle>
-          <Feed
-            posts={feed}
-            proximoJogo={proximoJogo}
-            jogadores={jogadores}
-            porVotar={porVotar}
-            onProfile={onProfile}
-            onNavigate={onNavigate}
-            onVotar={onVotar}
-          />
-        </section>
-      )}
-
-      {/* ---------- avisos pessoais ---------- */}
-      {/* A votação já tem a faixa fixa no topo; este cartão é o reforço para
-          quem rolou a Home abaixo sem lhe tocar. */}
-      {(porVotar?.length > 0 || faltamAvaliar > 0) && (
-        <section className="pb-cards">
-          {porVotar?.length > 0 && (
-            <div className="pb-card" style={{ borderColor: colors.teamA }}>
-              <p style={{ fontSize: 14, marginBottom: 4 }}>
-                🗳️ Falta o teu voto na rodada — ⭐ avaliações, 👑 craque e 🐟 bagre.
-              </p>
-              <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
-                {(() => {
-                  const t = tempoAteFechar(porVotar[0].deadline)
-                  return t.conhecido && !t.expirado
-                    ? `Fecha em ${t.texto}. Leva menos de um minuto.`
-                    : 'Leva menos de um minuto.'
-                })()}
-              </p>
-              <button style={styles.button} onClick={() => onVotar?.(porVotar[0].match_id)}>
-                Votar agora
-              </button>
-            </div>
-          )}
-          {faltamAvaliar > 0 && (
-            <div className="pb-card" style={{ borderColor: colors.teamA }}>
-              <p style={{ fontSize: 14, marginBottom: 10 }}>
-                Falta avaliares {faltamAvaliar} {faltamAvaliar === 1 ? 'jogador' : 'jogadores'} — pode
-                ser gente nova no grupo.
-              </p>
-              <button style={styles.button} onClick={onRate}>
-                Avaliar agora
-              </button>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ---------- 2.ª linha: top 5 + líderes de categoria ---------- */}
+      {/* ---------- 4. a minha conta ---------- */}
       <section>
-        <SectionTitle>Destaques do grupo</SectionTitle>
-        <div className="pb-grid">
-          <div className="pb-col-4 pb-col-md-12">
-            <div className="pb-card" style={{ height: '100%' }}>
-              <div
-                style={{
-                  fontFamily: fonts.title,
-                  fontSize: 12,
-                  letterSpacing: 1,
-                  color: colors.grass,
-                  textTransform: 'uppercase',
-                  marginBottom: 10,
-                }}
-              >
-                🏅 Top 5 do ranking
-              </div>
-              {top5.length === 0 ? (
-                <p style={{ ...styles.mutedText, fontSize: 13 }}>
-                  Ainda não existem estatísticas suficientes.
-                </p>
-              ) : (
-                <div className="pb-stack" style={{ gap: 6 }}>
-                  {top5.map((j, i) => (
-                    <PlayerCard
-                      key={j.id}
-                      jogador={j}
-                      liderancas={liderancas}
-                      rank={i + 1}
-                      variante="linha"
-                      destacado={j.id === session.id}
-                      onClick={() => onProfile?.(j.id)}
-                    />
-                  ))}
-                </div>
-              )}
-              <button
-                style={{ ...styles.buttonGhost, marginTop: 12, fontSize: 13 }}
-                onClick={() => onNavigate?.('ranking')}
-              >
-                Ver ranking completo →
-              </button>
-            </div>
-          </div>
-
-          <div className="pb-col-8 pb-col-md-12">
-            <div className="pb-cards pb-row-align">
-              <CartaoDestaque
-                tituloId="rei-da-pelada"
-                liderancas={liderancas}
-                jogadores={jogadores}
-                onProfile={onProfile}
-              />
-              <CartaoDestaque
-                tituloId="artilheiro"
-                liderancas={liderancas}
-                jogadores={jogadores}
-                onProfile={onProfile}
-              />
-              <CartaoDestaque
-                tituloId="rei-assistencias"
-                liderancas={liderancas}
-                jogadores={jogadores}
-                onProfile={onProfile}
-              />
-              <CartaoDestaque
-                tituloId="rei-craques"
-                liderancas={liderancas}
-                jogadores={jogadores}
-                onProfile={onProfile}
-              />
-              <CartaoDestaque
-                tituloId="paredao"
-                liderancas={liderancas}
-                jogadores={jogadores}
-                onProfile={onProfile}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- 3.ª linha: último resultado + último sorteio ---------- */}
-      <section>
-        <SectionTitle>O que aconteceu</SectionTitle>
-        <div className="pb-grid">
-          <div className="pb-col-7 pb-col-md-12">
-            {latestMatch !== undefined && (
-              <RoundResult
-                match={latestMatch}
-                onHistory={() => onNavigate?.('history')}
-                onProfile={(id) => onProfile?.(id, totalRodadas)}
-                bloqueado={resultadoBloqueado(latestMatch?.id, porVotar)}
-                onVotar={() => onVotar?.(latestMatch?.id)}
-              />
-            )}
-          </div>
-
-          <div className="pb-col-5 pb-col-md-12">
-            <div className="pb-card" style={{ height: '100%' }}>
-              <div
-                style={{
-                  fontFamily: fonts.title,
-                  fontSize: 12,
-                  letterSpacing: 1,
-                  color: colors.grass,
-                  textTransform: 'uppercase',
-                  marginBottom: 10,
-                }}
-              >
-                🎲 Último sorteio
-              </div>
-              {draw ? (
-                <>
-                  {formatDate(draw.created_at) && (
-                    <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
-                      Publicado a {formatDate(draw.created_at)}
-                    </p>
-                  )}
-                  <DrawView A={draw.team_a} B={draw.team_b} />
-                </>
-              ) : (
-                <p style={{ ...styles.mutedText, fontSize: 13 }}>Ainda não há sorteio publicado.</p>
-              )}
-              <button
-                style={{ ...styles.buttonGhost, marginTop: 12, fontSize: 13 }}
-                onClick={() => onNavigate?.('draws')}
-              >
-                Ver sorteios →
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- 4.ª linha: o meu cartão ---------- */}
-      <section>
-        <SectionTitle>A minha conta</SectionTitle>
         <div className="pb-grid">
           <div className="pb-col-6 pb-col-md-12">
             <div className="pb-card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -681,6 +488,26 @@ export default function HomeScreen({
           )}
         </div>
       </section>
+
+      {/* O histórico saiu da Home e vive nos ecrãs próprios — daqui fica só o
+          caminho para lá, para quem o vinha procurar aqui. */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[
+          { id: 'ranking', rotulo: '🏅 Ranking' },
+          { id: 'history', rotulo: '📜 Rodadas e últimas' },
+          { id: 'stats', rotulo: '📊 Estatísticas' },
+          { id: 'draws', rotulo: '🎲 Sorteios' },
+        ].map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => onNavigate?.(l.id)}
+            style={{ ...styles.buttonGhost, width: 'auto', flex: '1 1 150px', fontSize: 13 }}
+          >
+            {l.rotulo}
+          </button>
+        ))}
+      </div>
 
       <p style={{ ...styles.mutedText, textAlign: 'center', fontSize: 12, padding: '8px 0 4px' }}>
         ⚽ Organizado por {ADMIN_NAME}

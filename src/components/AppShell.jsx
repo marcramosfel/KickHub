@@ -3,6 +3,7 @@ import { APP_NAME } from '../config'
 import Avatar from './Avatar'
 import { useIsDesktop } from '../hooks/useMediaQuery'
 import { useModal } from '../hooks/useModal'
+import { Portal } from './Ui'
 import { colors, fonts } from '../theme'
 
 // Navegação da app.
@@ -146,16 +147,35 @@ function UserMenu({ session, foto, onProfile, onLogout }) {
   )
 }
 
-// Menu "Mais" do telemóvel: as páginas que não cabem nos cinco destinos, mais
-// a identificação de quem está a usar a app e o botão de sair — no telemóvel
-// não há menu do utilizador, e sem isto não havia forma nenhuma de sair.
+// Menu "Mais" do telemóvel.
+//
+// Leva TODOS os destinos, não só os que não cabem na barra de baixo: quem abre
+// um menu quer a lista toda, e repetir cinco linhas custa menos do que deixar
+// alguém sem saber onde está o resto. A identificação de quem está a usar a
+// app e o botão de sair também vivem aqui — no telemóvel não há menu do
+// utilizador, e sem isto não havia forma nenhuma de sair.
 function MoreMenu({ view, session, foto, onNavigate, onLogout, isAdmin, onAdmin }) {
   const [aberto, setAberto] = useState(false)
-  const itens = [...NAV_SECUNDARIAS, ...(isAdmin ? [NAV_ADMIN] : [])]
+
+  const seccoes = [
+    { titulo: 'Navegar', itens: [...NAV_PRINCIPAIS, ...NAV_SECUNDARIAS] },
+    {
+      titulo: 'A minha conta',
+      itens: isAdmin ? [NAV_ADMIN] : [],
+    },
+  ].filter((s) => s.itens.length > 0)
 
   // Escape, tranca do scroll do fundo, foco para dentro e foco devolvido ao
   // botão — tudo em `useModal`, para o próximo modal da app não repetir isto.
   const { ref: caixa, aoClicarNoFundo } = useModal(aberto, () => setAberto(false))
+
+  const fechar = () => setAberto(false)
+
+  const irPara = (id) => {
+    fechar()
+    if (id === 'admin') onAdmin()
+    else onNavigate(id)
+  }
 
   return (
     <>
@@ -172,103 +192,132 @@ function MoreMenu({ view, session, foto, onNavigate, onLogout, isAdmin, onAdmin 
         <span style={{ fontSize: 14 }}>Mais</span>
       </button>
 
+      {/* Fora da barra de cima, sempre: o `backdrop-filter` dela era o bloco
+          contentor deste `fixed` e a folha saía do ecrã (ver `Portal`). */}
       {aberto && (
-        <div
-          className="pb-overlay"
-          aria-hidden={false}
-          onClick={aoClicarNoFundo}
-        >
-          {/* o `role="dialog"` vive na folha, não no fundo: um leitor de ecrã
-              anunciava o diálogo e depois não encontrava lá nada dentro */}
-          <div
-            ref={caixa}
-            className="pb-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mais páginas"
-          >
-            {session && (
+        <Portal>
+          <div className="pb-overlay" aria-hidden={false} onClick={aoClicarNoFundo}>
+            {/* o `role="dialog"` vive na folha, não no fundo: um leitor de ecrã
+                anunciava o diálogo e depois não encontrava lá nada dentro */}
+            <div
+              ref={caixa}
+              className="pb-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Menu"
+            >
+              <div aria-hidden className="pb-sheet-handle" />
+
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
                   paddingBottom: 12,
-                  marginBottom: 10,
+                  marginBottom: 6,
                   borderBottom: `1px solid ${colors.line}`,
                 }}
               >
-                <Avatar name={session.name} photo={foto} size={34} />
-                <span className="pb-truncate" style={{ fontWeight: 700, fontSize: 15 }}>
-                  {session.name}
+                {session && <Avatar name={session.name} photo={foto} size={34} />}
+                <span className="pb-truncate" style={{ flex: 1, fontWeight: 700, fontSize: 15 }}>
+                  {session?.name || 'Menu'}
                 </span>
-              </div>
-            )}
-            <div
-              style={{
-                fontFamily: fonts.title,
-                letterSpacing: 1,
-                fontSize: 15,
-                marginBottom: 10,
-              }}
-            >
-              Mais páginas
-            </div>
-            {itens.map((it) => (
-              <button
-                key={it.id}
-                type="button"
-                className="pb-menuitem"
-                aria-current={view === it.id ? 'page' : undefined}
-                style={{
-                  fontSize: 15,
-                  padding: '13px 12px',
-                  color: view === it.id ? colors.grass : colors.text,
-                }}
-                onClick={() => {
-                  setAberto(false)
-                  if (it.id === 'admin') onAdmin()
-                  else onNavigate(it.id)
-                }}
-              >
-                <span aria-hidden style={{ marginRight: 10 }}>
-                  {it.icon}
-                </span>
-                {it.label}
-              </button>
-            ))}
-            {onLogout && (
-              <>
-                <div
-                  aria-hidden
-                  style={{ height: 1, background: colors.line, margin: '8px 0' }}
-                />
+                {/* O × fecha sem obrigar a rolar até ao fim da lista. */}
                 <button
                   type="button"
-                  className="pb-menuitem"
-                  style={{ fontSize: 15, padding: '13px 12px', color: colors.error }}
-                  onClick={() => {
-                    setAberto(false)
-                    onLogout()
+                  onClick={fechar}
+                  aria-label="Fechar menu"
+                  style={{
+                    flexShrink: 0,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    border: `1px solid ${colors.line}`,
+                    background: 'transparent',
+                    color: colors.muted,
+                    fontSize: 18,
+                    lineHeight: 1,
                   }}
                 >
-                  <span aria-hidden style={{ marginRight: 10 }}>
-                    ↩
-                  </span>
-                  Sair
+                  ×
                 </button>
-              </>
-            )}
-            <button
-              type="button"
-              className="pb-menuitem"
-              style={{ marginTop: 6, color: colors.muted }}
-              onClick={() => setAberto(false)}
-            >
-              Fechar
-            </button>
+              </div>
+
+              {seccoes.map((s) => (
+                <div key={s.titulo}>
+                  <div
+                    style={{
+                      fontFamily: fonts.title,
+                      letterSpacing: 1,
+                      fontSize: 11,
+                      textTransform: 'uppercase',
+                      color: colors.muted,
+                      padding: '10px 12px 4px',
+                    }}
+                  >
+                    {s.titulo}
+                  </div>
+                  {s.itens.map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      className="pb-menuitem"
+                      aria-current={view === it.id ? 'page' : undefined}
+                      style={{
+                        fontSize: 15,
+                        padding: '13px 12px',
+                        color: view === it.id ? colors.grass : colors.text,
+                      }}
+                      onClick={() => irPara(it.id)}
+                    >
+                      <span aria-hidden style={{ marginRight: 10 }}>
+                        {it.icon}
+                      </span>
+                      {it.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+
+              {onLogout && (
+                <>
+                  <div
+                    aria-hidden
+                    style={{ height: 1, background: colors.line, margin: '8px 0' }}
+                  />
+                  <button
+                    type="button"
+                    className="pb-menuitem"
+                    style={{ fontSize: 15, padding: '13px 12px', color: colors.error }}
+                    onClick={() => {
+                      fechar()
+                      onLogout()
+                    }}
+                  >
+                    <span aria-hidden style={{ marginRight: 10 }}>
+                      ↩
+                    </span>
+                    Sair
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                className="pb-menuitem"
+                style={{
+                  marginTop: 6,
+                  justifyContent: 'center',
+                  color: colors.muted,
+                  border: `1px solid ${colors.line}`,
+                }}
+                onClick={fechar}
+              >
+                Fechar
+              </button>
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
     </>
   )

@@ -353,9 +353,12 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
 
           {estado.estado === 'aguarda-resultado' && (
             <div className="pb-card" style={{ borderColor: colors.teamA }}>
+              {/* "Campeões da semana" era uma secção da Home que deixou de
+                  existir quando a Home passou a mostrar só o estado atual —
+                  mandar lá quem lê isto era mandá-lo a lado nenhum. */}
               <p style={{ fontSize: 14 }}>
-                ⏳ O jogo já foi. Assim que o admin registar o resultado, aparece em “Campeões da
-                semana”.
+                ⏳ O jogo já foi. Assim que o admin registar o resultado, ele aparece aqui e no
+                histórico.
               </p>
             </div>
           )}

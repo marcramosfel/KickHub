@@ -7,6 +7,12 @@ import {
   proximoJogoDoAdmin,
 } from '../../lib/lifecycle'
 import { nomeDaEquipa } from '../../lib/substitutions'
+import {
+  contarDisponiveis,
+  estadoVisivel,
+  etiquetaDoEstado,
+  indiceDeRespostas,
+} from '../../lib/plantel'
 import { colors, fonts, styles, chip } from '../../theme'
 
 // A primeira coisa que o admin vê.
@@ -84,6 +90,7 @@ export default function AdminOverview({
   jogadores = [],
   pedidos = [],
   feed = [],
+  convocatoria = null,
   onIr,
   onAbrirJogo,
 }) {
@@ -92,6 +99,19 @@ export default function AdminOverview({
   const proximo = useMemo(() => proximoJogoDoAdmin(jogosAbertos), [jogosAbertos])
 
   const semPosicao = jogadores.filter((j) => !j.primaryPosition).length
+
+  // As três perguntas que o admin faz antes de montar uma rodada: quem são os
+  // mensalistas, quem se apontou, e quem está fora por lesão ou viagem.
+  const respostas = useMemo(() => indiceDeRespostas(convocatoria), [convocatoria])
+  const mensalistas = useMemo(() => jogadores.filter((j) => j.isMember), [jogadores])
+  const contagem = useMemo(
+    () => contarDisponiveis(mensalistas, respostas),
+    [mensalistas, respostas]
+  )
+  const indisponiveis = useMemo(
+    () => jogadores.filter((j) => estadoVisivel(j.availabilityStatus)),
+    [jogadores]
+  )
   const ultimaPublicacao = feed[0] || null
 
   const d = formatarDataDoJogo(proximo?.kickoff_at)
@@ -155,6 +175,53 @@ export default function AdminOverview({
           dica="Quem falta entregar as notas"
         />
       </div>
+
+      {/* ---------- quem há para a próxima rodada ---------- */}
+      {(mensalistas.length > 0 || indisponiveis.length > 0) && (
+        <Seccao
+          titulo="Quem há para a próxima"
+          acao={
+            <button type="button" onClick={() => onIr('plantel')} className="pb-tab" style={{ fontSize: 12 }}>
+              ⭐ Gerir plantel
+            </button>
+          }
+        >
+          {mensalistas.length > 0 && (
+            <p style={{ fontSize: 14, marginBottom: indisponiveis.length ? 10 : 0 }}>
+              <span style={{ color: colors.teamA, fontWeight: 700 }}>
+                ⭐ Mensalistas — {contagem.disponiveis}/{contagem.total} disponíveis
+              </span>
+              {contagem.ausentes > 0 && (
+                <span style={{ color: colors.error }}>
+                  {' '}
+                  · {contagem.ausentes} {contagem.ausentes === 1 ? 'disse' : 'disseram'} que não vem
+                </span>
+              )}
+              {contagem.confirmados > 0 && (
+                <span style={{ ...styles.mutedText, fontSize: 13 }}>
+                  {' '}
+                  · {contagem.confirmados} confirmados
+                </span>
+              )}
+            </p>
+          )}
+          {indisponiveis.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {indisponiveis.map((j) => (
+                <span key={j.id} style={chip(colors.muted)}>
+                  {etiquetaDoEstado(j.availabilityStatus).icone} {j.name}
+                </span>
+              ))}
+            </div>
+          )}
+          {mensalistas.length === 0 && (
+            <p style={{ ...styles.mutedText, fontSize: 13 }}>
+              Ainda não marcaste ninguém como mensalista — fá-lo no plantel para os teres primeiro
+              na escolha do elenco.
+            </p>
+          )}
+        </Seccao>
+      )}
 
       {/* ---------- alertas ---------- */}
       {alertas.length > 0 && (

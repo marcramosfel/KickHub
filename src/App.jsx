@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ackPositionNotice,
-  getFeed,
   getGoalkeeperStats,
   getLatestMatch,
+  getMatchCall,
   getMatches,
   getMyOpenVotes,
   getNextMatch,
@@ -95,7 +95,7 @@ export default function App() {
     try {
       // Só `getPlayers` é obrigatório. Tudo o resto degrada: sem uma migração
       // aplicada, a secção respetiva desaparece em vez de a app rebentar.
-      const [players, playerStats, gkStats, matches, proximo, latest, draw, porVotar, pending, feed] =
+      const [players, playerStats, gkStats, matches, proximo, latest, draw, porVotar, pending, chamada] =
         await Promise.all([
           getPlayers(),
           getPlayerStats().catch(() => []),
@@ -110,11 +110,16 @@ export default function App() {
           // metade da votação não tinha aviso nenhum.
           getMyOpenVotes(sessionId, sessionPin, sessionToken).catch(() => []),
           getPendingRatings(sessionId, sessionPin).catch(() => null),
-          // sem a migração 0020 simplesmente não há feed — a Home segue igual.
-          // 12 posts (~1 mês de pelada): os de resultado trazem a foto em
-          // base64, e um feed comprido pesava megabytes em dados móveis.
-          getFeed(12).catch(() => []),
+          // A convocatória do próximo jogo ("vais jogar?"), com quem já
+          // respondeu. Sem a migração aplicada fica a null e a pergunta
+          // simplesmente não aparece.
+          getMatchCall().catch(() => null),
         ])
+
+      // O feed saiu da Home (agora só mostra o estado atual) e passou a viver
+      // no separador "Últimas" do Histórico, que o carrega quando é aberto —
+      // são posts com fotos em base64, e trazê-los a cada arranque da app
+      // custava megabytes de dados móveis a quem nunca lá ia.
 
       if (!vivo.atual || token !== cargaRef.current) return
       const rodadas = matches || []
@@ -126,7 +131,7 @@ export default function App() {
         proximoJogo: proximo || null,
         latestMatch: latest,
         draw,
-        feed: feed || [],
+        convocatoria: chamada,
         pendingRatings: pending,
         // só o que tem mesmo alguma coisa por fazer: a rodada continuar
         // aberta não é razão para avisar quem já votou em tudo
@@ -505,14 +510,13 @@ export default function App() {
           jogadores={jogadores}
           liderancas={liderancas}
           proximoJogo={dados?.proximoJogo}
-          feed={dados?.feed}
-          draw={dados?.draw}
+          convocatoria={dados?.convocatoria}
           latestMatch={dados?.latestMatch}
-          totalRodadas={dados?.matches?.length || 0}
           porVotar={dados?.porVotar || []}
           faltamAvaliar={faltamAvaliar}
           loading={carregando}
           error={erro}
+          token={deviceToken}
           onVotar={irParaVotacao}
           onPedirPin={pedirPin}
           onRate={() => setView('rate')}

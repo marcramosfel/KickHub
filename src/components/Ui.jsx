@@ -1,4 +1,24 @@
+import { createPortal } from 'react-dom'
 import { colors, styles } from '../theme'
+
+// Leva o que está cá dentro para o fim do `body`, fora da árvore onde foi
+// escrito.
+//
+// Não é arrumação: é o que faz um `position: fixed` continuar a valer o ecrã
+// inteiro. A barra de cima tem `backdrop-filter: blur(8px)`, e um
+// backdrop-filter diferente de `none` transforma o elemento em BLOCO
+// CONTENTOR dos descendentes `fixed` — exatamente como um `transform`. A
+// folha "Mais" vivia lá dentro, por isso o `inset: 0` do fundo media a barra
+// (375×60) e não a janela: a folha, colada em baixo com `align-items:
+// flex-end`, ficava com o topo em -352px e via-se só a última linha
+// ("Fechar"). No computador nunca apareceu porque lá o menu é `absolute`.
+//
+// Qualquer modal dentro de um antepassado com blur, transform ou filter cai
+// no mesmo buraco — daí isto ser um componente e não um remendo local.
+export function Portal({ children }) {
+  if (typeof document === 'undefined') return null
+  return createPortal(children, document.body)
+}
 
 // Cabeçalho de secção com uma barrinha de acento à esquerda.
 export function SectionTitle({ children, cor = colors.grass, style }) {

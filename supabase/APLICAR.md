@@ -51,6 +51,30 @@ São dois grupos, e a fronteira entre eles é a segurança de toda a app: as **i
 `EXECUTE` de toda a gente (só são chamadas de dentro de outra função que já validou quem fala), e
 as **públicas** são a API, com a validação lá dentro.
 
+### O que a última passagem acrescentou
+
+Tudo aditivo — nenhuma linha existente é tocada, e uma rodada de 2024 continua a valer o que
+valia.
+
+| O quê | Onde | Nota |
+| --- | --- | --- |
+| `match_stats.own_goals` | coluna nova, `default 0` | Autogolos. As rodadas que já existem herdam o 0 no próprio `ADD COLUMN`. **Nunca** soma a `goals`: não entra no ranking de artilheiros nem em nenhuma parcela do overall. |
+| `players.availability_status` | coluna nova, `default 'AVAILABLE'` | 🟢 disponível · ✈️ a viajar · 🤕 lesionado · 🔴 indisponível. Estado **geral**, mexido pelo admin. |
+| `players.is_member` | coluna nova, `default false` | ⭐ mensalista. Dá prioridade na **ordem** da lista de seleção, nunca seleção automática. |
+| `match_availability` | tabela nova | "Vou / não vou" a **um** jogo, respondido pelo próprio. Sem linha = ainda não respondeu, que não é o mesmo que "não vai". |
+| `admin_get_match(pw, id)` | função nova | Devolve `match_admin_json` de **qualquer** jogo, não só dos abertos. É o que deixa as rodadas antigas abrirem na mesma página do pós-jogo em vez de terem um formulário próprio. |
+| `get_match_call()` | função nova | A convocatória: o jogo mais próximo por acontecer (mesmo em rascunho) e quem já respondeu. Devolve **só** data, local e respostas — nunca a escalação, que continua invisível até ser publicada. |
+| `set_my_availability(...)` | função nova | Autentica por PIN **ou** pelo token do telemóvel, como a votação. |
+| `admin_set_player_status` / `admin_set_member` | funções novas | Só admin. |
+
+O estado do jogador e a disponibilidade para um jogo são **conceitos separados na base de
+dados**, e é para ficarem assim: um 🟢 disponível pode faltar a esta sexta, e um ✈️ a viajar pode
+chegar a tempo da próxima. Cruzá-los numa coluna só perdia as duas informações.
+
+`get_players()` passou a devolver mais três colunas (`is_member`, `availability_status`,
+`availability_note`). O bloco de drops no topo das funções trata disso sozinho — `create or
+replace` não muda tipos de retorno, e é essa a razão de esse bloco existir.
+
 ---
 
 # O que cada mudança trouxe

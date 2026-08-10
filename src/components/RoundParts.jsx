@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Avatar from './Avatar'
 import { StarScore } from './StarRating'
-import { assisters, matchWinner, scorers, teamPlayers } from '../lib/format'
+import { assisters, matchWinner, ownScorers, scorers, teamPlayers } from '../lib/format'
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
 import {
   copiarTexto,
@@ -445,8 +445,11 @@ export function ScoreBoard({ m }) {
 }
 
 // Linha de estatística (gols/assistências) com ícone + texto (nunca só cor).
-export function StatLine({ icon, label, list, emptyText, onProfile }) {
-  const campo = label === 'Gols' ? 'goals' : 'assists'
+export function StatLine({ icon, label, list, emptyText, onProfile, campo: campoDado }) {
+  // O campo era deduzido do rótulo ("Gols" → goals, tudo o resto → assists).
+  // Com um terceiro número (autogolos) isso passava a mentir, por isso agora
+  // diz-se qual é; o fallback antigo fica para as chamadas que não o passam.
+  const campo = campoDado || (label === 'Gols' ? 'goals' : 'assists')
   return (
     <div style={{ fontSize: 14, display: 'flex', gap: 8, alignItems: 'baseline' }}>
       <span aria-hidden style={{ flexShrink: 0 }}>
@@ -599,14 +602,34 @@ export function RoundBody({ m, full = false, onProfile, bloqueado = false, onVot
       {full && !bloqueado && <PostRatingsCard m={m} onProfile={onProfile} />}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <StatLine icon="⚽" label="Gols" list={scorers(m)} emptyText="sem gols" onProfile={onProfile} />
+        <StatLine
+          icon="⚽"
+          label="Gols"
+          campo="goals"
+          list={scorers(m)}
+          emptyText="sem gols"
+          onProfile={onProfile}
+        />
         <StatLine
           icon="🅰️"
           label="Assistências"
+          campo="assists"
           list={assisters(m)}
           emptyText="sem assistências"
           onProfile={onProfile}
         />
+        {/* Autogolos só aparecem quando os há — uma linha "sem autogolos" em
+            todas as rodadas seria ruído, e as rodadas antigas têm todas 0. */}
+        {ownScorers(m).length > 0 && (
+          <StatLine
+            icon="🥅"
+            label="Autogolos"
+            campo="own_goals"
+            list={ownScorers(m)}
+            emptyText=""
+            onProfile={onProfile}
+          />
+        )}
       </div>
 
       {full && (m.has_location_photo || m.location_photo) && (

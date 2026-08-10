@@ -76,3 +76,7 @@ export const teamPlayers = (m, side) => (m.players || []).filter((p) => p.team =
 // Marcadores e assistentes (já vêm ordenados por gols/assistências desc).
 export const scorers = (m) => (m.players || []).filter((p) => p.goals > 0)
 export const assisters = (m) => (m.players || []).filter((p) => p.assists > 0)
+// Autogolos. Lista à parte, e é isso que interessa: um autogolo nunca entra
+// em `scorers` — não é um gol do jogador e não conta para o ranking de
+// artilheiros. Nas rodadas anteriores à coluna, `own_goals` vem a 0.
+export const ownScorers = (m) => (m.players || []).filter((p) => (p.own_goals || 0) > 0)

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { getMatches, getMyOpenVotes, getPlayerStats, getPlayerStatsRange } from '../api'
+import { getFeed, getMatches, getMyOpenVotes, getPlayerStats, getPlayerStatsRange } from '../api'
 import {
   assisters as getAssisters,
   awardWinners,
   formatDia,
   intervaloDe,
   matchWinner,
+  ownScorers as getOwnScorers,
   PERIODOS,
   scorers as getScorers,
 } from '../lib/format'
@@ -18,6 +19,7 @@ import {
 import { liderancas } from '../lib/trophies'
 import { NomeClicavel } from './RoundParts'
 import Avatar from './Avatar'
+import Feed from './Feed'
 import RoundDetail from './RoundDetail'
 import { ErrorBox, SkeletonCard } from './Ui'
 import { colors, fonts, styles } from '../theme'
@@ -58,6 +60,7 @@ function ChamadaParaVotar({ pendencia, onVotar }) {
 function MatchPanel({ match, onDetail, onProfile, bloqueado, onVotar }) {
   const scorers = getScorers(match)
   const assisters = getAssisters(match)
+  const ownGoals = getOwnScorers(match)
   const craque = awardWinners(match.craque)
   const bagre = awardWinners(match.bagre)
   const w = matchWinner(match)
@@ -143,6 +146,20 @@ function MatchPanel({ match, onDetail, onProfile, bloqueado, onVotar }) {
           <span style={{ color: colors.muted }}>sem assistências</span>
         )}
       </p>
+      {/* autogolos: só quando existem — nunca somam aos ⚽ de ninguém */}
+      {ownGoals.length > 0 && (
+        <p style={{ fontSize: 13, marginBottom: 8 }}>
+          🥅{' '}
+          <span style={{ color: colors.muted }}>AG: </span>
+          {ownGoals.map((p, i) => (
+            <span key={p.player_id}>
+              {i > 0 && ', '}
+              <NomeClicavel id={p.player_id} nome={p.name} onProfile={onProfile} />
+              {p.own_goals > 1 && <span style={{ color: colors.muted }}> ({p.own_goals})</span>}
+            </span>
+          ))}
+        </p>
+      )}
 
       {/* o craque e o bagre ficam tapados a quem ainda tem voto por dar
           nesta rodada — ver `resultadoBloqueado` */}
@@ -229,6 +246,9 @@ export default function StatsScreen({
   const [navPedido, setNavPedido] = useState({ tab: initialTab, token: navToken })
   const [stats, setStats] = useState(null)
   const [matches, setMatches] = useState(null)
+  // O feed vem com fotos em base64 nos posts de resultado — pesado em dados
+  // móveis. Por isso só se carrega quando se abre mesmo o separador.
+  const [feed, setFeed] = useState(null)
   // rodadas com votação aberta em que joguei e ainda tenho algo por dar
   const [pendencias, setPendencias] = useState([])
   const [detailId, setDetailId] = useState(initialMatchId) // rodada aberta em detalhe
@@ -295,6 +315,14 @@ export default function StatsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo])
 
+  // O feed só quando o separador é aberto — e uma vez só.
+  useEffect(() => {
+    if (tab !== 'feed' || feed !== null) return
+    getFeed(20)
+      .then((l) => setFeed(l || []))
+      .catch(() => setFeed([])) // sem a migração do feed, a lista fica vazia
+  }, [tab, feed])
+
   // detalhe de uma rodada (com fotos) sobrepõe-se ao resto
   if (detailId) {
     return (
@@ -355,6 +383,9 @@ export default function StatsScreen({
   // votações ao mesmo tempo — a lista antiga só sabia do craque/bagre.
   const porVotar = pendenciasReais(pendencias)
 
+  // Enquanto ninguém marcar na própria baliza, a coluna AG não aparece.
+  const temAutogolos = stats.some((p) => (p.own_goals || 0) > 0)
+
   return (
     <div style={pageStyle}>
       <div
@@ -386,6 +417,9 @@ export default function StatsScreen({
       <div style={{ display: 'flex', marginBottom: 16 }}>
         {tabBtn('geral', 'Geral')}
         {tabBtn('rodadas', `Rodadas${porVotar.length ? ' 🗳️' : ''}`)}
+        {/* O feed saiu da Home (que passou a mostrar só o estado atual da
+            pelada) e veio para aqui, ao lado das rodadas a que se refere. */}
+        {tabBtn('feed', 'Últimas')}
       </div>
 
       {error && <p style={{ ...styles.errorText, marginBottom: 12 }}>{error}</p>}
@@ -450,6 +484,9 @@ export default function StatsScreen({
                 <span style={statCol}>J</span>
                 <span style={statCol}>⚽</span>
                 <span style={statCol}>🅰️</span>
+                {/* a coluna dos autogolos só existe quando alguém tem algum:
+                    num plantel inteiro a zeros era uma coluna de zeros */}
+                {temAutogolos && <span style={statCol}>AG</span>}
                 <span style={statCol}>👑</span>
                 <span style={statCol}>🐟</span>
               </div>
@@ -505,6 +542,9 @@ export default function StatsScreen({
                   <span style={{ ...statCol, color: colors.muted }}>{p.matches}</span>
                   <span style={{ ...statCol, fontWeight: 700 }}>{p.goals}</span>
                   <span style={statCol}>{p.assists}</span>
+                  {temAutogolos && (
+                    <span style={{ ...statCol, color: colors.muted }}>{p.own_goals || 0}</span>
+                  )}
                   <span style={{ ...statCol, color: colors.teamA }}>{p.craques}</span>
                   <span style={{ ...statCol, color: colors.teamB }}>{p.bagres}</span>
                 </div>
@@ -512,7 +552,9 @@ export default function StatsScreen({
             </div>
           )}
           <p style={{ ...styles.mutedText, fontSize: 12, marginTop: 10 }}>
-            J = jogos · ⚽ gols · 🅰️ assistências · 👑 craque da rodada · 🐟 bagre da rodada
+            J = jogos · ⚽ gols · 🅰️ assistências
+            {temAutogolos ? ' · AG autogolos (não contam como gols)' : ''} · 👑 craque da rodada ·
+            🐟 bagre da rodada
           </p>
 
           {/* quadro de troféus do grupo */}
@@ -607,6 +649,38 @@ export default function StatsScreen({
               onVotar={() => onVotar?.(m.id)}
             />
           ))}
+        </div>
+      )}
+
+      {/* ---------- ÚLTIMAS (o feed) ---------- */}
+      {tab === 'feed' && (
+        <div>
+          {feed === null ? (
+            <SkeletonCard lines={4} />
+          ) : feed.length === 0 ? (
+            <div style={{ ...styles.panel, textAlign: 'center', padding: 22 }}>
+              <p style={styles.mutedText}>
+                Ainda não há publicações. Elas nascem quando o admin publica um sorteio ou um
+                resultado.
+              </p>
+            </div>
+          ) : (
+            <Feed
+              posts={feed}
+              // `stats` traz id, nome e foto — é o que o destaque do craque
+              // e do bagre precisa. Não há aqui a lista enriquecida da Home.
+              jogadores={stats}
+              porVotar={porVotar}
+              onProfile={onProfile}
+              onVotar={onVotar}
+              onNavigate={(destino, extra) => {
+                // "Abrir jogo" do feed aponta para UMA rodada — e já estamos
+                // no ecrã que a sabe mostrar.
+                if (extra?.matchId) setDetailId(extra.matchId)
+                else if (destino === 'history') setTab('rodadas')
+              }}
+            />
+          )}
         </div>
       )}
     </div>

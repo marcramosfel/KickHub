@@ -18,6 +18,13 @@ import {
   N_GOLEIROS,
 } from '../../lib/drawEngine'
 import { GK_MODE, elencoNecessario, formacaoDe, lugaresDe } from '../../lib/formacoes'
+import {
+  contarDisponiveis,
+  estadoVisivel,
+  etiquetaDoEstado,
+  indiceDeRespostas,
+  separarMensalistas,
+} from '../../lib/plantel'
 import { ETIQUETA_STATUS, nomeDaPosicao, PLAYER_TYPE } from '../../lib/positions'
 import { formatarDataDoJogo } from '../../lib/countdown'
 import { calcularLiderancas } from '../../lib/achievements'
@@ -203,7 +210,14 @@ function LinhaJogador({ j, marcado, onToggle, extra, desativado }) {
 
 // `conversao` (duas listas de ids) chega quando um rachão sobe a jogo
 // oficial: as equipas já estão decididas e só se distribuem as posições.
-export default function MatchWizard({ pw, jogadores, matches, conversao, onDadosAlterados }) {
+export default function MatchWizard({
+  pw,
+  jogadores,
+  matches,
+  conversao,
+  convocatoria,
+  onDadosAlterados,
+}) {
   const [passo, setPasso] = useState(1)
   const [jogo, setJogo] = useState(null) // rascunho guardado no servidor
   const [proximos, setProximos] = useState([])
@@ -465,10 +479,20 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
     () => jogadores.filter((j) => j.playerType === PLAYER_TYPE.GOALKEEPER || j.primaryPosition === 'GK'),
     [jogadores]
   )
-  const restantes = useMemo(
-    () => jogadores.filter((j) => !goleiros.includes(j.id)),
-    [jogadores, goleiros]
-  )
+  // Quem já respondeu à convocatória deste jogo (ou do mais próximo).
+  const respostas = useMemo(() => indiceDeRespostas(convocatoria), [convocatoria])
+
+  // A lista de escolha em dois blocos: ⭐ mensalistas primeiro, resto do
+  // plantel a seguir. É só ORDEM — nenhum jogador fica marcado por isto, e o
+  // admin continua a poder chamar quem quiser do segundo bloco.
+  const blocos = useMemo(() => {
+    const disponiveis = jogadores.filter((j) => !goleiros.includes(j.id))
+    const { mensalistas, restantes } = separarMensalistas(disponiveis)
+    return [
+      { id: 'mensalistas', titulo: '⭐ Mensalistas', lista: mensalistas },
+      { id: 'restantes', titulo: 'Restante do plantel', lista: restantes },
+    ].filter((b) => b.lista.length > 0)
+  }, [jogadores, goleiros])
 
   const escolhidos = useMemo(
     () => [...goleiros, ...campo].map((id) => porId.get(id)).filter(Boolean),
@@ -1063,23 +1087,93 @@ export default function MatchWizard({ pw, jogadores, matches, conversao, onDados
           <div style={{ ...styles.label, marginBottom: 6 }}>
             {rotativo ? `Jogadores (${campo.length} de ${elenco.total})` : `Campo (${campo.length} de ${elenco.campo})`}
           </div>
-          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
-            {restantes.map((j) => (
-              <LinhaJogador
-                key={j.id}
-                j={j}
-                marcado={campo.includes(j.id)}
-                onToggle={() => alternar(campo, setCampo, j.id, elenco.campo)}
-                desativado={!campo.includes(j.id) && campo.length >= elenco.campo}
-                extra={
-                  rotativo && campo.includes(j.id) && j.gkRotationOk === false ? (
-                    <span style={{ ...chip(colors.muted), flexShrink: 0 }} title="Não aceita ir à baliza">
-                      🚫 gol
+          <div style={{ maxHeight: 460, overflowY: 'auto' }}>
+            {blocos.map((b) => {
+              const c = contarDisponiveis(b.lista, respostas)
+              return (
+                <div key={b.id}>
+                  {/* "⭐ Mensalistas — 12/14 disponíveis": conta quem não
+                      disse que falta. Silêncio não é uma ausência. */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                      padding: '12px 4px 6px',
+                      position: 'sticky',
+                      top: 0,
+                      background: colors.panel,
+                      zIndex: 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: fonts.title,
+                        letterSpacing: 1,
+                        fontSize: 12,
+                        textTransform: 'uppercase',
+                        color: b.id === 'mensalistas' ? colors.teamA : colors.muted,
+                      }}
+                    >
+                      {b.titulo}
                     </span>
-                  ) : null
-                }
-              />
-            ))}
+                    <span style={{ ...styles.mutedText, fontSize: 12 }}>
+                      {c.disponiveis}/{c.total} disponíveis
+                      {c.ausentes > 0 ? ` · ${c.ausentes} não vêm` : ''}
+                    </span>
+                  </div>
+                  {b.lista.map((j) => {
+                    const resposta = respostas[j.id]
+                    const estado = j.availabilityStatus
+                    return (
+                      <LinhaJogador
+                        key={j.id}
+                        j={j}
+                        marcado={campo.includes(j.id)}
+                        onToggle={() => alternar(campo, setCampo, j.id, elenco.campo)}
+                        desativado={!campo.includes(j.id) && campo.length >= elenco.campo}
+                        extra={
+                          <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                            {/* "não vou" é a informação mais forte da linha:
+                                é a própria pessoa a dizer. */}
+                            {resposta === false && (
+                              <span
+                                style={chip(colors.error, `${colors.error}1A`)}
+                                title="Disse que não vai a este jogo"
+                              >
+                                ❌ não vai
+                              </span>
+                            )}
+                            {resposta === true && (
+                              <span
+                                style={chip(colors.grass, `${colors.grass}1A`)}
+                                title="Confirmou que vem"
+                              >
+                                ✅ vem
+                              </span>
+                            )}
+                            {estadoVisivel(estado) && (
+                              <span
+                                style={chip(colors.muted)}
+                                title={etiquetaDoEstado(estado).rotulo}
+                              >
+                                {etiquetaDoEstado(estado).icone}
+                              </span>
+                            )}
+                            {rotativo && campo.includes(j.id) && j.gkRotationOk === false && (
+                              <span style={chip(colors.muted)} title="Não aceita ir à baliza">
+                                🚫 gol
+                              </span>
+                            )}
+                          </span>
+                        }
+                      />
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
 
           {/* Os avisos ficam aqui, ao lado do que os resolve — eram um passo

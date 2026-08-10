@@ -66,6 +66,8 @@ const ERROS = {
   PRAZOVOTACAO: 'A votação desta rodada já fechou.',
   VOTACAOREVISAO: 'Esta votação está em revisão pelo admin — aguarda o resultado final.',
   TOKENINVALIDO: 'Esta ligação expirou. Entra com o teu PIN.',
+  // estado do jogador no plantel
+  ESTADOINVALIDO: 'Esse estado de jogador não existe.',
 }
 
 export class ApiError extends Error {
@@ -312,8 +314,34 @@ export const adminSetPin = (pw, id, novo) =>
 export const publishDraw = (pw, teamA, teamB) =>
   rpc('publish_draw', { p_pw: pw, p_a: teamA, p_b: teamB })
 
+// ---------- Estado do plantel e mensalistas ----------
+//
+// Dois conceitos distintos, de propósito separados também aqui:
+//   · `adminSetPlayerStatus` — o estado GERAL (disponível/viagem/lesão).
+//   · `setMyAvailability`    — a resposta a UM jogo, dada pelo jogador.
+// Um mensalista 🟢 disponível pode na mesma dizer que não vai a esta sexta.
+export const adminSetPlayerStatus = (pw, playerId, status, note = null) =>
+  rpc('admin_set_player_status', { p_pw: pw, p_id: playerId, p_status: status, p_note: note })
+
+export const adminSetMember = (pw, playerId, isMember) =>
+  rpc('admin_set_member', { p_pw: pw, p_id: playerId, p_is_member: !!isMember })
+
+// A convocatória: o jogo mais próximo por acontecer (mesmo em rascunho) e
+// quem já respondeu. Só data, local e respostas — nunca a escalação.
+export const getMatchCall = () => rpc('get_match_call')
+
+// `token` (o do "lembrar-me") dispensa o PIN, como na votação.
+export const setMyAvailability = (id, pin, matchId, available, token = null) =>
+  rpc('set_my_availability', {
+    p_id: id,
+    p_pin: token ? null : pin,
+    p_match: matchId,
+    p_available: !!available,
+    p_token: token,
+  })
+
 // Cria (id=null) ou edita uma rodada completa.
-// stats: [{ player_id, team: 'A'|'B'|null, goals, assists }]
+// stats: [{ player_id, team: 'A'|'B'|null, goals, assists, own_goals }]
 export const adminSaveMatch = (pw, id, m) =>
   rpc('admin_save_match', {
     p_pw: pw,
@@ -411,6 +439,12 @@ export const adminPublishMatch = (pw, matchId, resenha) =>
 
 export const adminMatchesUpcoming = (pw) => rpc('admin_matches_upcoming', { p_pw: pw })
 
+// UM jogo qualquer, no mesmo formato do `admin_matches_upcoming` — inclui as
+// rodadas antigas, que não estão "abertas". É isto que deixa a página de um
+// jogo servir também o histórico, em vez de haver dois formulários.
+export const adminGetMatch = (pw, matchId) =>
+  rpc('admin_get_match', { p_pw: pw, p_id: matchId })
+
 export const adminSetMatchStatus = (pw, matchId, status) =>
   rpc('admin_set_match_status', { p_pw: pw, p_match: matchId, p_status: status })
 
@@ -421,7 +455,7 @@ export const adminDeleteSchedule = (pw, matchId) =>
 // ---------- Ciclo de vida do resultado (migração 0019) ----------
 // Grava o resultado do PRÓPRIO jogo (rascunho invisível, ou edição de um já
 // publicado — as linhas são regravadas, nunca duplicadas).
-// stats: [{player_id, team, goals, assists}]
+// stats: [{player_id, team, goals, assists, own_goals}]
 // gkStats: [{goalkeeper_id, team, saves, goals_conceded}]
 export const adminSaveResult = (pw, matchId, r) =>
   rpc('admin_save_result', {

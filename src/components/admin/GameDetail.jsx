@@ -8,6 +8,8 @@ import {
   adminDeleteSchedule,
   adminMatchActivity,
   adminPublishResult,
+  adminSaveGkStats,
+  adminSaveMatch,
   adminSaveResult,
   adminSetPrimaryMedia,
   adminUpdatePost,
@@ -24,22 +26,36 @@ import {
 } from '../../lib/lifecycle'
 import { calcularSequencias } from '../../lib/streaks'
 import { gerarResenhaResultado } from '../../lib/resenha'
+import { separarEscalacao } from '../../lib/goleiros'
 import { nomeDaEquipa, corDaEquipa } from '../../lib/substitutions'
 import { candidatosBagre, candidatosCraque, ladoVencedor, semLadosDefinidos } from '../../lib/awards'
 import { prazoPorOmissao, prazoLegivel } from '../../lib/voting'
 import { urlDaVotacao } from '../../lib/router'
 import { copiarTexto, mensagemDeVotacao, partilharTexto } from '../../lib/share'
 import Avatar from '../Avatar'
-import Stepper from './Stepper'
 import FootballPitch from '../FootballPitch'
 import ResenhaEditor from './ResenhaEditor'
+import ResultadoForm from './ResultadoForm'
 import VotingPanel from './VotingPanel'
 import { ErrorBox } from '../Ui'
 import { colors, fonts, styles, chip, disabled } from '../../theme'
 
 // A página de UM jogo: tudo o que lhe pertence — agenda, equipas, resultado,
 // fotos, histórico e ações — num sítio só. É aqui (e só aqui) que se preenche
-// e publica o resultado de um jogo agendado.
+// e publica o resultado.
+//
+// Serve os dois tipos de jogo, e é de propósito:
+//
+//   AGENDADO  passou pelo assistente, tem escalação sorteada. O resultado
+//             grava-se com `admin_save_result` / `admin_close_game`.
+//   ANTIGO    nunca foi agendado (ou é anterior ao ciclo de vida). Não tem
+//             escalação: a lista de jogadores é o plantel, com caixas de
+//             presença, e grava-se com `admin_save_match`, que também mexe
+//             na data e nos nomes das equipas.
+//
+// A alternativa era o que existia: dois painéis com dois formulários para a
+// mesma coisa, que já tinham divergido (o autogolo teria de nascer duas
+// vezes; a regra do goleiro já estava diferente).
 
 const TOM_COR = { ok: colors.grass, aviso: colors.teamA, erro: colors.error, neutro: colors.muted }
 
@@ -184,21 +200,41 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
 
   // ---------- formulário do resultado ----------
   const escalacao = useMemo(() => (Array.isArray(jogo?.lineup) ? jogo.lineup : []), [jogo])
-  const goleiros = useMemo(() => escalacao.filter((l) => l.is_goalkeeper), [escalacao])
+
+  // Rodada antiga: sem escalação, mas já com resultado para preencher ou
+  // corrigir. É o que troca a lista de jogadores pelo plantel e o caminho de
+  // gravação para o `admin_save_match`.
+  const semEscalacao = escalacao.length === 0
+  const modoHistorico = semEscalacao && acoes.preencherResultado
 
   // Estado inicial: o que já estiver gravado; senão a escalação a zeros.
   // Guardado por id para os steppers não se atropelarem.
   const [form, setForm] = useState(() => {
     const stats = {}
+    const jogou = {}
     const base = Array.isArray(jogo?.stats) && jogo.stats.length ? jogo.stats : null
     if (base) {
-      for (const s of base) stats[s.player_id] = { team: s.team, goals: s.goals || 0, assists: s.assists || 0 }
+      for (const s of base) {
+        stats[s.player_id] = {
+          team: s.team,
+          goals: s.goals || 0,
+          assists: s.assists || 0,
+          own: s.own_goals || 0,
+        }
+        jogou[s.player_id] = true
+      }
     } else {
-      for (const l of escalacao) stats[l.player_id] = { team: l.team, goals: 0, assists: 0 }
+      for (const l of escalacao) stats[l.player_id] = { team: l.team, goals: 0, assists: 0, own: 0 }
     }
+    // Quem tem números de baliza. Num jogo de goleiros fixos os dois entram
+    // sempre (é o que se espera preencher); no rodízio e nas rodadas antigas
+    // só entra quem JÁ tem linha gravada — ver `lib/goleiros.js`.
     const gk = {}
     for (const g of Array.isArray(jogo?.gk_stats) ? jogo.gk_stats : []) {
       gk[g.goalkeeper_id] = { saves: g.saves || 0, conceded: g.goals_conceded || 0 }
+    }
+    for (const g of separarEscalacao(jogo, escalacao).baliza) {
+      if (!gk[g.player_id]) gk[g.player_id] = { saves: 0, conceded: 0 }
     }
     return {
       scoreA: jogo?.score_a ?? 0,
@@ -206,22 +242,37 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
       notes: jogo?.notes || '',
       craqueId: jogo?.craque_override || '',
       bagreId: jogo?.bagre_override || '',
+      // só usados nas rodadas antigas, onde a data e os nomes ainda se mexem
+      playedAt: jogo?.played_at || '',
+      teamAName: jogo?.team_a_name || 'Amarelos',
+      teamBName: jogo?.team_b_name || 'Azuis',
       stats,
       gk,
+      jogou,
     }
   })
 
+  // Quem jogou, seja qual for a origem: a escalação quando há sorteio, as
+  // presenças marcadas à mão quando é uma rodada antiga.
+  const participantes = useMemo(() => {
+    if (!semEscalacao) {
+      return escalacao.map((l) => ({ player_id: l.player_id, name: l.name, team: l.team }))
+    }
+    return Object.entries(form.jogou)
+      .filter(([, v]) => v)
+      .map(([id]) => ({
+        player_id: id,
+        name: jogadores?.find((j) => j.id === id)?.name || '—',
+        team: form.stats[id]?.team || null,
+      }))
+  }, [semEscalacao, escalacao, form.jogou, form.stats, jogadores])
+
   // ---------- quem pode ser craque e quem pode ser bagre ----------
   // Lê o PLACAR QUE ESTÁ NO FORMULÁRIO, não o gravado: o admin muda o placar
-  // e as listas mudam à frente dele, antes de guardar. A escalação faz de
-  // lista de jogadores porque é ela que tem as equipas antes de haver stats.
+  // e as listas mudam à frente dele, antes de guardar.
   const jogoDoFormulario = useMemo(
-    () => ({
-      score_a: form.scoreA,
-      score_b: form.scoreB,
-      players: escalacao.map((l) => ({ player_id: l.player_id, name: l.name, team: l.team })),
-    }),
-    [form.scoreA, form.scoreB, escalacao],
+    () => ({ score_a: form.scoreA, score_b: form.scoreB, players: participantes }),
+    [form.scoreA, form.scoreB, participantes],
   )
   const elegiveisCraque = candidatosCraque(jogoDoFormulario)
   const elegiveisBagre = candidatosBagre(jogoDoFormulario)
@@ -231,9 +282,45 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
     (form.bagreId && !elegiveisBagre.some((l) => l.player_id === form.bagreId))
 
   const setStat = (id, campo, valor) =>
-    setForm((f) => ({ ...f, stats: { ...f.stats, [id]: { ...f.stats[id], [campo]: valor } } }))
+    setForm((f) => ({
+      ...f,
+      stats: {
+        ...f.stats,
+        [id]: { team: null, goals: 0, assists: 0, own: 0, ...f.stats[id], [campo]: valor },
+      },
+    }))
+
+  // `alternar` liga e desliga a linha de baliza deste jogador: sem chave não
+  // se grava linha nenhuma, e é isso que mantém o ranking de goleiros limpo
+  // de quem passou dez minutos no gol.
   const setGk = (id, campo, valor) =>
-    setForm((f) => ({ ...f, gk: { ...f.gk, [id]: { ...(f.gk[id] || { saves: 0, conceded: 0 }), [campo]: valor } } }))
+    setForm((f) => {
+      const gk = { ...f.gk }
+      if (campo === 'alternar') {
+        if (gk[id]) delete gk[id]
+        else gk[id] = { saves: 0, conceded: 0 }
+      } else {
+        gk[id] = { ...(gk[id] || { saves: 0, conceded: 0 }), [campo]: valor }
+      }
+      return { ...f, gk }
+    })
+
+  const setJogou = (id, marcado) =>
+    setForm((f) => {
+      const jogou = { ...f.jogou, [id]: marcado }
+      const stats = { ...f.stats }
+      const gk = { ...f.gk }
+      if (marcado) {
+        if (!stats[id]) stats[id] = { team: null, goals: 0, assists: 0, own: 0 }
+      } else {
+        // Desmarcar tira o jogador da rodada — os números dele iam com ele
+        // de qualquer forma, e deixá-los para trás fazia-os reaparecer se o
+        // admin voltasse a marcar por engano.
+        delete stats[id]
+        delete gk[id]
+      }
+      return { ...f, jogou, stats, gk }
+    })
 
   // ---------- cancelamento (dupla confirmação inline) ----------
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
@@ -258,15 +345,17 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
           scoreA: form.scoreA,
           scoreB: form.scoreB,
           stats: Object.entries(form.stats).map(([player_id, s]) => ({ player_id, ...s })),
-          gkStats: goleiros.map((g) => ({
-            goalkeeper_id: g.player_id,
-            saves: form.gk[g.player_id]?.saves || 0,
+          // quem tem números de baliza nesta rodada — no rodízio pode não
+          // ser ninguém, e a resenha simplesmente não fala de defesas
+          gkStats: Object.entries(form.gk).map(([goalkeeper_id, g]) => ({
+            goalkeeper_id,
+            saves: g.saves || 0,
           })),
         },
         sequencias,
         tentativa,
       }),
-    [jogo, form, goleiros, sequencias]
+    [jogo, form, sequencias]
   )
 
   // ---------- publicações deste jogo (editar/apagar) ----------
@@ -300,24 +389,59 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
     }
   }
 
+  // Nas rodadas antigas só entram os jogadores marcados; nas agendadas
+  // entram todos os da escalação (o `form.stats` já nasce com eles).
   const linhasDeStats = () =>
-    Object.entries(form.stats).map(([player_id, s]) => ({
-      player_id,
-      team: s.team || null,
-      goals: s.goals || 0,
-      assists: s.assists || 0,
-    }))
+    Object.entries(form.stats)
+      .filter(([id]) => !semEscalacao || form.jogou[id])
+      .map(([player_id, s]) => ({
+        player_id,
+        team: s.team || null,
+        goals: s.goals || 0,
+        assists: s.assists || 0,
+        own_goals: s.own || 0,
+      }))
 
+  // A presença da chave em `form.gk` é que decide: sem ela, não há linha de
+  // baliza para este jogador nesta rodada.
   const linhasDeGk = () =>
-    goleiros.map((g) => ({
-      goalkeeper_id: g.player_id,
-      team: g.team,
-      saves: form.gk[g.player_id]?.saves || 0,
-      goals_conceded: form.gk[g.player_id]?.conceded || 0,
-    }))
+    Object.entries(form.gk)
+      .filter(([id]) => !semEscalacao || form.jogou[id])
+      .map(([goalkeeper_id, g]) => ({
+        goalkeeper_id,
+        team:
+          escalacao.find((l) => l.player_id === goalkeeper_id)?.team ||
+          form.stats[goalkeeper_id]?.team ||
+          null,
+        saves: g.saves || 0,
+        goals_conceded: g.conceded || 0,
+      }))
 
-  const guardarRascunho = () =>
-    correr(
+  // Uma rodada antiga grava-se pelo `admin_save_match`: é a única porta que
+  // mexe na data e nos nomes das equipas, e a que trata das rodadas que nunca
+  // tiveram agendamento. As fotos antigas (`winner_photo`/`location_photo`)
+  // seguem inalteradas — passá-las vazias apagava-as.
+  const guardarRodadaAntiga = () =>
+    correr(async () => {
+      await adminSaveMatch(pw, jogo.id, {
+        playedAt: form.playedAt || jogo.played_at,
+        teamAName: form.teamAName,
+        teamBName: form.teamBName,
+        scoreA: form.scoreA,
+        scoreB: form.scoreB,
+        winnerPhoto: jogo.winner_photo || null,
+        locationPhoto: jogo.location_photo || null,
+        notes: form.notes,
+        stats: linhasDeStats(),
+      })
+      await adminSaveGkStats(pw, jogo.id, linhasDeGk())
+      onAtualizado?.(null) // o payload novo vem do servidor, não daqui
+      return null
+    }, 'Rodada atualizada — as estatísticas foram recalculadas.')
+
+  const guardarRascunho = () => {
+    if (modoHistorico) return guardarRodadaAntiga()
+    return correr(
       () =>
         adminSaveResult(pw, jogo.id, {
           scoreA: form.scoreA,
@@ -332,6 +456,7 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
         ? 'Resultado atualizado — as estatísticas foram recalculadas.'
         : 'Resultado guardado em rascunho. Só conta depois de publicares.'
     )
+  }
 
   const publicarResultado = async () => {
     if (
@@ -454,6 +579,12 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
 
   const nomeDe = (id) => escalacao.find((l) => l.player_id === id)?.name || jogadores?.find((j) => j.id === id)?.name || '—'
 
+  // ---------- "vais jogar?" ----------
+  // Quem NÃO respondeu não aparece em lado nenhum: silêncio não é um "não".
+  const respostas = Array.isArray(jogo?.availability) ? jogo.availability : []
+  const vem = respostas.filter((r) => r.available)
+  const naoVem = respostas.filter((r) => !r.available)
+
   // ---------- render ----------
   return (
     <div className="pb-stack">
@@ -476,10 +607,16 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
             <div className="pb-break" style={{ fontFamily: fonts.title, fontSize: 20, lineHeight: 1.2 }}>
-              {jogo.location || 'Local por definir'}
+              {jogo.location || (semEscalacao ? 'Rodada antiga' : 'Local por definir')}
             </div>
+            {/* Uma rodada antiga só tem `played_at` (data, sem hora): sem este
+                recurso mostrava "Data por definir" a um jogo que já se jogou. */}
             <div style={{ ...styles.mutedText, fontSize: 13, marginTop: 4 }}>
-              {d.hora ? `${d.diaDaSemana}, ${d.data} às ${d.hora}` : 'Data por definir'}
+              {d.hora
+                ? `${d.diaDaSemana}, ${d.data} às ${d.hora}`
+                : jogo.played_at
+                  ? formatarDataDoJogo(jogo.played_at).data
+                  : 'Data por definir'}
             </div>
           </div>
           {(jogo.team_a_overall || jogo.team_b_overall) && (
@@ -503,6 +640,48 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
         )}
       </div>
 
+      {/* ---------- quem disse que vem ---------- */}
+      {/* Só faz sentido antes de o jogo acontecer: depois de haver resultado,
+          quem jogou é o que está na escalação, não quem prometeu vir. */}
+      {respostas.length > 0 && fase !== FASES.RESULTADO_PUBLICADO && fase !== FASES.CANCELADO && (
+        <Seccao titulo={`Disponibilidade (${vem.length} vêm · ${naoVem.length} não vêm)`}>
+          <div className="pb-split" style={{ '--pb-split-min': '260px' }}>
+            {[
+              { titulo: '✅ Vêm', lista: vem, cor: colors.grass },
+              { titulo: '❌ Não vêm', lista: naoVem, cor: colors.error },
+            ].map(({ titulo, lista, cor }) => (
+              <div key={titulo} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: cor, letterSpacing: 1, marginBottom: 6 }}>
+                  {titulo} ({lista.length})
+                </div>
+                {lista.length === 0 ? (
+                  <p style={{ ...styles.mutedText, fontSize: 12 }}>Ninguém.</p>
+                ) : (
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    {lista.map((r) => (
+                      <li
+                        key={r.player_id}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}
+                      >
+                        <Avatar name={r.name} photo={r.photo} size={24} />
+                        <span className="pb-truncate" style={{ flex: 1, fontSize: 13, minWidth: 0 }}>
+                          {r.name}
+                        </span>
+                        {r.is_member && (
+                          <span aria-label="mensalista" title="Mensalista" style={{ flexShrink: 0 }}>
+                            ⭐
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </Seccao>
+      )}
+
       {/* ---------- equipas ---------- */}
       {escalacao.length > 0 ? (
         <Seccao titulo={`Equipas (${escalacao.length} jogadores)`}>
@@ -519,7 +698,11 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
         </Seccao>
       ) : (
         <Seccao titulo="Equipas">
-          <p style={styles.mutedText}>Ainda não há sorteio para este jogo.</p>
+          <p style={styles.mutedText}>
+            {modoHistorico
+              ? 'Esta rodada não passou pelo sorteio — as equipas são as que estiverem marcadas em baixo, no resultado.'
+              : 'Ainda não há sorteio para este jogo.'}
+          </p>
           {acoes.sortear && (
             <button type="button" onClick={onAbrirAssistente} style={{ ...styles.button, marginTop: 12 }}>
               🎲 Sortear no assistente
@@ -539,6 +722,52 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
               As linhas deste jogo são regravadas ao guardar — as estatísticas recalculam sem
               duplicar nada.
             </p>
+          )}
+
+          {/* Data e nomes das equipas — só nas rodadas antigas. Num jogo
+              agendado a data vem da agenda e os nomes são fixos (Pretos e
+              Brancos), por isso não há aqui nada para escrever. */}
+          {modoHistorico && (
+            <div className="pb-split" style={{ '--pb-split-min': '260px', marginBottom: 14 }}>
+              <div>
+                <label style={styles.label} htmlFor="rodada-data">
+                  Data do jogo
+                </label>
+                <input
+                  id="rodada-data"
+                  type="date"
+                  style={styles.input}
+                  value={form.playedAt || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, playedAt: e.target.value }))}
+                />
+              </div>
+              <div className="pb-split" style={{ '--pb-split-min': '120px', columnGap: 8 }}>
+                <div>
+                  <label style={{ ...styles.label, color: corDaEquipa('A') }} htmlFor="rodada-a">
+                    Nome do time A
+                  </label>
+                  <input
+                    id="rodada-a"
+                    style={styles.input}
+                    value={form.teamAName}
+                    onChange={(e) => setForm((f) => ({ ...f, teamAName: e.target.value }))}
+                    placeholder="Amarelos"
+                  />
+                </div>
+                <div>
+                  <label style={{ ...styles.label, color: corDaEquipa('B') }} htmlFor="rodada-b">
+                    Nome do time B
+                  </label>
+                  <input
+                    id="rodada-b"
+                    style={styles.input}
+                    value={form.teamBName}
+                    onChange={(e) => setForm((f) => ({ ...f, teamBName: e.target.value }))}
+                    placeholder="Azuis"
+                  />
+                </div>
+              </div>
+            </div>
           )}
 
           {/* placar */}
@@ -575,79 +804,17 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
               : `🏆 Vencem os ${form.scoreA > form.scoreB ? nomeDaEquipa('A') : nomeDaEquipa('B')}`}
           </p>
 
-          {/* Gols e assistências por jogador. As duas equipas ficam lado a lado
-              quando há largura para isso: são listas independentes, e empilhá-las
-              obrigava a rolar o dobro para preencher um resultado. */}
-          <div className="pb-split" style={{ '--pb-split-min': '400px' }}>
-          {['A', 'B'].map((lado) => {
-            const lista = escalacao.filter((l) => l.team === lado && !l.is_goalkeeper)
-            if (!lista.length) return null
-            return (
-              <div key={lado} style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: corDaEquipa(lado), letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
-                  {nomeDaEquipa(lado)}
-                </div>
-                {lista.map((l) => (
-                  <div
-                    key={l.player_id}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${colors.line}` }}
-                  >
-                    <Avatar name={l.name} photo={l.photo} size={26} />
-                    <span className="pb-truncate" style={{ flex: 1, fontSize: 13, minWidth: 0 }}>
-                      {l.name}
-                    </span>
-                    <Stepper
-                      icon="⚽"
-                      label={`gols de ${l.name}`}
-                      value={form.stats[l.player_id]?.goals || 0}
-                      onChange={(v) => setStat(l.player_id, 'goals', v)}
-                    />
-                    <Stepper
-                      icon="🅰️"
-                      label={`assistências de ${l.name}`}
-                      value={form.stats[l.player_id]?.assists || 0}
-                      onChange={(v) => setStat(l.player_id, 'assists', v)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )
-          })}
-          </div>
-
-          {/* goleiros */}
-          {goleiros.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: colors.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
-                🧤 Goleiros
-              </div>
-              <div className="pb-split" style={{ '--pb-split-min': '400px' }}>
-              {goleiros.map((g) => (
-                <div
-                  key={g.player_id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: `1px solid ${colors.line}` }}
-                >
-                  <Avatar name={g.name} photo={g.photo} size={26} />
-                  <span className="pb-truncate" style={{ flex: 1, fontSize: 13, minWidth: 0 }}>
-                    {g.name}
-                  </span>
-                  <Stepper
-                    icon="🧤"
-                    label={`defesas de ${g.name}`}
-                    value={form.gk[g.player_id]?.saves || 0}
-                    onChange={(v) => setGk(g.player_id, 'saves', v)}
-                  />
-                  <Stepper
-                    icon="🥅"
-                    label={`gols sofridos por ${g.name}`}
-                    value={form.gk[g.player_id]?.conceded || 0}
-                    onChange={(v) => setGk(g.player_id, 'conceded', v)}
-                  />
-                </div>
-              ))}
-              </div>
-            </div>
-          )}
+          {/* A lista de jogadores e os contadores vivem no `ResultadoForm` —
+              o mesmo componente que as rodadas antigas usam. */}
+          <ResultadoForm
+            jogo={jogo}
+            escalacao={escalacao}
+            plantel={jogadores}
+            form={form}
+            onStat={setStat}
+            onGk={setGk}
+            onJogou={setJogou}
+          />
 
           {/* craque e bagre — a votação decide; isto é a correção do admin.
               As listas seguem a MESMA regra da votação: craque entre os
@@ -706,16 +873,23 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
           />
 
           {/* a resenha só interessa quando a publicação ainda vai acontecer */}
-          {fase !== FASES.RESULTADO_PUBLICADO && (
+          {fase !== FASES.RESULTADO_PUBLICADO && !modoHistorico && (
             <div style={{ margin: '2px 0 14px', borderTop: `1px solid ${colors.line}`, paddingTop: 14 }}>
               <ResenhaEditor gerar={gerarResenha} onChange={setResenha} inicial={resenha} />
             </div>
           )}
 
+          {modoHistorico && (
+            <p style={{ ...styles.mutedText, fontSize: 12, marginBottom: 10 }}>
+              ℹ️ Rodada antiga: guardar regrava as linhas desta rodada e as estatísticas
+              recalculam. Não há sorteio nem votação para abrir.
+            </p>
+          )}
+
           {/* O caminho normal é UM botão. Publicar o resultado sem abrir a
               votação continua a existir, mas passa a ser a opção secundária:
               era esse o passo que toda a gente esquecia. */}
-          {fase !== FASES.RESULTADO_PUBLICADO && jogo.overall_version === 2 && (
+          {fase !== FASES.RESULTADO_PUBLICADO && !modoHistorico && jogo.overall_version === 2 && (
             <button
               type="button"
               onClick={encerrarJogo}
@@ -735,7 +909,7 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
             >
               {busy ? 'A guardar…' : fase === FASES.RESULTADO_PUBLICADO ? '💾 Guardar alterações' : '💾 Guardar rascunho'}
             </button>
-            {fase !== FASES.RESULTADO_PUBLICADO && (
+            {fase !== FASES.RESULTADO_PUBLICADO && !modoHistorico && (
               <button
                 type="button"
                 onClick={publicarResultado}

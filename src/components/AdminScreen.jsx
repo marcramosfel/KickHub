@@ -6,10 +6,10 @@ import {
   adminUsers,
   getFeed,
   getGoalkeeperStats,
+  getMatchCall,
   getMatches,
   getPlayers,
   getPlayerStats,
-  getPublishedDraw,
 } from '../api'
 import { juntarEstatisticas } from '../lib/ranking'
 import { jogosComResultadoPendente } from '../lib/lifecycle'
@@ -49,7 +49,9 @@ export default function AdminScreen({ onExit }) {
   // rodadas / estatísticas
   const [matches, setMatches] = useState([])
   const [matchesErr, setMatchesErr] = useState('')
-  const [lastDraw, setLastDraw] = useState(null)
+  // A convocatória do próximo jogo: quem já disse que vem. Alimenta o
+  // assistente do sorteio (passo 2) e a visão geral.
+  const [convocatoria, setConvocatoria] = useState(null)
 
   // jogos do ciclo novo (0016+): alimenta o badge da aba "Jogos"
   const [jogosAbertos, setJogosAbertos] = useState([])
@@ -66,19 +68,18 @@ export default function AdminScreen({ onExit }) {
   const [busy, setBusy] = useState(false)
 
   const refresh = async (senha = pw) => {
-    // o sorteio publicado vem no mesmo lote para o efeito que semeia as
-    // presenças do jogo já o ter disponível na primeira execução
-    const [pend, pls, ld, ps, gk] = await Promise.all([
+    const [pend, pls, chamada, ps, gk] = await Promise.all([
       adminPending(senha),
       getPlayers(),
-      getPublishedDraw().catch(() => null),
-      // não-fatais: sem as migrações 0002/0017 o resto do admin funciona na mesma
+      // não-fatais: sem as migrações 0002/0017 (e a da convocatória) o resto
+      // do admin funciona na mesma
+      getMatchCall().catch(() => null),
       getPlayerStats().catch(() => []),
       getGoalkeeperStats().catch(() => null),
     ])
     setPending(pend || [])
     setPlayers(pls || [])
-    setLastDraw(ld)
+    setConvocatoria(chamada)
     setPlayerStats(ps || [])
     setGkStats(gk)
     // rodadas (não-fatal: sem a migração 0002 o resto do admin continua a funcionar)
@@ -265,6 +266,7 @@ export default function AdminScreen({ onExit }) {
           jogadores={jogadores}
           pedidos={pending}
           feed={feedAdmin}
+          convocatoria={convocatoria}
           onIr={escolherAba}
           onAbrirJogo={(id) => {
             setJogoAberto(id)
@@ -345,6 +347,7 @@ export default function AdminScreen({ onExit }) {
               jogadores={jogadores}
               matches={matches}
               conversao={conversao}
+              convocatoria={convocatoria}
               onDadosAlterados={refresh}
             />
           </div>
@@ -388,10 +391,9 @@ export default function AdminScreen({ onExit }) {
       {tab === 'jogos' && (
         <RodadasPanel
           pw={pw}
-          players={players}
+          jogadores={jogadores}
           matches={matches}
           matchesErr={matchesErr}
-          lastDraw={lastDraw}
           busy={busy}
           onErro={setError}
           onBusy={setBusy}
