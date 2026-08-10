@@ -16,6 +16,24 @@ import { calcularAtributos, ehGoleiro } from './attributes'
 import { estadoVisivel, etiquetaDoEstado } from './plantel'
 import { nomeDaPosicao } from './positions'
 import { ICONE } from './icones'
+import fundoComum from '../assets/cards/comum.jpg'
+import fundoEspecial from '../assets/cards/especial.jpg'
+import fundoRaro from '../assets/cards/raro.jpg'
+import fundoEpico from '../assets/cards/epico.jpg'
+import fundoLendario from '../assets/cards/lendario.jpg'
+
+// A textura de fundo de cada raridade.
+//
+// São ficheiros à parte (o Vite emite-os com hash, fora do bundle de JS), por
+// isso só são descarregados quando alguém gera mesmo um card — quem nunca
+// abre um card não paga nada por eles.
+const FUNDO = {
+  comum: fundoComum,
+  especial: fundoEspecial,
+  raro: fundoRaro,
+  epico: fundoEpico,
+  lendario: fundoLendario,
+}
 
 const W = 600
 const H = 840
@@ -118,11 +136,37 @@ export async function renderPlayerCard(perfil) {
   ctx.fillStyle = fundo
   ctx.fill()
 
-  // Halo da cor da raridade por dentro da borda: é o que separa um lendário
-  // de um comum sem ser preciso escrever "lendário".
+  // ---- textura da raridade ----
+  //
+  // Recortada pelo escudo e por baixo de um véu que escurece de cima para
+  // baixo. O véu não é decoração: os cristais são o mais claro da imagem e
+  // ficam exatamente onde vai o overall e a foto. Sem ele, o número deixava
+  // de se ler — e um card bonito que não se lê não serve para nada.
+  const textura = await carregarImagem(FUNDO[card?.raridade || 'comum'])
   ctx.save()
   escudo(ctx, 10, 10, W - 20, H - 20)
   ctx.clip()
+
+  if (textura) {
+    const escalaT = Math.max(W / textura.width, H / textura.height)
+    const tw = textura.width * escalaT
+    const th = textura.height * escalaT
+    ctx.globalAlpha = 0.5
+    ctx.drawImage(textura, (W - tw) / 2, (H - th) / 2, tw, th)
+    ctx.globalAlpha = 1
+
+    const veu = ctx.createLinearGradient(0, 0, 0, H)
+    veu.addColorStop(0, 'rgba(8,19,15,0.46)')
+    veu.addColorStop(0.34, 'rgba(8,19,15,0.55)')
+    // a partir daqui vêm o nome e os atributos: quase opaco
+    veu.addColorStop(0.55, 'rgba(8,19,15,0.86)')
+    veu.addColorStop(1, 'rgba(8,19,15,0.95)')
+    ctx.fillStyle = veu
+    ctx.fillRect(0, 0, W, H)
+  }
+
+  // Halo da cor da raridade: é o que separa um lendário de um comum sem ser
+  // preciso escrever "lendário".
   const halo = ctx.createRadialGradient(W / 2, 150, 40, W / 2, 320, 460)
   halo.addColorStop(0, `${acento}2E`)
   halo.addColorStop(1, 'transparent')
