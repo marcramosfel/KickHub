@@ -248,19 +248,42 @@ export async function renderPlayerCard(perfil) {
   // precisamente o que falta a quem olha para o card e quer saber se conta
   // com ele na sexta.
   if (perfil.estado?.mostrar) {
-    ctx.textAlign = 'center'
+    // O emoji e o rótulo são medidos e desenhados SEPARADAMENTE, e o emoji
+    // tem uma casa de largura fixa.
+    //
+    // Medir `"✈️ A VIAJAR"` de uma vez parecia funcionar — e funcionava no
+    // Chrome. No Safari do iPhone o ✈️ sai do 'Apple Color Emoji', que
+    // desenha mais largo do que o `measureText` tinha dito: a pílula ficava
+    // curta e a borda cortava o texto ao meio ("A VIA|JAR").
+    //
+    // Medir um emoji é sempre uma aposta na fonte que o sistema vai escolher.
+    // Assim só se mede texto latino, que é fiável, e o emoji vive numa casa
+    // sua: se render mais largo do que a casa, encosta-se ao rótulo em vez de
+    // rebentar a pílula.
+    const CASA_EMOJI = 26
+    const PADDING = 15
+    const rotulo = String(perfil.estado.rotulo).toUpperCase()
+
     ctx.font = FONTE(600, 15)
-    const texto = `${perfil.estado.icone} ${String(perfil.estado.rotulo).toUpperCase()}`
-    const larg = ctx.measureText(texto).width + 26
-    roundRect(ctx, colX - larg / 2, topo + 200, larg, 30, 15)
+    const largRotulo = ctx.measureText(rotulo).width
+    const larg = PADDING + CASA_EMOJI + largRotulo + PADDING
+    const x0 = colX - larg / 2
+    const yPill = topo + 200
+
+    roundRect(ctx, x0, yPill, larg, 30, 15)
     ctx.fillStyle = 'rgba(8,19,15,0.8)'
     ctx.fill()
-    roundRect(ctx, colX - larg / 2, topo + 200, larg, 30, 15)
+    roundRect(ctx, x0, yPill, larg, 30, 15)
     ctx.strokeStyle = perfil.estado.cor || '#7FA090'
     ctx.lineWidth = 1.5
     ctx.stroke()
+
     ctx.fillStyle = perfil.estado.cor || '#7FA090'
-    ctx.fillText(texto, colX, topo + 221)
+    ctx.textAlign = 'center'
+    ctx.fillText(perfil.estado.icone, x0 + PADDING + CASA_EMOJI / 2, yPill + 21)
+    ctx.textAlign = 'left'
+    ctx.fillText(rotulo, x0 + PADDING + CASA_EMOJI, yPill + 21)
+    ctx.textAlign = 'center'
   }
 
   // ---- foto ----
@@ -360,18 +383,32 @@ export async function renderPlayerCard(perfil) {
   if ((perfil.bagres ?? 0) > 0) conta.push([ICONE.bagre, perfil.bagres])
   conta.push([ICONE.jogos, perfil.matches ?? 0])
 
+  // Mesma regra da pílula do estado: casa de largura fixa para o emoji, e
+  // só o número é medido. Aqui o erro não cortava nada — encolhia os espaços
+  // entre os pares até eles se tocarem —, mas a causa é a mesma e não vale a
+  // pena deixar duas formas de fazer isto no mesmo ficheiro.
   const yConta = yBase + 2 * linhaAltura + 60
+  const CASA = 26
+  const GAP = 5
+  const ESPACO = 20
   ctx.font = FONTE(600, 22)
-  const larguras = conta.map(([ic, v]) => ctx.measureText(`${ic} ${v}`).width)
-  const espaco = 20
-  const total = larguras.reduce((a, b) => a + b, 0) + espaco * (conta.length - 1)
+  const itens = conta.map(([ic, v]) => ({
+    ic,
+    v: String(v),
+    largura: CASA + GAP + ctx.measureText(String(v)).width,
+  }))
+  const total =
+    itens.reduce((a, b) => a + b.largura, 0) + ESPACO * (itens.length - 1)
   let xConta = (W - total) / 2
-  ctx.textAlign = 'left'
   ctx.fillStyle = '#EAF2EC'
-  conta.forEach(([ic, v], i) => {
-    ctx.fillText(`${ic} ${v}`, xConta, yConta)
-    xConta += larguras[i] + espaco
-  })
+  for (const item of itens) {
+    ctx.textAlign = 'center'
+    ctx.fillText(item.ic, xConta + CASA / 2, yConta)
+    ctx.textAlign = 'left'
+    ctx.fillText(item.v, xConta + CASA + GAP, yConta)
+    xConta += item.largura + ESPACO
+  }
+  ctx.textAlign = 'center'
 
   // ---- rodapé ----
   ctx.textAlign = 'center'
