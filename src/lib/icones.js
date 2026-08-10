@@ -12,7 +12,11 @@
 export const ICONE = {
   jogos: '👟',
   gols: '⚽',
-  assistencias: '🅰️',
+  // Era 🅰️. É um emoji de BADGE — um quadrado vermelho cheio — e ao lado do
+  // ⚽, da 👑 e do 👟 parecia um botão enfiado no meio dos outros, além de
+  // ser largo ao ponto de o número se lhe colar. O 🎁 diz o mesmo em
+  // português de campo: uma assistência é servir de bandeja.
+  assistencias: '🎁',
   // O autogolo é o único que não tem convenção óbvia. Não pode ser 🥅 (é o
   // gol sofrido) nem ⚽ (não é um gol do jogador, e é esse o ponto de o
   // separar). O 🙈 diz o que é preciso: aconteceu, e ninguém quer falar nisso.

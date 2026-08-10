@@ -381,6 +381,9 @@ export async function renderPlayerCard(perfil) {
   }
   conta.push([ICONE.craque, perfil.craques ?? 0])
   if ((perfil.bagres ?? 0) > 0) conta.push([ICONE.bagre, perfil.bagres])
+  // Vitórias. É a pergunta que o grupo faz sobre um jogador antes de
+  // qualquer outra — "esse ganha?" — e estava só no ecrã, nunca na imagem.
+  if (perfil.wins != null) conta.push([ICONE.vitorias, perfil.wins])
   conta.push([ICONE.jogos, perfil.matches ?? 0])
 
   // Mesma regra da pílula do estado: casa de largura fixa para o emoji, e
@@ -388,17 +391,31 @@ export async function renderPlayerCard(perfil) {
   // entre os pares até eles se tocarem —, mas a causa é a mesma e não vale a
   // pena deixar duas formas de fazer isto no mesmo ficheiro.
   const yConta = yBase + 2 * linhaAltura + 60
-  const CASA = 26
-  const GAP = 5
-  const ESPACO = 20
-  ctx.font = FONTE(600, 22)
-  const itens = conta.map(([ic, v]) => ({
-    ic,
-    v: String(v),
-    largura: CASA + GAP + ctx.measureText(String(v)).width,
-  }))
-  const total =
-    itens.reduce((a, b) => a + b.largura, 0) + ESPACO * (itens.length - 1)
+  const CASA = 30 // folga para o emoji mais largo que o sistema escolher
+  const GAP = 6
+  const LARGURA_UTIL = W - 56
+
+  // A fila pode chegar a sete pares (gols, assistências, autogolos, craque,
+  // bagre, vitórias, jogos) e os números crescem com as épocas. Em vez de a
+  // deixar transbordar, encolhe-se até caber — e só depois se desenha.
+  let tamanho = 22
+  let itens = []
+  let espaco = 20
+  let total = 0
+  for (;;) {
+    ctx.font = FONTE(600, tamanho)
+    itens = conta.map(([ic, v]) => ({
+      ic,
+      v: String(v),
+      largura: CASA + GAP + ctx.measureText(String(v)).width,
+    }))
+    total = itens.reduce((a, b) => a + b.largura, 0) + espaco * (itens.length - 1)
+    if (total <= LARGURA_UTIL) break
+    if (espaco > 10) espaco -= 2
+    else if (tamanho > 14) tamanho -= 1
+    else break // já não dá para encolher mais; melhor apertado do que sumido
+  }
+
   let xConta = (W - total) / 2
   ctx.fillStyle = '#EAF2EC'
   for (const item of itens) {
@@ -406,7 +423,7 @@ export async function renderPlayerCard(perfil) {
     ctx.fillText(item.ic, xConta + CASA / 2, yConta)
     ctx.textAlign = 'left'
     ctx.fillText(item.v, xConta + CASA + GAP, yConta)
-    xConta += item.largura + ESPACO
+    xConta += item.largura + espaco
   }
   ctx.textAlign = 'center'
 
@@ -444,6 +461,12 @@ export function dadosDoCard({ jogador, card, totalRodadas = 0, perfil = null } =
     bagres: jogador.bagres ?? perfil?.bagres ?? 0,
     saves: jogador.saves ?? null,
     cleanSheets: jogador.cleanSheets ?? null,
+    // O balanço. `null` quando as rodadas do jogador não têm equipa
+    // registada (as antigas) — e aí o 🏆 não aparece, em vez de mostrar um
+    // zero que seria mentira.
+    wins: jogador.wins ?? null,
+    draws: jogador.draws ?? null,
+    losses: jogador.losses ?? null,
     playerType: jogador.playerType,
     primaryPosition: jogador.primaryPosition,
     // o que o desenho novo acrescenta
