@@ -4,7 +4,7 @@ import { atributosComDados, calcularAtributos, ehGoleiro, overallDoCard } from '
 import { CARD_BASE, cardPrincipal, cardsDoJogador, cardsEscolhiveis, raridade } from '../lib/cards'
 import { ICONE } from '../lib/icones'
 import { nomeDaPosicao, siglaDaPosicao, iconeDaPosicao } from '../lib/positions'
-import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
+import { dadosDoCard, descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import { useModal } from '../hooks/useModal'
 import Avatar from './Avatar'
 import AchievementFrame from './AchievementFrame'
@@ -200,20 +200,9 @@ export default function PlayerCardModal({
   const partilhar = async () => {
     avisar('A gerar…')
     try {
-      const dataUrl = await renderPlayerCard({
-        name: jogador.name,
-        user_id: jogador.nickname || '',
-        photo: jogador.photo,
-        avg: jogador.avg,
-        matches: jogador.matches,
-        goals: jogador.goals,
-        assists: jogador.assists,
-        craques: jogador.craques,
-        bagres: jogador.bagres,
-        votes: jogador.votes,
-        // o card ESCOLHIDO vai na imagem: é o que faz o print valer a pena
-        card: principal,
-      })
+      const dataUrl = await renderPlayerCard(
+        dadosDoCard({ jogador, card: principal, totalRodadas })
+      )
       const r = await partilharCard(dataUrl, jogador.name)
       if (r !== 'cancelado') avisar(r === 'partilhado' ? 'Partilhado!' : 'Imagem gerada!')
     } catch {
@@ -223,19 +212,9 @@ export default function PlayerCardModal({
 
   const baixar = async () => {
     try {
-      const dataUrl = await renderPlayerCard({
-        name: jogador.name,
-        user_id: jogador.nickname || '',
-        photo: jogador.photo,
-        avg: jogador.avg,
-        matches: jogador.matches,
-        goals: jogador.goals,
-        assists: jogador.assists,
-        craques: jogador.craques,
-        bagres: jogador.bagres,
-        votes: jogador.votes,
-        card: principal,
-      })
+      const dataUrl = await renderPlayerCard(
+        dadosDoCard({ jogador, card: principal, totalRodadas })
+      )
       descarregarCard(dataUrl, jogador.name)
       avisar('Card descarregado!')
     } catch {

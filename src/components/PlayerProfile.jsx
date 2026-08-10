@@ -3,7 +3,7 @@ import { getPlayerChemistry, getPlayerProfile } from '../api'
 import { formatDia } from '../lib/format'
 import { ICONE } from '../lib/icones'
 import Avatar from './Avatar'
-import { descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
+import { dadosDoCard, descarregarCard, partilharCard, renderPlayerCard } from '../lib/card'
 import {
   BONUS_CRAQUE_MAX,
   PARTICIPACOES_TOPO,
@@ -362,13 +362,15 @@ export default function PlayerProfile({
   useEffect(() => {
     if (!p) return
     let vivo = true
-    renderPlayerCard({ ...p, card: cardEscolhido })
+    renderPlayerCard(
+      dadosDoCard({ jogador, card: cardEscolhido, totalRodadas, perfil: p })
+    )
       .then((url) => vivo && setCardUrl(url))
       .catch(() => {})
     return () => {
       vivo = false
     }
-  }, [p, cardEscolhido])
+  }, [p, jogador, cardEscolhido, totalRodadas])
 
   const voltar = (
     <button
