@@ -13,9 +13,11 @@ import {
   sugerirEquipas,
 } from '../lib/simuladorManual'
 import { forcaDaEquipa, contextoDoJogo, golosEsperados, probabilidades, simularPartida } from '../lib/simulador'
+import { renderJogoImagem } from '../lib/jogoImagem'
 import { useModal } from '../hooks/useModal'
 import Avatar from './Avatar'
 import FootballPitch from './FootballPitch'
+import BotaoPartilhar from './BotaoPartilhar'
 import ListaPorEquipa from './ListaPorEquipa'
 import { Portal } from './Ui'
 import { colors, styles } from '../theme'
@@ -403,6 +405,19 @@ export default function SimuladorScreen({ jogadores, onAbrirJogador }) {
               {resultado.posse.a}% / {resultado.posse.b}%
             </p>
           </div>
+
+          <BotaoPartilhar
+            nome="jogo-simulado"
+            titulo="Pelada Browns — Jogo simulado"
+            gerar={() =>
+              renderJogoImagem({
+                simulacao: resultado,
+                lineupA: lineupDe(estado, 'A', jogadores),
+                lineupB: lineupDe(estado, 'B', jogadores),
+                titulo: 'Jogo simulado',
+              })
+            }
+          />
 
           <button type="button" onClick={simular} className="pb-tap" style={{ ...styles.buttonGhost, fontSize: 13 }}>
             🎲 Simular outra vez

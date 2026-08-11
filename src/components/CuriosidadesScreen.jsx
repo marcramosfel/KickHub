@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { destaquesDoDuelo, dueloDosPerebas, melhorJogoPossivel, numerosDoDuelo } from '../lib/curiosidades'
+import { renderJogoImagem } from '../lib/jogoImagem'
 import { nomeDaPosicao } from '../lib/positions'
 import AcertosDaPrevisao from './AcertosDaPrevisao'
 import Avatar from './Avatar'
+import BotaoPartilhar from './BotaoPartilhar'
 import Campeonato from './Campeonato'
 import FootballPitch from './FootballPitch'
 import ListaPorEquipa from './ListaPorEquipa'
@@ -227,6 +229,20 @@ function Duelo({ duelo, titulo, subtitulo, icone, onOutro, onAbrirJogador }) {
           ))}
         </dl>
       )}
+
+      <BotaoPartilhar
+        nome={titulo}
+        titulo={`Pelada Browns — ${titulo}`}
+        gerar={() =>
+          renderJogoImagem({
+            simulacao: s,
+            lineupA: duelo.lineupA,
+            lineupB: duelo.lineupB,
+            titulo,
+            subtitulo: `Equilíbrio ${duelo.equilibrio.rotulo}`,
+          })
+        }
+      />
 
       <button type="button" onClick={onOutro} className="pb-tap" style={{ ...styles.buttonGhost, fontSize: 13 }}>
         🎲 Simular outra vez

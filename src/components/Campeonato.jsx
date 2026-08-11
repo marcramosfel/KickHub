@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { montarCampeonato } from '../lib/campeonato'
+import { renderCampeonatoImagem } from '../lib/jogoImagem'
+import BotaoPartilhar from './BotaoPartilhar'
 import { colors, styles } from '../theme'
 
 // O campeonatinho imaginário: quatro equipas equilibradas, todos contra todos
@@ -163,6 +165,12 @@ export default function Campeonato({ jogadores }) {
         Equilíbrio das equipas: {c.equilibrio.rotulo} ({c.equilibrio.pct.toFixed(1)}%)
         {c.deFora > 0 && ` · ${c.deFora} ficaram de fora desta edição`}
       </p>
+
+      <BotaoPartilhar
+        nome="campeonatinho"
+        titulo="Pelada Browns — Campeonatinho"
+        gerar={() => renderCampeonatoImagem({ campeonato: c })}
+      />
 
       <button
         type="button"

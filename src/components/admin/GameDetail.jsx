@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import {
+  adminSaveForecast,
   adminAddMedia,
   adminCancelMatch,
   adminCloseGame,
@@ -32,6 +33,7 @@ import { candidatosBagre, candidatosCraque, ladoVencedor, semLadosDefinidos } fr
 import { prazoPorOmissao, prazoLegivel } from '../../lib/voting'
 import { urlDaVotacao } from '../../lib/router'
 import { copiarTexto, mensagemDeVotacao, partilharTexto } from '../../lib/share'
+import { preverJogo } from '../../lib/previsao'
 import Avatar from '../Avatar'
 import FootballPitch from '../FootballPitch'
 import ResenhaEditor from './ResenhaEditor'
@@ -185,6 +187,67 @@ function Seccao({ titulo, children, tom }) {
         {titulo}
       </div>
       {children}
+    </div>
+  )
+}
+
+// Gerar (ou refazer) a previsão de um jogo já publicado.
+//
+// Existe porque a previsão só nascia ao publicar o sorteio, e os jogos que já
+// estavam publicados ficavam sem nenhuma. A escalação está gravada e o
+// `overall_at_draw` também, portanto a previsão sai da mesma base que sairia
+// no dia — o que mudou entretanto foram golos e assistências do histórico.
+function PrevisaoDoJogo({ pw, jogo, jogadores, onAtualizado }) {
+  const [estado, setEstado] = useState('parado')
+  const [recado, setRecado] = useState('')
+
+  const temEscalacao = Array.isArray(jogo?.lineup) && jogo.lineup.length > 0
+  if (!temEscalacao) return null
+
+  const jaTem = Boolean(jogo?.forecast)
+
+  const gerar = async () => {
+    setRecado('')
+    setEstado('a-gerar')
+    try {
+      const f = preverJogo({ jogo, jogadores })
+      if (!f) {
+        setRecado('Sem escalação suficiente para prever.')
+        return
+      }
+      await adminSaveForecast(pw, jogo.id, f)
+      setRecado(`Previsão gravada: ${f.nomeA} ${f.golosA}–${f.golosB} ${f.nomeB}.`)
+      await onAtualizado?.()
+    } catch (e) {
+      setRecado(e.message)
+    } finally {
+      setEstado('parado')
+    }
+  }
+
+  return (
+    <div className="pb-card">
+      <div style={{ fontFamily: fonts.title, letterSpacing: 1, fontSize: 14, marginBottom: 4 }}>
+        🤖 Previsão da pelada
+      </div>
+      <p style={{ ...styles.mutedText, fontSize: 12, margin: '0 0 10px' }}>
+        {jaTem
+          ? `Este jogo já tem previsão (${jogo.forecast.gols_a}–${jogo.forecast.gols_b}). Gerar outra vez substitui-a.`
+          : 'Este jogo ainda não tem previsão. Sai da escalação gravada e dos overalls do sorteio.'}
+      </p>
+      <button
+        type="button"
+        onClick={gerar}
+        disabled={estado === 'a-gerar'}
+        style={{ ...styles.buttonGhost, fontSize: 13 }}
+      >
+        {estado === 'a-gerar' ? 'A gerar…' : jaTem ? '🤖 Gerar outra vez' : '🤖 Gerar previsão'}
+      </button>
+      {recado && (
+        <p style={{ ...styles.mutedText, fontSize: 12, margin: '8px 0 0' }} role="status">
+          {recado}
+        </p>
+      )}
     </div>
   )
 }
@@ -605,6 +668,8 @@ export default function GameDetail({ pw, jogo, jogadores, matches, onVoltar, onA
       </div>
 
       {erro && <ErrorBox>{erro}</ErrorBox>}
+
+      <PrevisaoDoJogo pw={pw} jogo={jogo} jogadores={jogadores} onAtualizado={onAtualizado} />
 
       {/* ---------- cabeçalho ---------- */}
       <div className="pb-card">
