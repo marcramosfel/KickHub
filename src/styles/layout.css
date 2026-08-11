@@ -1095,6 +1095,176 @@ body {
 }
 
 /* -----------------------------------------------------------------------------
+   8c. Curiosidades
+   -------------------------------------------------------------------------- */
+.pb-cur-tit {
+  margin: 0;
+  font-family: var(--pb-font-title, inherit);
+  font-size: 16px;
+  letter-spacing: 0.6px;
+}
+
+.pb-cur-placar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.pb-cur-placar > span {
+  min-width: 0;
+  font-size: 13px;
+  color: var(--pb-muted);
+}
+
+.pb-cur-placar strong {
+  font-size: clamp(26px, 8vw, 38px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pb-cur-equilibrio {
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--pb-muted);
+}
+
+/* --- barras de probabilidade --- */
+.pb-cur-linha {
+  display: grid;
+  /* a coluna do meio e `minmax(0,1fr)` para a barra encolher em vez de
+     empurrar a percentagem para fora */
+  grid-template-columns: minmax(0, 5.5em) minmax(0, 1fr) 3em;
+  align-items: center;
+  gap: 8px;
+}
+
+.pb-cur-rot {
+  font-size: 12px;
+  color: var(--pb-muted);
+}
+
+.pb-cur-barra {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(127, 160, 144, 0.16);
+  overflow: hidden;
+}
+
+.pb-cur-fita {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.pb-cur-pct {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- tabela de forcas --- */
+.pb-cur-tab {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pb-cur-cap {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--pb-muted);
+  padding-bottom: 6px;
+}
+
+.pb-cur-tab th,
+.pb-cur-tab td {
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--pb-line);
+}
+
+.pb-cur-tab thead th {
+  font-size: 11px;
+  color: var(--pb-muted);
+  font-weight: 600;
+}
+
+.pb-cur-tab tbody th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pb-muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pb-cur-tab td {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-cur-tab td.is-melhor {
+  color: var(--pb-grass);
+  font-weight: 700;
+}
+
+.pb-cur-narrativa {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--pb-grass-line);
+  border-radius: 0 8px 8px 0;
+  background: var(--pb-grass-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pb-cur-destaque {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--pb-line);
+  border-radius: var(--pb-radius-sm);
+}
+
+.pb-cur-destaque-rot {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--pb-muted);
+}
+
+.pb-cur-num {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--pb-line);
+  border-radius: var(--pb-radius-sm);
+  text-align: center;
+}
+
+.pb-cur-num dt {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--pb-muted);
+}
+
+.pb-cur-num dd {
+  margin: 3px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -----------------------------------------------------------------------------
    9. Utilitarios curtos
    -------------------------------------------------------------------------- */
 /* Esconder so dentro da media query certa, em vez de esconder por omissao e

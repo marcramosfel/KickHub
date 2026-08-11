@@ -28,6 +28,7 @@ export const NAV_SECUNDARIAS = [
   { id: 'players', label: 'Plantel', icon: '👥' },
   { id: 'stats', label: 'Estatísticas', icon: '📊' },
   { id: 'selecao', label: 'Seleção da pelada', icon: '⭐' },
+  { id: 'curiosidades', label: 'Curiosidades', icon: '🔮' },
   { id: 'history', label: 'Histórico', icon: '📜' },
 ]
 

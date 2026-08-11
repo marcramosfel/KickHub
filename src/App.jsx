@@ -32,6 +32,7 @@ import {
 import AdminScreen from './components/AdminScreen'
 import AppShell from './components/AppShell'
 import BallotScreen from './components/BallotScreen'
+import CuriosidadesScreen from './components/CuriosidadesScreen'
 import DrawsScreen from './components/DrawsScreen'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
@@ -59,6 +60,7 @@ const VIEWS_COM_SHELL = [
   'stats',
   'history',
   'selecao',
+  'curiosidades',
   'profile',
 ]
 
@@ -574,6 +576,15 @@ export default function App() {
           pôster. Tocar num jogador abre o card dele, como no resto da app. */}
       {view === 'selecao' && (
         <SelecaoDaPelada jogadores={jogadores} onAbrirJogador={abrirCard} />
+      )}
+
+      {view === 'curiosidades' && (
+        <>
+          <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 4 }}>
+            Curiosidades <span style={{ color: colors.grass }}>🔮</span>
+          </h1>
+          <CuriosidadesScreen jogadores={jogadores} onAbrirJogador={abrirCard} />
+        </>
       )}
 
       {view === 'draws' && (
