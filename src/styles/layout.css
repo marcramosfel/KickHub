@@ -1045,6 +1045,55 @@ body {
   white-space: nowrap;
 }
 
+/* --- partilhar --- */
+.pb-sp-partilha {
+  margin-top: clamp(14px, 4vw, 20px);
+  text-align: center;
+}
+
+.pb-sp-btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 13px 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2f8cf5 0%, #1f6ed6 100%);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(47, 140, 245, 0.35);
+  transition: filter 160ms ease;
+}
+
+.pb-sp-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.pb-sp-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.pb-sp-btn:focus-visible {
+  outline: 2px solid var(--pb-grass);
+  outline-offset: 2px;
+}
+
+.pb-sp-recado {
+  margin: 9px 0 0;
+  font-size: 12px;
+  color: rgba(200, 225, 250, 0.85);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-sp-btn {
+    transition: none;
+  }
+}
+
 /* -----------------------------------------------------------------------------
    9. Utilitarios curtos
    -------------------------------------------------------------------------- */

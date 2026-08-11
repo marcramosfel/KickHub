@@ -1,5 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { POSITIONS, nomeDaPosicao, siglaDaPosicao } from '../lib/positions'
+import { renderSelecaoImagem } from '../lib/selecaoImagem'
+import { partilharDataUrl } from '../lib/share'
 import { nomeCurto } from './FootballPitch'
 import { colors } from '../theme'
 
@@ -223,11 +225,43 @@ export default function SelecaoPoster({
   onAbrirJogador,
   animar = true,
   destacarCraque = true,
+  partilhavel = true,
 }) {
+  const [estado, setEstado] = useState('parado')
+  const [recado, setRecado] = useState('')
   // O `|| []` tem de estar dentro de um useMemo: um literal novo a cada render
   // furava a memoização de `numeros` logo a seguir.
   const lineup = useMemo(() => selecao?.lineup || [], [selecao])
   const numeros = useMemo(() => numerosDaSelecao(lineup), [lineup])
+
+  // A imagem é uma composição à parte (`lib/selecaoImagem`), não uma captura
+  // desta página: a página é responsiva e uma captura levava consigo a forma
+  // do ecrã de quem partilha, a barra de navegação e o que estivesse a meio de
+  // uma animação. `numeros` vai daqui para a imagem dizer o mesmo que o ecrã.
+  const partilhar = async () => {
+    setRecado('')
+    setEstado('a-gerar')
+    try {
+      const dataUrl = await renderSelecaoImagem({ selecao, numeros, titulo, subtitulo, marca })
+      const ficheiro = `${titulo
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')}.jpg`
+      const r = await partilharDataUrl(dataUrl, { ficheiro, titulo: `${marca} — ${titulo}` })
+      // Dizer "partilhado" a quem carregou em cancelar é mentira, e dizer
+      // "descarregado" quando foi mesmo partilhado manda a pessoa procurar
+      // nos downloads uma coisa que já está no WhatsApp.
+      if (r === 'descarregado') setRecado('Imagem guardada nos teus downloads.')
+      else if (r === 'cancelado') setRecado('')
+      else setRecado('Boa — agora é só colar no grupo. 🔥')
+    } catch {
+      setRecado('Não consegui montar a imagem. Tenta outra vez.')
+    } finally {
+      setEstado('parado')
+    }
+  }
 
   if (!lineup.length) {
     return (
@@ -289,6 +323,24 @@ export default function SelecaoPoster({
           ))}
         </dl>
       </section>
+
+      {partilhavel && (
+        <div className="pb-sp-partilha">
+          <button
+            type="button"
+            className="pb-sp-btn"
+            onClick={partilhar}
+            disabled={estado === 'a-gerar'}
+          >
+            {estado === 'a-gerar' ? '⏳ A montar a arte…' : '📲 Compartilhar Seleção'}
+          </button>
+          {recado && (
+            <p className="pb-sp-recado" role="status">
+              {recado}
+            </p>
+          )}
+        </div>
+      )}
     </article>
   )
 }

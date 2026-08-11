@@ -583,27 +583,49 @@ export async function renderLineupCard(jogo, resenha = '') {
 
 const nomeFicheiro = (m) => `rodada-${(m?.played_at || '').slice(0, 10) || 'pelada'}.png`
 
-export function descarregarImagem(dataUrl, m) {
+// --- genéricos: servem qualquer imagem, venha de que composição vier ---
+
+export function descarregarDataUrl(dataUrl, ficheiro = 'pelada.png') {
   const a = document.createElement('a')
   a.href = dataUrl
-  a.download = nomeFicheiro(m)
+  a.download = ficheiro
   document.body.appendChild(a)
   a.click()
   a.remove()
 }
 
 // Partilha a imagem (telemóvel); se não der, descarrega-a.
-export async function partilharImagem(dataUrl, m) {
+//
+// Devolve 'partilhado' | 'cancelado' | 'descarregado', porque quem chama
+// precisa de distinguir: dizer "partilhado!" a quem carregou em cancelar é
+// mentira, e dizer "descarregado" quando o ficheiro foi mesmo partilhado
+// manda a pessoa procurar nos downloads uma coisa que já está no WhatsApp.
+export async function partilharDataUrl(dataUrl, { ficheiro = 'pelada.png', titulo } = {}) {
   try {
     const blob = await (await fetch(dataUrl)).blob()
-    const file = new File([blob], nomeFicheiro(m), { type: 'image/png' })
+    // O tipo vem do próprio data URL: quem chama pode mandar PNG ou JPEG, e
+    // anunciar o tipo errado deixa algumas apps a recusar o ficheiro.
+    const file = new File([blob], ficheiro, { type: blob.type || 'image/png' })
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: `${APP_NAME.main} — ${formatDia(m.played_at)}` })
+      await navigator.share({ files: [file], title: titulo || APP_NAME.main })
       return 'partilhado'
     }
   } catch (err) {
     if (err?.name === 'AbortError') return 'cancelado'
   }
-  descarregarImagem(dataUrl, m)
+  descarregarDataUrl(dataUrl, ficheiro)
   return 'descarregado'
+}
+
+// --- os de sempre, agora só a dar o nome do ficheiro aos genéricos ---
+
+export function descarregarImagem(dataUrl, m) {
+  descarregarDataUrl(dataUrl, nomeFicheiro(m))
+}
+
+export async function partilharImagem(dataUrl, m) {
+  return partilharDataUrl(dataUrl, {
+    ficheiro: nomeFicheiro(m),
+    titulo: `${APP_NAME.main} — ${formatDia(m.played_at)}`,
+  })
 }
