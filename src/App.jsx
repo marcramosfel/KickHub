@@ -569,16 +569,11 @@ export default function App() {
 
       {view === 'players' && <PlayersScreen jogadores={jogadores} onProfile={abrirCard} />}
 
+      {/* Sem título de página: o pôster traz o seu, grande e centrado, e dois
+          títulos seguidos tiravam-lhe exatamente o destaque que o torna um
+          pôster. Tocar num jogador abre o card dele, como no resto da app. */}
       {view === 'selecao' && (
-        <>
-          <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 4 }}>
-            Seleção da pelada <span style={{ color: colors.grass }}>⭐</span>
-          </h1>
-          <p style={{ ...styles.mutedText, fontSize: 13, marginBottom: 14 }}>
-            O melhor onze possível — e o outro. Não decide nada: é para discutir.
-          </p>
-          <SelecaoDaPelada jogadores={jogadores} />
-        </>
+        <SelecaoDaPelada jogadores={jogadores} onAbrirJogador={abrirCard} />
       )}
 
       {view === 'draws' && (
