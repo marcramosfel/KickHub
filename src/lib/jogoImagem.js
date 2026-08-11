@@ -403,3 +403,144 @@ export async function renderCampeonatoImagem({ campeonato, marca = 'PELADA BROWN
 
   return canvas.toDataURL('image/jpeg', 0.92)
 }
+
+// A previsão da pelada como imagem.
+//
+// Composição própria e não o `renderJogoImagem`: aqui não há duas escalações
+// para mostrar — há um palpite. O que interessa é o placar, as probabilidades
+// e os nomes previstos, com espaço para se lerem.
+export async function renderPrevisaoImagem({
+  forecast,
+  nomeA = 'Pretos',
+  nomeB = 'Brancos',
+  quando = '',
+  comparacao = null,
+  marca = 'PELADA BROWNS',
+} = {}) {
+  try {
+    await document.fonts.ready
+  } catch {
+    /* segue com as fontes por defeito */
+  }
+  if (!forecast) return null
+
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H)
+  bg.addColorStop(0, AZUL)
+  bg.addColorStop(0.55, '#081029')
+  bg.addColorStop(1, '#060b1d')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+
+  const luz = ctx.createRadialGradient(W / 2, -40, 0, W / 2, -40, W * 0.85)
+  luz.addColorStop(0, 'rgba(53,167,255,0.22)')
+  luz.addColorStop(1, 'rgba(53,167,255,0)')
+  ctx.fillStyle = luz
+  ctx.fillRect(0, 0, W, H * 0.6)
+
+  ctx.strokeStyle = 'rgba(90,200,255,0.22)'
+  ctx.lineWidth = 3
+  roundRect(ctx, 8, 8, W - 16, H - 16, 26)
+  ctx.stroke()
+
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(140,190,240,0.8)'
+  ctx.font = FONTE(700, 22)
+  comEspacamento(ctx, 6, () => ctx.fillText(marca.toUpperCase(), W / 2, 66))
+
+  ctx.fillStyle = '#fff'
+  ctx.font = FONTE(800, 58)
+  ctx.fillText('🤖 A PREVISÃO', W / 2, 148)
+  ctx.fillText('DA PELADA', W / 2, 212)
+
+  if (quando) {
+    ctx.fillStyle = OURO
+    ctx.font = FONTE(700, 24)
+    comEspacamento(ctx, 3, () => ctx.fillText(String(quando).toUpperCase(), W / 2, 258))
+  }
+
+  // ---- placar previsto ----
+  const meio = W / 2
+  ctx.fillStyle = 'rgba(255,255,255,0.05)'
+  roundRect(ctx, PAD, 300, W - PAD * 2, 230, 20)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(90,200,255,0.18)'
+  ctx.lineWidth = 1.5
+  roundRect(ctx, PAD, 300, W - PAD * 2, 230, 20)
+  ctx.stroke()
+
+  ctx.fillStyle = 'rgba(200,225,250,0.85)'
+  ctx.font = FONTE(700, 26)
+  ctx.fillText(nomeA, PAD + 150, 360)
+  ctx.fillText(nomeB, W - PAD - 150, 360)
+
+  ctx.fillStyle = '#fff'
+  ctx.font = FONTE(800, 110)
+  ctx.fillText(`${forecast.gols_a} × ${forecast.gols_b}`, meio, 470)
+
+  // ---- o que saiu a sério, quando ja houver ----
+  let y = 585
+  if (comparacao) {
+    const cor = comparacao.acertou ? '#34D058' : '#FF5A5A'
+    ctx.fillStyle = cor
+    ctx.font = FONTE(700, 30)
+    ctx.fillText(
+      `${comparacao.acertou ? 'ACERTOU' : 'FALHOU'} — deu ${comparacao.real}`,
+      meio, y
+    )
+    y += 56
+  }
+
+  // ---- probabilidades ----
+  y = barras(ctx, { a: forecast.prob_a, empate: forecast.prob_empate, b: forecast.prob_b },
+    { x: PAD, y, largura: W - PAD * 2, nomeA, nomeB })
+  y += 40
+
+  // ---- destaques previstos ----
+  const linhas = [
+    ['⭐', 'Craque previsto', forecast.craque],
+    ['⚽', 'Artilheiro previsto', forecast.artilheiro],
+    ['🎯', 'Mais assistências', forecast.assistente],
+    ['🐟', 'Bagre previsto', forecast.bagre],
+  ].filter(([, , v]) => v)
+
+  for (const [icone, rotulo, valor] of linhas) {
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    roundRect(ctx, PAD, y, W - PAD * 2, 74, 14)
+    ctx.fill()
+    ctx.textAlign = 'left'
+    ctx.fillStyle = 'rgba(140,190,240,0.85)'
+    ctx.font = FONTE(600, 22)
+    ctx.fillText(`${icone}  ${rotulo}`, PAD + 26, y + 46)
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#fff'
+    ctx.font = FONTE(700, 30)
+    ctx.fillText(valor, W - PAD - 26, y + 48)
+    y += 88
+  }
+
+  // ---- narrativa ----
+  if (forecast.narrativa) {
+    y += 12
+    ctx.textAlign = 'center'
+    ctx.fillStyle = 'rgba(225,235,250,0.8)'
+    ctx.font = FONTE(600, 22)
+    for (const linha of quebrar(ctx, forecast.narrativa, W - PAD * 2 - 40)) {
+      ctx.fillText(linha, meio, y)
+      y += 32
+    }
+  }
+
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(140,190,240,0.55)'
+  ctx.font = FONTE(600, 17)
+  comEspacamento(ctx, 1, () =>
+    ctx.fillText('Feita quando o sorteio foi publicado — e falha bastante', meio, H - 34)
+  )
+
+  return canvas.toDataURL('image/jpeg', 0.92)
+}

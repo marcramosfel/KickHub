@@ -3,6 +3,8 @@ import { estadoDoJogo, formatarDataDoJogo } from '../lib/countdown'
 import { avaliarEquilibrio } from '../lib/drawEngine'
 import { nomeDaPosicao } from '../lib/positions'
 import { vantagem } from '../lib/substitutions'
+import { renderLineupCard } from '../lib/share'
+import BotaoPartilhar from './BotaoPartilhar'
 import Countdown from './Countdown'
 import FootballPitch from './FootballPitch'
 import PrevisaoDaPelada from './PrevisaoDaPelada'
@@ -377,6 +379,19 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
             histórico.
           </p>
         </div>
+      )}
+
+      {/* O sorteio como imagem. O renderizador ja existia no `share.js` desde
+          sempre, mas o botao vivia so no feed (Historico -> Ultimas) — ou seja,
+          a tres toques de distancia de onde as pessoas olham para a escalacao.
+          Aqui esta onde ela esta. */}
+      {temEscalacao && (
+        <BotaoPartilhar
+          nome={`sorteio-${(jogo.kickoff_at || '').slice(0, 10) || 'pelada'}`}
+          titulo="Pelada Browns — Sorteio"
+          rotulo="📲 Partilhar sorteio"
+          gerar={() => renderLineupCard(jogo, '')}
+        />
       )}
 
       {/* A previsao vive FORA da grelha, a largura toda.

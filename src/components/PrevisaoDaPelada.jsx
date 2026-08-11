@@ -1,6 +1,8 @@
+import { renderPrevisaoImagem } from '../lib/jogoImagem'
 import { compararComResultado } from '../lib/previsao'
 import { nomeDaEquipa } from '../lib/substitutions'
 import { colors, styles } from '../theme'
+import BotaoPartilhar from './BotaoPartilhar'
 
 // 🤖 A PREVISÃO DA PELADA.
 //
@@ -105,6 +107,29 @@ export default function PrevisaoDaPelada({ jogo, compacto = false }) {
         Feita quando o sorteio foi publicado, a partir das estatísticas de quem joga. Não decide
         nada — e falha bastante.
       </p>
+
+      {/* No feed nao: la e uma lista, e um botao por post enchia-a de botoes. */}
+      {!compacto && (
+        <BotaoPartilhar
+          nome="previsao-da-pelada"
+          titulo="Pelada Browns — A previsão da pelada"
+          rotulo="📲 Partilhar previsão"
+          gerar={() =>
+            renderPrevisaoImagem({
+              forecast: f,
+              nomeA,
+              nomeB,
+              quando: jogo?.kickoff_at
+                ? new Date(jogo.kickoff_at).toLocaleDateString('pt-PT', {
+                    day: 'numeric',
+                    month: 'long',
+                  })
+                : '',
+              comparacao,
+            })
+          }
+        />
+      )}
     </section>
   )
 }
