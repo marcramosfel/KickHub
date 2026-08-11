@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { destaquesDoDuelo, dueloDosPerebas, melhorJogoPossivel, numerosDoDuelo } from '../lib/curiosidades'
 import { nomeDaPosicao } from '../lib/positions'
+import AcertosDaPrevisao from './AcertosDaPrevisao'
 import Avatar from './Avatar'
 import Campeonato from './Campeonato'
 import FootballPitch from './FootballPitch'
@@ -255,6 +256,8 @@ export default function CuriosidadesScreen({ jogadores, onAbrirJogador }) {
         Jogos que nunca vão acontecer, simulados como se fossem acontecer. Não decidem nada e não
         são o sorteio — são para discutir no grupo.
       </p>
+
+      <AcertosDaPrevisao />
 
       <Duelo
         duelo={melhor}

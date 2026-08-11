@@ -11,6 +11,7 @@ import {
 import { nomeDaEquipa } from '../lib/substitutions'
 import { resultadoBloqueado } from '../lib/voting'
 import Avatar from './Avatar'
+import PrevisaoDaPelada from './PrevisaoDaPelada'
 import { colors, fonts, chip } from '../theme'
 
 // O feed da pelada: o que o admin publicou, do mais recente para o mais
@@ -194,6 +195,7 @@ function Conteudo({ post, jogadores, onProfile, bloqueado, onVotar }) {
   }
   if (post.type === 'SORTEIO') {
     return (
+      <>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', margin: '6px 0' }}>
         {['A', 'B'].map((lado) => (
           <span key={lado} style={chip(lado === 'A' ? '#8A96A0' : '#F2F5F2')}>
@@ -204,6 +206,18 @@ function Conteudo({ post, jogadores, onProfile, bloqueado, onVotar }) {
           <span style={chip(colors.grass, `${colors.grass}1A`)}>⚖️ {Number(p.balance_pct).toFixed(1)}%</span>
         )}
       </div>
+      {/* A previsão vai colada ao post do sorteio: é aí que ela nasce e é aí
+          que dá conversa. Compacta, porque o feed é uma lista — o detalhe
+          todo está no ecrã do jogo. */}
+      <PrevisaoDaPelada
+        jogo={{
+          ...post.match,
+          team_a_name: nomeDaEquipa('A'),
+          team_b_name: nomeDaEquipa('B'),
+        }}
+        compacto
+      />
+      </>
     )
   }
   if (post.type === 'SUBSTITUICAO') {

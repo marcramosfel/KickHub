@@ -815,6 +815,27 @@ create or replace view saldo_esperado_por_jogador as
   group by pj.player_id;
 
 -- ============================== FUNCOES =============================
+
+-- ---------- A PREVISAO, EM JSON ----------
+-- Uma funcao so, chamada do `match_public_json` E do feed. Tinha o formato
+-- escrito a mao nos dois sitios e isso era garantia de que um dia divergiam:
+-- acrescentava-se um campo num e o outro ficava para tras.
+create or replace function forecast_json(p_match uuid)
+returns json language sql stable security definer set search_path = public, extensions as $$
+  select json_build_object(
+           'gols_a', f.gols_a, 'gols_b', f.gols_b,
+           'prob_a', f.prob_a, 'prob_empate', f.prob_empate, 'prob_b', f.prob_b,
+           'craque', (select pp.name from players pp where pp.id = f.craque_id),
+           'artilheiro', (select pp.name from players pp where pp.id = f.artilheiro_id),
+           'assistente', (select pp.name from players pp where pp.id = f.assistente_id),
+           'bagre', (select pp.name from players pp where pp.id = f.bagre_id),
+           'narrativa', f.narrativa,
+           'created_at', f.created_at)
+  from match_forecasts f where f.match_id = p_match;
+$$;
+revoke all on function forecast_json(uuid) from public;
+grant execute on function forecast_json(uuid) to anon, authenticated;
+
 --
 -- Primeiro apaga-se toda a versao antiga de cada funcao desta lista, por
 -- duas razoes:
@@ -1941,7 +1962,8 @@ returns json language sql stable security definer set search_path = public, exte
                'kickoff_at', m.kickoff_at, 'played_at', m.played_at,
                'location', m.location,
                'score_a', m.score_a, 'score_b', m.score_b,
-               'team_a_overall', m.team_a_overall, 'team_b_overall', m.team_b_overall),
+               'team_a_overall', m.team_a_overall, 'team_b_overall', m.team_b_overall,
+               'forecast', forecast_json(m.id)),
              'photo', coalesce(
                (select md.data_url from match_media md
                  where md.match_id = m.id and md.is_primary limit 1),
@@ -3333,17 +3355,7 @@ returns json language sql stable security definer set search_path = public, exte
     -- A previsao do simulador, se este jogo tiver uma. Viaja aqui dentro em
     -- vez de numa chamada a parte: quem mostra o jogo ja tem tudo o resto, e
     -- uma segunda ida a base so para isto era um pedido por ecra.
-    'forecast', (
-      select json_build_object(
-               'gols_a', f.gols_a, 'gols_b', f.gols_b,
-               'prob_a', f.prob_a, 'prob_empate', f.prob_empate, 'prob_b', f.prob_b,
-               'craque', (select pp.name from players pp where pp.id = f.craque_id),
-               'artilheiro', (select pp.name from players pp where pp.id = f.artilheiro_id),
-               'assistente', (select pp.name from players pp where pp.id = f.assistente_id),
-               'bagre', (select pp.name from players pp where pp.id = f.bagre_id),
-               'narrativa', f.narrativa,
-               'created_at', f.created_at)
-      from match_forecasts f where f.match_id = m.id)
+    'forecast', forecast_json(m.id)
   )
   from matches m where m.id = p_id;
 $$;
