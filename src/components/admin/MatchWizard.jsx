@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   adminMatchesUpcoming,
   adminPublishMatch,
+  adminSaveForecast,
   adminSaveLineup,
   adminSaveSchedule,
   adminSetPositions,
+  getMatch,
 } from '../../api'
 import {
   definirInicioNoGol,
@@ -31,6 +33,7 @@ import { calcularLiderancas } from '../../lib/achievements'
 import { calcularSequencias } from '../../lib/streaks'
 import { gerarResenhaSorteio } from '../../lib/resenha'
 import { copiarTexto, partilharTexto, resumoSorteio } from '../../lib/share'
+import { preverJogo } from '../../lib/previsao'
 import Avatar from '../Avatar'
 import FootballPitch from '../FootballPitch'
 import FormatoPicker from './FormatoPicker'
@@ -771,6 +774,21 @@ export default function MatchWizard({
       }
 
       await adminPublishMatch(pw, jogo.id, resenha)
+
+      // A previsão da pelada, congelada agora.
+      //
+      // Depois de publicar e nunca antes: é sobre as equipas que o grupo vai
+      // ver, e um sorteio refeito tem de dar outra previsão. Falhar aqui não
+      // pode desfazer a publicação — o sorteio já está no ar e uma previsão em
+      // falta é uma secção a menos, não um jogo por publicar.
+      try {
+        const publicado = await getMatch(jogo.id)
+        const f = preverJogo({ jogo: publicado, jogadores })
+        if (f) await adminSaveForecast(pw, jogo.id, f)
+      } catch (e3) {
+        console.error('Falha a gravar a previsão da pelada:', e3)
+      }
+
       setPublicado(true)
       setAcabouDePublicar(true)
       if (falhados.length)

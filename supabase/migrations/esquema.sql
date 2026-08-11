@@ -306,6 +306,39 @@ create table if not exists match_availability (
   primary key (match_id, player_id)
 );
 
+-- ---------- A PREVISAO DA PELADA ----------
+-- O palpite do simulador para um jogo, congelado no momento em que o sorteio e
+-- publicado.
+--
+-- Porque e que ISTO se guarda, ao contrario de quase tudo o resto nesta base:
+-- a previsao sai das estatisticas de quem joga, e essas mudam a cada rodada.
+-- Recalcula-la ao abrir o ecra dava um numero diferente de cada vez e ninguem
+-- podia dizer "a IA disse 5x4" — que e a graca toda. Uma linha por jogo;
+-- publicar o sorteio outra vez substitui.
+--
+-- O ACERTO NAO SE GUARDA: deriva-se do placar quando ele existir, pela mesma
+-- razao dos palpites — guarda-lo era abrir a porta a ficar dessincronizado de
+-- um resultado corrigido pelo admin.
+--
+-- Os `references players` sao `on delete set null` e nao `cascade`: apagar um
+-- jogador nao pode apagar a previsao de um jogo que ja aconteceu.
+create table if not exists match_forecasts (
+  match_id      uuid primary key references matches(id) on delete cascade,
+  gols_a        int not null,
+  gols_b        int not null,
+  prob_a        numeric(5,4) not null,
+  prob_empate   numeric(5,4) not null,
+  prob_b        numeric(5,4) not null,
+  craque_id     uuid references players(id) on delete set null,
+  artilheiro_id uuid references players(id) on delete set null,
+  assistente_id uuid references players(id) on delete set null,
+  bagre_id      uuid references players(id) on delete set null,
+  narrativa     text,
+  seed          text,
+  created_at    timestamptz not null default now(),
+  constraint match_forecasts_gols_ok check (gols_a >= 0 and gols_b >= 0)
+);
+
 -- ====================== COLUNAS E RESTRICOES ========================
 -- Todas com `if not exists` ou dentro de um bloco guardado: numa base
 -- que ja as tenha, nao fazem nada.
@@ -476,6 +509,7 @@ $chk$;
 alter table match_availability enable row level security;
 alter table draw_disputes enable row level security;
 alter table match_predictions enable row level security;
+alter table match_forecasts enable row level security;
 -- gera user_id para quem ainda não tem, por ordem de criação
 do $$
 declare rec record;
@@ -3295,10 +3329,106 @@ returns json language sql stable security definer set search_path = public, exte
                'palpite', mp.palpite)
              order by p.name), '[]'::json)
       from match_predictions mp join players p on p.id = mp.player_id
-      where mp.match_id = m.id)
+      where mp.match_id = m.id),
+    -- A previsao do simulador, se este jogo tiver uma. Viaja aqui dentro em
+    -- vez de numa chamada a parte: quem mostra o jogo ja tem tudo o resto, e
+    -- uma segunda ida a base so para isto era um pedido por ecra.
+    'forecast', (
+      select json_build_object(
+               'gols_a', f.gols_a, 'gols_b', f.gols_b,
+               'prob_a', f.prob_a, 'prob_empate', f.prob_empate, 'prob_b', f.prob_b,
+               'craque', (select pp.name from players pp where pp.id = f.craque_id),
+               'artilheiro', (select pp.name from players pp where pp.id = f.artilheiro_id),
+               'assistente', (select pp.name from players pp where pp.id = f.assistente_id),
+               'bagre', (select pp.name from players pp where pp.id = f.bagre_id),
+               'narrativa', f.narrativa,
+               'created_at', f.created_at)
+      from match_forecasts f where f.match_id = m.id)
   )
   from matches m where m.id = p_id;
 $$;
+-- ---------- GRAVAR A PREVISAO DE UM JOGO ----------
+-- Chamada quando o admin publica o sorteio. Substitui a que la estivesse: se
+-- o sorteio for refeito, a previsao antiga era sobre outras equipas.
+--
+-- Nao valida os numeros contra nada: quem os produz e o simulador do
+-- frontend, e a base nao tem como (nem deve) repetir a conta. O que ela
+-- garante e que so o admin escreve e que a linha pertence a um jogo real.
+create or replace function admin_save_forecast(
+  p_pw          text,
+  p_match       uuid,
+  p_gols_a      int,
+  p_gols_b      int,
+  p_prob_a      numeric,
+  p_prob_empate numeric,
+  p_prob_b      numeric,
+  p_craque      uuid default null,
+  p_artilheiro  uuid default null,
+  p_assistente  uuid default null,
+  p_bagre       uuid default null,
+  p_narrativa   text default null,
+  p_seed        text default null
+) returns void language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not admin_ok(p_pw) then raise exception 'ADMIN'; end if;
+  if p_match is null or not exists (select 1 from matches m where m.id = p_match) then
+    raise exception 'INVALIDO';
+  end if;
+
+  insert into match_forecasts(
+    match_id, gols_a, gols_b, prob_a, prob_empate, prob_b,
+    craque_id, artilheiro_id, assistente_id, bagre_id, narrativa, seed)
+  values (
+    p_match, p_gols_a, p_gols_b, p_prob_a, p_prob_empate, p_prob_b,
+    p_craque, p_artilheiro, p_assistente, p_bagre, p_narrativa, p_seed)
+  on conflict (match_id) do update set
+    gols_a        = excluded.gols_a,
+    gols_b        = excluded.gols_b,
+    prob_a        = excluded.prob_a,
+    prob_empate   = excluded.prob_empate,
+    prob_b        = excluded.prob_b,
+    craque_id     = excluded.craque_id,
+    artilheiro_id = excluded.artilheiro_id,
+    assistente_id = excluded.assistente_id,
+    bagre_id      = excluded.bagre_id,
+    narrativa     = excluded.narrativa,
+    seed          = excluded.seed,
+    created_at    = now();
+end $$;
+revoke all on function admin_save_forecast(text, uuid, int, int, numeric, numeric, numeric,
+  uuid, uuid, uuid, uuid, text, text) from public;
+grant execute on function admin_save_forecast(text, uuid, int, int, numeric, numeric, numeric,
+  uuid, uuid, uuid, uuid, text, text) to anon, authenticated;
+
+-- ---------- QUANTAS VEZES A PREVISAO ACERTOU ----------
+-- Derivado, nunca guardado: le as previsoes e os placares finais e conta. Um
+-- resultado corrigido pelo admin corrige o historico sozinho, que e a razao de
+-- isto nao ser uma coluna.
+--
+-- "Acertar" e acertar no VENCEDOR (ou no empate), nao no placar exato — num
+-- jogo que acaba 14x12 acertar o placar era sorte, nao previsao.
+create or replace function forecast_accuracy()
+returns json language sql stable security definer set search_path = public, extensions as $$
+  with julgados as (
+    select
+      case when f.gols_a > f.gols_b then 'A'
+           when f.gols_b > f.gols_a then 'B'
+           else 'EMPATE' end as previu,
+      case when m.score_a > m.score_b then 'A'
+           when m.score_b > m.score_a then 'B'
+           else 'EMPATE' end as saiu
+    from match_forecasts f
+    join matches m on m.id = f.match_id
+    where m.score_a is not null and m.score_b is not null
+  )
+  select json_build_object(
+    'total', count(*)::int,
+    'acertos', count(*) filter (where previu = saiu)::int
+  ) from julgados;
+$$;
+revoke all on function forecast_accuracy() from public;
+grant execute on function forecast_accuracy() to anon, authenticated;
+
 -- ---------- 7. TROCAS E DESISTÊNCIAS NÃO PODEM PARTIR O RODÍZIO ----------
 --
 -- `admin_substitute_player` (0018/0021) faz UPDATE da linha: troca o

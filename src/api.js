@@ -479,6 +479,36 @@ export const adminSaveLineup = (pw, matchId, d) =>
 export const adminPublishMatch = (pw, matchId, resenha) =>
   rpc('admin_publish_match', { p_pw: pw, p_match: matchId, p_resenha: resenha || null })
 
+// A previsão do simulador para um jogo, congelada.
+//
+// Guarda-se porque a previsão sai das estatísticas de quem joga, e essas mudam
+// a cada rodada: recalculá-la ao abrir o ecrã dava um número diferente de cada
+// vez e ninguém podia dizer "a IA disse 5x4". Publicar o sorteio outra vez
+// substitui — a previsão antiga era sobre outras equipas.
+//
+// Lê-se de volta dentro do próprio jogo (`forecast` no `match_public_json`),
+// não por uma chamada à parte.
+export const adminSaveForecast = (pw, matchId, f) =>
+  rpc('admin_save_forecast', {
+    p_pw: pw,
+    p_match: matchId,
+    p_gols_a: f.golosA,
+    p_gols_b: f.golosB,
+    p_prob_a: f.probabilidades.a,
+    p_prob_empate: f.probabilidades.empate,
+    p_prob_b: f.probabilidades.b,
+    p_craque: f.craqueId ?? null,
+    p_artilheiro: f.artilheiroId ?? null,
+    p_assistente: f.assistenteId ?? null,
+    p_bagre: f.bagreId ?? null,
+    p_narrativa: f.narrativa ?? null,
+    p_seed: f.seed ?? null,
+  })
+
+// Quantas vezes a previsão acertou no vencedor. Derivado do placar, nunca
+// guardado — um resultado corrigido pelo admin corrige o histórico sozinho.
+export const getForecastAccuracy = () => rpc('forecast_accuracy')
+
 export const adminMatchesUpcoming = (pw) => rpc('admin_matches_upcoming', { p_pw: pw })
 
 // UM jogo qualquer, no mesmo formato do `admin_matches_upcoming` — inclui as

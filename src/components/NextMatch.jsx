@@ -5,6 +5,7 @@ import { nomeDaPosicao } from '../lib/positions'
 import { vantagem } from '../lib/substitutions'
 import Countdown from './Countdown'
 import FootballPitch from './FootballPitch'
+import PrevisaoDaPelada from './PrevisaoDaPelada'
 import RodizioTimeline from './RodizioTimeline'
 import AvisoDeDesistencias, { VantagemAtual } from './Substitutions'
 import { colors, fonts, styles, chip } from '../theme'
@@ -255,6 +256,10 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
           {/* Antes da escalação: quem começa no gol é a primeira coisa que
               o jogador quer saber ao abrir um sorteio com rodízio. */}
           <RodizioTimeline jogo={jogo} meuId={meuId} compacto />
+
+          {/* A previsao entra depois do rodizio: primeiro quem joga e quem
+              comeca no gol, depois o palpite sobre o jogo. */}
+          <PrevisaoDaPelada jogo={jogo} />
 
           {temEscalacao && (
             <div className="pb-card">
