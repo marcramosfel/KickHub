@@ -1,3 +1,4 @@
+import { formatarDataDoJogo } from '../lib/countdown'
 import { renderPrevisaoImagem } from '../lib/jogoImagem'
 import { compararComResultado } from '../lib/previsao'
 import { nomeDaEquipa } from '../lib/substitutions'
@@ -119,12 +120,9 @@ export default function PrevisaoDaPelada({ jogo, compacto = false }) {
               forecast: f,
               nomeA,
               nomeB,
-              quando: jogo?.kickoff_at
-                ? new Date(jogo.kickoff_at).toLocaleDateString('pt-PT', {
-                    day: 'numeric',
-                    month: 'long',
-                  })
-                : '',
+              // mesma fonte de datas que o resto da app: o fuso e o da pelada,
+              // nao o do browser de quem partilha
+              quando: formatarDataDoJogo(jogo?.kickoff_at).data,
               comparacao,
             })
           }

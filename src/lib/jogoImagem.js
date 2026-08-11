@@ -8,6 +8,7 @@
 // data URLs guardadas na própria base, portanto não contaminam o canvas.
 
 import { carregarImagem, roundRect } from './card'
+import { formatarDataDoJogo } from './countdown'
 import { siglaDaPosicao } from './positions'
 
 const W = 1080
@@ -77,7 +78,7 @@ function quebrar(ctx, texto, maxW) {
 }
 
 // Uma equipa em coluna: foto pequena, nome, posição e overall.
-function desenharEquipa(ctx, { lineup, fotos, x, largura, y, cor, nome, golos }) {
+function desenharEquipa(ctx, { lineup, fotos, x, largura, y, cor, nome, golos, foto = 46, alturaLinha = 62 }) {
   ctx.textAlign = 'center'
   ctx.fillStyle = cor
   const t = ajustar(ctx, nome.toUpperCase(), largura, 700, 26, 14)
@@ -89,8 +90,6 @@ function desenharEquipa(ctx, { lineup, fotos, x, largura, y, cor, nome, golos })
   ctx.fillText(String(golos), x + largura / 2, y + 60)
 
   let linha = y + 100
-  const alturaLinha = 62
-  const foto = 46
 
   lineup.forEach((j, i) => {
     const fy = linha + 6
@@ -104,7 +103,7 @@ function desenharEquipa(ctx, { lineup, fotos, x, largura, y, cor, nome, golos })
       ctx.fillStyle = 'rgba(200,225,250,0.9)'
       ctx.textAlign = 'center'
       ctx.font = FONTE(700, 18)
-      ctx.fillText(iniciais(j.name), x + foto / 2, fy + foto / 2 + 7)
+      ctx.fillText(iniciais(j.name), x + foto / 2, fy + foto / 2 + foto * 0.16)
     }
     ctx.strokeStyle = 'rgba(120,200,255,0.35)'
     ctx.lineWidth = 1.2
@@ -115,20 +114,20 @@ function desenharEquipa(ctx, { lineup, fotos, x, largura, y, cor, nome, golos })
     ctx.fillStyle = '#fff'
     const tx = x + foto + 12
     const maxNome = largura - foto - 12 - 44
-    const tn = ajustar(ctx, j.name, maxNome, 600, 22, 12)
+    const tn = ajustar(ctx, j.name, maxNome, 600, foto > 52 ? 27 : 22, 12)
     ctx.font = FONTE(600, tn)
-    ctx.fillText(j.name, tx, fy + 21)
+    ctx.fillText(j.name, tx, fy + foto * 0.46)
 
     ctx.fillStyle = CYAN
-    ctx.font = FONTE(600, 15)
-    ctx.fillText(siglaDaPosicao(j.slot), tx, fy + 41)
+    ctx.font = FONTE(600, foto > 52 ? 18 : 15)
+    ctx.fillText(siglaDaPosicao(j.slot), tx, fy + foto * 0.88)
 
     const ovr = j.slot === 'GK' ? (j.gkOverall ?? j.overall) : j.overall
     if (ovr != null) {
       ctx.textAlign = 'right'
       ctx.fillStyle = 'rgba(225,235,250,0.85)'
-      ctx.font = FONTE(800, 22)
-      ctx.fillText(String(Math.round(ovr)), x + largura, fy + 30)
+      ctx.font = FONTE(800, foto > 52 ? 28 : 22)
+      ctx.fillText(String(Math.round(ovr)), x + largura, fy + foto * 0.66)
     }
 
     linha += alturaLinha
@@ -541,6 +540,172 @@ export async function renderPrevisaoImagem({
   comEspacamento(ctx, 1, () =>
     ctx.fillText('Feita quando o sorteio foi publicado — e falha bastante', meio, H - 34)
   )
+
+  return canvas.toDataURL('image/jpeg', 0.92)
+}
+
+// O sorteio como imagem.
+//
+// Substitui o `renderLineupCard` do `share.js`, que era de outra geração: 900px
+// de largura, PNG, 930 KB e uma paleta verde que já não é a das outras artes.
+// Esta segue o molde das restantes — 1080x1350, JPEG, o mesmo azul — para as
+// seis coisas partilháveis da app se parecerem umas com as outras.
+export async function renderSorteioImagem({ jogo, nota = '', marca = 'PELADA BROWNS' } = {}) {
+  try {
+    await document.fonts.ready
+  } catch {
+    /* segue com as fontes por defeito */
+  }
+  const linhas = Array.isArray(jogo?.lineup) ? jogo.lineup : []
+  if (!linhas.length) return null
+
+  const lado = (t) =>
+    linhas
+      .filter((l) => l.team === t)
+      .map((l) => ({
+        id: l.player_id,
+        name: l.name,
+        photo: l.photo,
+        slot: l.assigned_position,
+        overall: l.overall_at_draw,
+        vez: l.gk_order,
+      }))
+      // o goleiro à cabeça, como em todo o resto do projeto
+      .sort((a, b) => (a.slot === 'GK' ? -1 : b.slot === 'GK' ? 1 : 0))
+
+  const A = lado('A')
+  const B = lado('B')
+  const fotosA = await Promise.all(A.map((j) => carregarImagem(j.photo)))
+  const fotosB = await Promise.all(B.map((j) => carregarImagem(j.photo)))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H)
+  bg.addColorStop(0, AZUL)
+  bg.addColorStop(0.55, '#081029')
+  bg.addColorStop(1, '#060b1d')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+
+  const luz = ctx.createRadialGradient(W / 2, -40, 0, W / 2, -40, W * 0.85)
+  luz.addColorStop(0, 'rgba(53,167,255,0.2)')
+  luz.addColorStop(1, 'rgba(53,167,255,0)')
+  ctx.fillStyle = luz
+  ctx.fillRect(0, 0, W, H * 0.6)
+
+  ctx.strokeStyle = 'rgba(90,200,255,0.22)'
+  ctx.lineWidth = 3
+  roundRect(ctx, 8, 8, W - 16, H - 16, 26)
+  ctx.stroke()
+
+  // ---- cabeçalho ----
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(140,190,240,0.8)'
+  ctx.font = FONTE(700, 22)
+  comEspacamento(ctx, 6, () => ctx.fillText(marca.toUpperCase(), W / 2, 64))
+
+  ctx.fillStyle = '#fff'
+  ctx.font = FONTE(800, 64)
+  ctx.fillText('SORTEIO', W / 2, 136)
+
+  // `formatarDataDoJogo` e nao `toLocaleString`: aquela formata no fuso da
+  // pelada (TIMEZONE, em countdown.js) e esta usa o do browser. A imagem dizia
+  // "20:30" para um jogo que a app mostra as 19:30 — uma hora de diferenca num
+  // cartaz que vai para o grupo dizer a que horas e o jogo.
+  const quando = formatarDataDoJogo(jogo?.kickoff_at).completo
+  if (quando) {
+    ctx.fillStyle = OURO
+    ctx.font = FONTE(700, 22)
+    const t = ajustar(ctx, quando.toUpperCase(), W - PAD * 2, 700, 22, 13)
+    ctx.font = FONTE(700, t)
+    comEspacamento(ctx, 2, () => ctx.fillText(quando.toUpperCase(), W / 2, 180))
+  }
+  if (jogo?.location) {
+    ctx.fillStyle = 'rgba(200,225,250,0.75)'
+    ctx.font = FONTE(600, 22)
+    ctx.fillText(jogo.location, W / 2, 214)
+  }
+
+  // ---- equilíbrio ----
+  const a = Number(jogo?.team_a_overall || 0)
+  const b = Number(jogo?.team_b_overall || 0)
+  if (a || b) {
+    const pct = jogo?.balance_pct == null ? null : Number(jogo.balance_pct)
+    const txt = pct == null ? `${a} vs ${b}` : `${a} vs ${b}  ·  EQUILÍBRIO ${pct.toFixed(1)}%`
+    ctx.fillStyle = 'rgba(52,208,88,0.10)'
+    const larg = Math.min(W - PAD * 2, 620)
+    roundRect(ctx, (W - larg) / 2, 240, larg, 46, 23)
+    ctx.fill()
+    ctx.fillStyle = '#34D058'
+    ctx.font = FONTE(700, 22)
+    ctx.fillText(txt, W / 2, 271)
+  }
+
+  // ---- as duas equipas ----
+  const col = (W - PAD * 2 - 40) / 2
+  const y0 = 330
+  // Fotos maiores do que nos jogos simulados: aqui nao ha barras de
+  // probabilidade a ocupar espaco, e sem isto sobrava um quinto da imagem em
+  // branco no fundo. Numa arte para o grupo, o espaco que sobra e melhor
+  // gasto a mostrar as caras.
+  const linhaAlta = { foto: 60, alturaLinha: 80 }
+  desenharEquipa(ctx, { lineup: A, fotos: fotosA, x: PAD, largura: col, y: y0,
+    cor: '#B9C4CC', nome: 'Pretos', golos: a, ...linhaAlta })
+  const fim = desenharEquipa(ctx, { lineup: B, fotos: fotosB, x: PAD + col + 40, largura: col,
+    y: y0, cor: '#F2F5F2', nome: 'Brancos', golos: b, ...linhaAlta })
+
+  // ---- rodízio de goleiro ----
+  let y = fim + 40
+  if (jogo?.gk_mode === 'ROTATING') {
+    const ordem = (t) =>
+      linhas
+        .filter((l) => l.team === t && l.gk_order)
+        .sort((x, z) => x.gk_order - z.gk_order)
+        .map((l) => l.name)
+        .join(' → ')
+
+    ctx.textAlign = 'center'
+    ctx.fillStyle = 'rgba(140,190,240,0.85)'
+    ctx.font = FONTE(700, 22)
+    const mins = jogo.gk_rotation_minutes ? ` — ${jogo.gk_rotation_minutes} MIN` : ''
+    comEspacamento(ctx, 2, () => ctx.fillText(`RODÍZIO DE GOLEIRO${mins}`, W / 2, y))
+    y += 34
+
+    for (const [nome, lista] of [['Pretos', ordem('A')], ['Brancos', ordem('B')]]) {
+      if (!lista) continue
+      ctx.textAlign = 'left'
+      ctx.fillStyle = 'rgba(120,195,255,0.95)'
+      ctx.font = FONTE(700, 19)
+      ctx.fillText(`${nome}:`, PAD, y + 18)
+      ctx.fillStyle = 'rgba(225,235,250,0.85)'
+      ctx.font = FONTE(600, 19)
+      for (const linha of quebrar(ctx, lista, W - PAD * 2 - 110)) {
+        ctx.fillText(linha, PAD + 110, y + 18)
+        y += 26
+      }
+      y += 12
+    }
+  }
+
+  // ---- nota do admin (a resenha), se houver ----
+  if (nota) {
+    ctx.textAlign = 'center'
+    ctx.fillStyle = 'rgba(225,235,250,0.8)'
+    ctx.font = FONTE(600, 20)
+    y += 10
+    for (const linha of quebrar(ctx, nota, W - PAD * 2 - 40)) {
+      ctx.fillText(linha, W / 2, y)
+      y += 28
+    }
+  }
+
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(140,190,240,0.55)'
+  ctx.font = FONTE(600, 17)
+  comEspacamento(ctx, 1, () => ctx.fillText(marca.toUpperCase(), W / 2, H - 34))
 
   return canvas.toDataURL('image/jpeg', 0.92)
 }

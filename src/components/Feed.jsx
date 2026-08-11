@@ -4,13 +4,13 @@ import {
   copiarTexto,
   partilharImagem,
   partilharTexto,
-  renderLineupCard,
   renderRoundCard,
   resumoSorteio,
 } from '../lib/share'
 import { nomeDaEquipa } from '../lib/substitutions'
 import { resultadoBloqueado } from '../lib/voting'
 import Avatar from './Avatar'
+import { renderSorteioImagem } from '../lib/jogoImagem'
 import PrevisaoDaPelada from './PrevisaoDaPelada'
 import { colors, fonts, chip } from '../theme'
 
@@ -308,7 +308,7 @@ function Publicacao({ post, jogo, jogadores, onProfile, onAbrirJogo, bloqueado, 
       }
       const dataUrl =
         post.type === 'SORTEIO'
-          ? await renderLineupCard(jogoPartilha, post.body || '')
+          ? await renderSorteioImagem({ jogo: jogoPartilha, nota: post.body || '' })
           : await renderRoundCard({
               played_at: p.played_at,
               team_a_name: 'Pretos',

@@ -3,7 +3,7 @@ import { estadoDoJogo, formatarDataDoJogo } from '../lib/countdown'
 import { avaliarEquilibrio } from '../lib/drawEngine'
 import { nomeDaPosicao } from '../lib/positions'
 import { vantagem } from '../lib/substitutions'
-import { renderLineupCard } from '../lib/share'
+import { renderSorteioImagem } from '../lib/jogoImagem'
 import BotaoPartilhar from './BotaoPartilhar'
 import Countdown from './Countdown'
 import FootballPitch from './FootballPitch'
@@ -390,7 +390,7 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
           nome={`sorteio-${(jogo.kickoff_at || '').slice(0, 10) || 'pelada'}`}
           titulo="Pelada Browns — Sorteio"
           rotulo="📲 Partilhar sorteio"
-          gerar={() => renderLineupCard(jogo, '')}
+          gerar={() => renderSorteioImagem({ jogo })}
         />
       )}
 
