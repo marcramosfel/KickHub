@@ -1265,6 +1265,70 @@ body {
 }
 
 /* -----------------------------------------------------------------------------
+   8d. Simulador — montar as equipas a mao
+   -------------------------------------------------------------------------- */
+.pb-sim-linha {
+  display: grid;
+  grid-template-columns: 3.4em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.pb-sim-slot {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--pb-muted);
+}
+
+.pb-sim-vaga {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  /* 44px: alvo de toque confortavel, que e o minimo desta app */
+  min-height: 44px;
+  padding: 5px 9px;
+  border: 1px dashed var(--pb-line);
+  border-radius: var(--pb-radius-sm);
+  background: transparent;
+  color: var(--pb-text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pb-sim-vaga:hover {
+  border-color: var(--pb-grass-line);
+}
+
+.pb-sim-vaga:focus-visible {
+  outline: 2px solid var(--pb-grass);
+  outline-offset: 2px;
+}
+
+.pb-sim-tirar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid var(--pb-line);
+  border-radius: var(--pb-radius-sm);
+  background: transparent;
+  color: var(--pb-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pb-sim-tirar:hover {
+  color: var(--pb-error);
+  border-color: var(--pb-error);
+}
+
+/* -----------------------------------------------------------------------------
    9. Utilitarios curtos
    -------------------------------------------------------------------------- */
 /* Esconder so dentro da media query certa, em vez de esconder por omissao e

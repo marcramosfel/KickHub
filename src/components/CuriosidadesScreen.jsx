@@ -3,6 +3,7 @@ import { destaquesDoDuelo, dueloDosPerebas, melhorJogoPossivel, numerosDoDuelo }
 import { nomeDaPosicao } from '../lib/positions'
 import Avatar from './Avatar'
 import FootballPitch from './FootballPitch'
+import ListaPorEquipa from './ListaPorEquipa'
 import { colors, styles } from '../theme'
 
 // As Curiosidades da pelada.
@@ -79,25 +80,6 @@ function Comparacao({ a, b, nomeA, nomeB }) {
   )
 }
 
-function ListaDeNomes({ titulo, itens, icone }) {
-  if (!itens?.length) return null
-  return (
-    <p style={{ fontSize: 13, margin: '0 0 4px' }}>
-      <span aria-hidden style={{ marginRight: 6 }}>
-        {icone}
-      </span>
-      <span style={{ color: colors.muted }}>{titulo}: </span>
-      {itens.map((x, i) => (
-        <span key={x.id}>
-          {i > 0 && ', '}
-          {x.name}
-          {x.total > 1 && ` (${x.total})`}
-        </span>
-      ))}
-    </p>
-  )
-}
-
 function Duelo({ duelo, titulo, subtitulo, icone, onOutro, onAbrirJogador }) {
   if (!duelo?.completo) {
     return (
@@ -161,11 +143,21 @@ function Duelo({ duelo, titulo, subtitulo, icone, onOutro, onAbrirJogador }) {
       <Comparacao a={s.forcas.a} b={s.forcas.b} nomeA={s.nomeA} nomeB={s.nomeB} />
 
       <div>
-        <ListaDeNomes titulo="Gols" icone="⚽" itens={[...s.marcadores.a, ...s.marcadores.b]} />
-        <ListaDeNomes
+        <ListaPorEquipa
+          titulo="Gols"
+          icone="⚽"
+          a={s.marcadores.a}
+          b={s.marcadores.b}
+          nomeA={s.nomeA}
+          nomeB={s.nomeB}
+        />
+        <ListaPorEquipa
           titulo="Assistências"
           icone="🎯"
-          itens={[...s.assistencias.a, ...s.assistencias.b]}
+          a={s.assistencias.a}
+          b={s.assistencias.b}
+          nomeA={s.nomeA}
+          nomeB={s.nomeB}
         />
         {s.craque && (
           <p style={{ fontSize: 13, margin: '0 0 4px' }}>

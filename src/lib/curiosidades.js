@@ -22,9 +22,8 @@
 //     probabilidades;
 //   - a regra de elegibilidade é a mesma da `selecao.js`.
 
-import { N_GOLEIROS, sortearEquipas, sortearEquipasRotativo } from './drawEngine.js'
 import { FORMACOES } from './formacoes.js'
-import { PLAYER_TYPE } from './positions.js'
+import { comEstatisticas, ehGoleiro, repartirEquilibrado, requisitos } from './repartir.js'
 import { simularPartida } from './simulador.js'
 
 const num = (v) => {
@@ -40,8 +39,6 @@ const num = (v) => {
 // semanas e ainda não foi avaliada, o que não tem piada nenhuma para elas.
 const elegivel = (j) => j && num(j.overall) != null && j.provisorio !== true
 
-const ehGoleiro = (j) => j.playerType === PLAYER_TYPE.GOALKEEPER || j.primaryPosition === 'GK'
-
 const overallDe = (j) => num(j.gkOverall ?? j.overall) ?? 0
 
 // Devolve os `n` primeiros por overall — do melhor para o pior, ou ao
@@ -51,21 +48,6 @@ function extremos(lista, n, melhores) {
     melhores ? overallDe(b) - overallDe(a) : overallDe(a) - overallDe(b)
   )
   return ordenada.slice(0, n)
-}
-
-// O sorteio devolve jogadores normalizados (id, nome, overall, posições) e
-// deixa cair as estatísticas — que é precisamente do que o simulador precisa.
-// Isto volta a colar cada um ao seu registo completo, ficando com o lugar que
-// o sorteio lhe deu.
-function comEstatisticas(jogadores, originais) {
-  const porId = new Map(originais.map((j) => [j.id, j]))
-  return jogadores.map((j) => ({
-    ...(porId.get(j.id) || {}),
-    id: j.id,
-    name: j.name,
-    photo: j.photo ?? porId.get(j.id)?.photo ?? null,
-    slot: j.assignedPosition,
-  }))
 }
 
 // Monta um duelo entre os melhores (ou os piores) e simula-o.
@@ -82,49 +64,32 @@ export function montarDuelo({
 } = {}) {
   const lista = (Array.isArray(jogadores) ? jogadores : []).filter(elegivel)
   const formacao = FORMACOES[tamanho] || FORMACOES[7]
-  const nCampo = formacao.slots.length * 2
-
+  const req = requisitos(tamanho)
   const gks = lista.filter(ehGoleiro)
   const campo = lista.filter((j) => !ehGoleiro(j))
-  // No rodízio ninguém é goleiro fixo: as duas equipas saem de um lote só, e
-  // a baliza roda lá dentro.
-  const nRodizio = (formacao.slots.length + 1) * 2
 
-  // Qual dos dois modos, decidido pelo plantel e não por um pressuposto.
-  //
-  // Esta pelada joga com goleiro rotativo e tem UM jogador registado como
-  // goleiro — exigir dois deixava as Curiosidades permanentemente vazias, que
-  // foi exatamente o que aconteceu à primeira. Onde houver goleiros fixos que
-  // cheguem, usa-se o sorteio de goleiros fixos, que é melhor.
-  const modoFixo = gks.length >= N_GOLEIROS && campo.length >= nCampo
-  const modoRodizio = !modoFixo && lista.length >= nRodizio
+  // Quais entram: os N melhores (ou os N piores). A escolha do MODO — goleiros
+  // fixos ou rodizio — e de quem reparte, e vive no `repartir.js`.
+  const modoFixo = gks.length >= req.goleirosFixos && campo.length >= req.campoFixo
+  const escolhidos = modoFixo
+    ? {
+        goleiros: extremos(gks, req.goleirosFixos, melhores),
+        campo: extremos(campo, req.campoFixo, melhores),
+      }
+    : { goleiros: [], campo: extremos(lista, req.rodizio, melhores) }
 
-  if (!modoFixo && !modoRodizio) {
+  const r = repartirEquilibrado({
+    jogadores: [...escolhidos.goleiros, ...escolhidos.campo],
+    tamanho,
+    seed,
+  })
+  if (!r.ok) {
     return {
       completo: false,
-      motivo:
-        `Faltam jogadores com overall calculado: são precisos ${nRodizio} e há ` +
-        `${lista.length}.`,
+      motivo: `Faltam jogadores com overall calculado: ${r.motivo}`,
     }
   }
-
-  const escolhidos = modoFixo
-    ? { goleiros: extremos(gks, N_GOLEIROS, melhores), campo: extremos(campo, nCampo, melhores) }
-    : { goleiros: [], campo: extremos(lista, nRodizio, melhores) }
-
-  let sorteio
-  try {
-    sorteio = modoFixo
-      ? sortearEquipas({
-          goalkeepers: escolhidos.goleiros,
-          fieldPlayers: escolhidos.campo,
-          seed,
-          tamanho,
-        })
-      : sortearEquipasRotativo({ jogadores: escolhidos.campo, seed, tamanho })
-  } catch (err) {
-    return { completo: false, motivo: err?.message || 'Não foi possível montar as equipas.' }
-  }
+  const sorteio = r.sorteio
 
   const originais = [...escolhidos.goleiros, ...escolhidos.campo]
   const lineupA = comEstatisticas(sorteio.teamA.jogadores, originais)
@@ -157,7 +122,7 @@ export function montarDuelo({
     formacao: formacao.nome,
     // A UI diz qual foi, senão "quem é o goleiro?" fica sem resposta num
     // grupo que joga com a baliza a rodar.
-    gkMode: sorteio.gkMode,
+    gkMode: r.gkMode,
   }
 }
 

@@ -46,6 +46,7 @@ import QuickLogin from './components/QuickLogin'
 import RankingScreen from './components/RankingScreen'
 import RateScreen from './components/RateScreen'
 import SelecaoDaPelada from './components/SelecaoDaPelada'
+import SimuladorScreen from './components/SimuladorScreen'
 import StatsScreen from './components/StatsScreen'
 import VotingBanner from './components/VotingBanner'
 import { colors, styles } from './theme'
@@ -61,6 +62,7 @@ const VIEWS_COM_SHELL = [
   'history',
   'selecao',
   'curiosidades',
+  'simulador',
   'profile',
 ]
 
@@ -576,6 +578,15 @@ export default function App() {
           pôster. Tocar num jogador abre o card dele, como no resto da app. */}
       {view === 'selecao' && (
         <SelecaoDaPelada jogadores={jogadores} onAbrirJogador={abrirCard} />
+      )}
+
+      {view === 'simulador' && (
+        <>
+          <h1 style={{ ...styles.title, fontSize: 22, marginBottom: 4 }}>
+            Simulador <span style={{ color: colors.grass }}>🎮</span>
+          </h1>
+          <SimuladorScreen jogadores={jogadores} onAbrirJogador={abrirCard} />
+        </>
       )}
 
       {view === 'curiosidades' && (
