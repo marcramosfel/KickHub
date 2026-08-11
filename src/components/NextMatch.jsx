@@ -258,119 +258,126 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
               o jogador quer saber ao abrir um sorteio com rodízio. */}
           <RodizioTimeline jogo={jogo} meuId={meuId} compacto />
 
-          {temEscalacao && (
-            <div className="pb-card">
-              <div
-                style={{
-                  fontFamily: fonts.title,
-                  letterSpacing: 1,
-                  fontSize: 14,
-                  marginBottom: 10,
-                }}
-              >
-                Escalações
-              </div>
-              <div className="pb-cards" style={{ gap: 12 }}>
-                {['A', 'B'].map((lado) => {
-                  const t = lado === 'A' ? TIME_A : TIME_B
-                  const lista = jogo.lineup.filter((l) => l.team === lado)
-                  if (!lista.length) return null
-                  return (
-                    <div key={lado}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: t.cor,
-                          letterSpacing: 1,
-                          textTransform: 'uppercase',
-                          marginBottom: 6,
-                        }}
-                      >
-                        {t.nome}
-                      </div>
-                      <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {lista.map((l) => (
-                          <li
-                            key={l.player_id}
-                            style={{
-                              display: 'flex',
-                              gap: 8,
-                              alignItems: 'baseline',
-                              fontSize: 13,
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 10,
-                                color: colors.muted,
-                                width: 38,
-                                flexShrink: 0,
-                                letterSpacing: 0.5,
-                              }}
-                              title={nomeDaPosicao(l.assigned_position)}
-                            >
-                              {l.assigned_position}
-                            </span>
-                            <span className="pb-truncate" style={{ flex: 1 }}>
-                              {l.name}
-                              {rodizio && l.gk_order === 1 && (
-                                <span
-                                  style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
-                                  title="Inicia no gol"
-                                >
-                                  🧤
-                                </span>
-                              )}
-                              {l.substitute_for && (
-                                <span
-                                  style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
-                                  title={`Entrou no lugar de ${l.substitute_for} (desistência)`}
-                                >
-                                  🔄
-                                </span>
-                              )}
-                            </span>
-                            {l.overall_at_draw != null && (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  color: colors.teamA,
-                                  fontWeight: 700,
-                                  fontVariantNumeric: 'tabular-nums',
-                                }}
-                              >
-                                {l.overall_at_draw}
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )
-                })}
-              </div>
-              <p style={{ ...styles.mutedText, fontSize: 11, marginTop: 10 }}>
-                O overall mostrado é o do momento do sorteio — não muda quando as estatísticas
-                forem recalculadas.
-                {jogo.lineup.some((l) => l.substitute_for) && ' 🔄 = entrou por desistência.'}
-              </p>
-            </div>
-          )}
-
-          {estado.estado === 'aguarda-resultado' && (
-            <div className="pb-card" style={{ borderColor: colors.teamA }}>
-              {/* "Campeões da semana" era uma secção da Home que deixou de
-                  existir quando a Home passou a mostrar só o estado atual —
-                  mandar lá quem lê isto era mandá-lo a lado nenhum. */}
-              <p style={{ fontSize: 14 }}>
-                ⏳ O jogo já foi. Assim que o admin registar o resultado, ele aparece aqui e no
-                histórico.
-              </p>
-            </div>
-          )}
         </div>
       </div>
       </div>
+
+      {/* As escalacoes tambem saem da coluna estreita.
+          Eram o bloco mais alto da barra lateral (436px a 1400px) e, como o
+          card do campo acompanha a altura da coluna, eram elas que abriam os
+          101px de vazio por cima e por baixo do campo. A largura toda tambem
+          lhes assenta melhor: sao duas listas lado a lado, e em 445px ficavam
+          espremidas uma sobre a outra. */}
+      {temEscalacao && (
+        <div className="pb-card">
+          <div
+            style={{
+              fontFamily: fonts.title,
+              letterSpacing: 1,
+              fontSize: 14,
+              marginBottom: 10,
+            }}
+          >
+            Escalações
+          </div>
+          <div className="pb-cards" style={{ gap: 12 }}>
+            {['A', 'B'].map((lado) => {
+              const t = lado === 'A' ? TIME_A : TIME_B
+              const lista = jogo.lineup.filter((l) => l.team === lado)
+              if (!lista.length) return null
+              return (
+                <div key={lado}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: t.cor,
+                      letterSpacing: 1,
+                      textTransform: 'uppercase',
+                      marginBottom: 6,
+                    }}
+                  >
+                    {t.nome}
+                  </div>
+                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {lista.map((l) => (
+                      <li
+                        key={l.player_id}
+                        style={{
+                          display: 'flex',
+                          gap: 8,
+                          alignItems: 'baseline',
+                          fontSize: 13,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: colors.muted,
+                            width: 38,
+                            flexShrink: 0,
+                            letterSpacing: 0.5,
+                          }}
+                          title={nomeDaPosicao(l.assigned_position)}
+                        >
+                          {l.assigned_position}
+                        </span>
+                        <span className="pb-truncate" style={{ flex: 1 }}>
+                          {l.name}
+                          {rodizio && l.gk_order === 1 && (
+                            <span
+                              style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
+                              title="Inicia no gol"
+                            >
+                              🧤
+                            </span>
+                          )}
+                          {l.substitute_for && (
+                            <span
+                              style={{ color: colors.teamA, fontSize: 11, marginLeft: 4 }}
+                              title={`Entrou no lugar de ${l.substitute_for} (desistência)`}
+                            >
+                              🔄
+                            </span>
+                          )}
+                        </span>
+                        {l.overall_at_draw != null && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: colors.teamA,
+                              fontWeight: 700,
+                              fontVariantNumeric: 'tabular-nums',
+                            }}
+                          >
+                            {l.overall_at_draw}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            })}
+          </div>
+          <p style={{ ...styles.mutedText, fontSize: 11, marginTop: 10 }}>
+            O overall mostrado é o do momento do sorteio — não muda quando as estatísticas
+            forem recalculadas.
+            {jogo.lineup.some((l) => l.substitute_for) && ' 🔄 = entrou por desistência.'}
+          </p>
+        </div>
+      )}
+
+      {estado.estado === 'aguarda-resultado' && (
+        <div className="pb-card" style={{ borderColor: colors.teamA }}>
+          {/* "Campeões da semana" era uma secção da Home que deixou de
+              existir quando a Home passou a mostrar só o estado atual —
+              mandar lá quem lê isto era mandá-lo a lado nenhum. */}
+          <p style={{ fontSize: 14 }}>
+            ⏳ O jogo já foi. Assim que o admin registar o resultado, ele aparece aqui e no
+            histórico.
+          </p>
+        </div>
+      )}
 
       {/* A previsao vive FORA da grelha, a largura toda.
           Estava na barra lateral e crescia-a; como o card do campo acompanha a
