@@ -25,11 +25,40 @@ const EQUIPA_B_PADRAO = { nome: '⚪ Brancos', cor: '#F2F5F2' }
 // telemóvel de 320px e um ecrã grande sem nunca transbordar do campo.
 // A largura do chip vem daqui em vez de literal porque a metade dela é
 // precisa para o travão que impede o chip de sair do campo.
-const CHIP = { min: 50, vw: 16.5, max: 82 }
+// Largura do cartão. O coeficiente não é estético: o goleiro e os defesas
+// estão a 19,2% da LARGURA DO CAMPO um do outro, e um cartão mais largo do que
+// isso entra-lhes pela diagonal.
+// A conversão de "% do campo" para vw depende de quanto o campo perde para o
+// padding (16px do contentor + 12px do card, de cada lado). Essa perda é fixa
+// em píxeis, portanto pesa mais quanto menor for o ecrã: a 320px o campo fica
+// com 81% da janela — o pior caso. 0,192 x 0,8125 = 0,156, e ficam 15 para
+// haver folga. (Com 16 o cartão dava 51px a 320px para 50px disponíveis, e
+// eram quatro colisões de 1x4px.)
+const CHIP = { min: 44, vw: 15, max: 92 }
+// Altura do cartão: a largura vezes 4/3, o que lhe dá o formato de carta em
+// vez do círculo que aqui estava antes.
+const CARTAO_H = { min: 59, vw: 20, max: 122 }
+// O nome, por baixo do cartão (19px no telemóvel), mais 10px de folga para as
+// filas não se encostarem.
+// A etiqueta "INICIA NO GOL" não entra nesta conta: vive DENTRO do cartão,
+// justamente para não empurrar a fila de baixo.
+const NOME_H = 29
+// As filas NÃO estão igualmente espaçadas — foi o que me enganou à primeira.
+// Medidas na formação 2-3-1, em percentagem da altura do campo:
+//   GK→DEF 9,0%   DEF→ala 10,8%   ala→ST 11,3%   meio-campo 18,0%
+// A que manda é a DEF→ala: apesar de não ser a mais curta na vertical, é a
+// única em que as colunas ficam a 12,5% da largura uma da outra — perto
+// demais para o cartão, portanto a separação tem mesmo de vir da altura.
+// (A GK→DEF, mais curta, resolve-se na horizontal com o tecto do CHIP.)
+// 1 / 0,108 = 9,26.
+const FILA_APERTADA = 9.26
+
 const T = {
   chip: `clamp(${CHIP.min}px, ${CHIP.vw}vw, ${CHIP.max}px)`,
   meioChip: `clamp(${CHIP.min / 2}px, ${CHIP.vw / 2}vw, ${CHIP.max / 2}px)`,
-  avatar: 'clamp(26px, 8.5vw, 42px)',
+  cartaoH: `clamp(${CARTAO_H.min}px, ${CARTAO_H.vw}vw, ${CARTAO_H.max}px)`,
+  // Um raio só, para o cartão e para todos os aros que o acompanham.
+  raio: '10px',
   nome: 'clamp(9px, 2.9vw, 12px)',
   badge: 'clamp(15px, 4.6vw, 21px)',
   badgeTexto: 'clamp(8px, 2.4vw, 11px)',
@@ -316,7 +345,7 @@ function Cara({ name, photo, cor }) {
   const base = {
     width: '100%',
     height: '100%',
-    borderRadius: '50%',
+    borderRadius: T.raio,
     border: `2px solid ${cor}`,
     display: 'block',
   }
@@ -350,7 +379,7 @@ function Cara({ name, photo, cor }) {
   )
 }
 
-// Lugar por preencher: círculo tracejado com a sigla da posição.
+// Lugar por preencher: cartão tracejado com a sigla da posição.
 function Vazio({ slot }) {
   return (
     <span
@@ -359,7 +388,7 @@ function Vazio({ slot }) {
       style={{
         width: '100%',
         height: '100%',
-        borderRadius: '50%',
+        borderRadius: T.raio,
         border: `2px dashed ${colors.line}`,
         background: 'rgba(6, 19, 13, 0.35)',
         display: 'flex',
@@ -378,7 +407,7 @@ function Vazio({ slot }) {
 
 const anelBase = {
   position: 'absolute',
-  borderRadius: '50%',
+  borderRadius: T.raio,
   pointerEvents: 'none',
 }
 
@@ -399,7 +428,10 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
 
   const conteudo = (
     <>
-      <span className="fp-av" style={{ position: 'relative', width: T.avatar, height: T.avatar }}>
+      {/* O cartão ocupa a largura toda do chip; a altura dá-lhe o formato de
+          carta. Os emblemas ficam DENTRO dele — pendurados nos cantos, como
+          estavam no círculo, saíam-lhe fora da moldura. */}
+      <span className="fp-av" style={{ position: 'relative', width: '100%', height: T.cartaoH }}>
         {jogador ? <Cara name={jogador.name} photo={jogador.photo} cor={cor} /> : <Vazio slot={slot} />}
 
         {jogador?.fora && (
@@ -432,8 +464,8 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
             aria-hidden
             style={{
               position: 'absolute',
-              top: -3,
-              left: -3,
+              top: 3,
+              left: 3,
               width: T.icone,
               height: T.icone,
               borderRadius: '50%',
@@ -470,8 +502,8 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
             title={`${jogador.name} é o ${proximaVez}.º a ir ao gol`}
             style={{
               position: 'absolute',
-              top: -3,
-              right: -3,
+              top: 3,
+              right: 3,
               width: T.icone,
               height: T.icone,
               borderRadius: '50%',
@@ -496,8 +528,8 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
             title={`${jogador.name} entrou no lugar de ${jogador.substitui} (desistência)`}
             style={{
               position: 'absolute',
-              top: -3,
-              right: -3,
+              top: 3,
+              right: 3,
               width: T.icone,
               height: T.icone,
               borderRadius: '50%',
@@ -522,8 +554,9 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
             aria-hidden
             style={{
               position: 'absolute',
-              bottom: -4,
-              right: -4,
+              // no goleiro do rodízio sobe para não ficar debaixo da faixa
+              bottom: iniciaNoGol ? `calc(6px + ${T.sigla} * 1.2 + 2px)` : 3,
+              right: 3,
               minWidth: T.badge,
               height: T.badge,
               padding: '0 3px',
@@ -541,6 +574,42 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
             }}
           >
             {overall}
+          </span>
+        )}
+
+        {/* Faixa SOBRE o cartão, e não empilhada por baixo do nome como
+            estava: ali crescia o marcador para baixo e, sendo mais larga que
+            o cartão, entrava na diagonal pelos cartões dos defesas — quatro
+            colisões de 7×17px, uma por defesa de cada equipa. Aqui dentro
+            não acrescenta altura nenhuma ao marcador. */}
+        {iniciaNoGol && (
+          <span
+            style={{
+              position: 'absolute',
+              left: 3,
+              right: 3,
+              bottom: 3,
+              padding: '1px 2px',
+              borderRadius: 5,
+              background: colors.teamA,
+              color: '#06130D',
+              fontFamily: fonts.title,
+              fontSize: T.sigla,
+              fontWeight: 700,
+              letterSpacing: 0.2,
+              lineHeight: 1.2,
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {/* "INICIA NO GOL" saía cortado ("INICIA NO G…") nos 48px de
+                cartão de um ecrã de 320px. Aqui dentro chega isto: o aro
+                amarelo, a luva na posição e a legenda por cima do campo já
+                dizem o resto, e o texto completo continua na dica, no
+                `title` e no `aria-label`. */}
+            NO GOL
           </span>
         )}
       </span>
@@ -566,26 +635,6 @@ function Chip({ jogador, slot, cor, pos, destacado, showOverall, interactive, on
           }}
         >
           {nomeCurto(jogador.name)}
-        </span>
-      )}
-
-      {iniciaNoGol && (
-        <span
-          style={{
-            display: 'block',
-            marginTop: 2,
-            padding: '1px 6px',
-            borderRadius: 6,
-            background: colors.teamA,
-            color: '#06130D',
-            fontFamily: fonts.title,
-            fontSize: T.sigla,
-            fontWeight: 700,
-            letterSpacing: 0.5,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          INICIA NO GOL
         </span>
       )}
 
@@ -773,6 +822,16 @@ function FootballPitch({
     position: 'relative',
     width: '100%',
     aspectRatio: horizontal ? '3 / 2' : '2 / 3',
+    // O rácio sozinho não chega num ecrã estreito. A 375px dava 474px de
+    // altura, ou seja ~60px entre filas — menos que o cartão (90px) — e os
+    // cartões das filas vizinhas montavam-se uns nos outros.
+    // Isto reserva a altura que as oito filas precisam. Só atua onde faz
+    // falta: a partir de uns 700px de largura o rácio já pede mais altura do
+    // que este mínimo e é ele que manda, portanto o desktop fica intacto.
+    // No campo horizontal as filas correm ao longo do x e isto não se aplica.
+    ...(horizontal
+      ? null
+      : { minHeight: `calc((${T.cartaoH} + ${NOME_H}px) * ${FILA_APERTADA})` }),
     borderRadius: 16,
     overflow: 'hidden',
     border: `1px solid ${colors.line}`,

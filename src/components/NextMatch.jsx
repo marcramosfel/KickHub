@@ -204,7 +204,7 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
   return (
     <div className="pb-grid">
       <div className="pb-col-8 pb-col-md-12">
-        <div className="pb-card" style={{ padding: 12 }}>
+        <div className="pb-card pb-fill-row" style={{ padding: 12 }}>
           {rodizio && (
             <p
               style={{
@@ -218,24 +218,28 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
               {jogo.gk_rotation_minutes ? `, troca a cada ${jogo.gk_rotation_minutes} min` : ''}
             </p>
           )}
-          {temEscalacao ? (
-            <FootballPitch
-              lineup={jogo.lineup}
-              showOverall
-              interactive={!!onPlayerClick}
-              onPlayerClick={onPlayerClick}
-              gkMode={jogo.gk_mode}
-            />
-          ) : (
-            <div style={{ textAlign: 'center', padding: 30 }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>
-                🎲
+          {/* O aviso do rodízio fica colado ao topo; é o campo que se centra no
+              espaço que sobrar quando a barra lateral for mais alta. */}
+          <div className="pb-fill-center">
+            {temEscalacao ? (
+              <FootballPitch
+                lineup={jogo.lineup}
+                showOverall
+                interactive={!!onPlayerClick}
+                onPlayerClick={onPlayerClick}
+                gkMode={jogo.gk_mode}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: 30 }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }} aria-hidden>
+                  🎲
+                </div>
+                <p style={styles.mutedText}>
+                  O jogo está marcado, mas as equipas ainda não foram sorteadas.
+                </p>
               </div>
-              <p style={styles.mutedText}>
-                O jogo está marcado, mas as equipas ainda não foram sorteadas.
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

@@ -275,6 +275,35 @@ body {
   height: 100%;
 }
 
+/* Card que acompanha a altura da fila, com o miolo centrado no espaco que
+   sobra.
+   Serve a fila do campo (coluna 8) mais a barra lateral (coluna 4): o campo
+   tem racio fixo, portanto a altura dele vem da largura da COLUNA e nao do
+   que esta ao lado. A barra lateral, que cresce com o numero de cards, e
+   quase sempre a mais alta — e ficava um buraco de ~285px por baixo do campo.
+   A coluna ja esticava (e o comportamento normal de uma grelha); era o card
+   la dentro que nao acompanhava.
+   Nao se usou `.pb-row-align` porque o seletor dela apanha `.pb-card`
+   DESCENDENTE, e isso punha `height:100%` tambem nos quatro cards empilhados
+   da barra lateral.
+   So a partir dos 1024px: abaixo disso as colunas empilham (pb-col-md-12) e
+   nao ha fila nenhuma para acompanhar. */
+@media (min-width: 1024px) {
+  .pb-fill-row {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pb-fill-row > .pb-fill-center {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+}
+
 /* -----------------------------------------------------------------------------
    4. Cards, paineis e espacamento vertical
    -------------------------------------------------------------------------- */
