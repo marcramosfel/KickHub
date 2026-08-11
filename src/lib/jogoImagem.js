@@ -9,6 +9,7 @@
 
 import { carregarImagem, roundRect } from './card'
 import { formatarDataDoJogo } from './countdown'
+import { assisters, awardWinners, formatDia, matchWinner, scorers } from './format'
 import { siglaDaPosicao } from './positions'
 
 const W = 1080
@@ -699,6 +700,168 @@ export async function renderSorteioImagem({ jogo, nota = '', marca = 'PELADA BRO
     for (const linha of quebrar(ctx, nota, W - PAD * 2 - 40)) {
       ctx.fillText(linha, W / 2, y)
       y += 28
+    }
+  }
+
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(140,190,240,0.55)'
+  ctx.font = FONTE(600, 17)
+  comEspacamento(ctx, 1, () => ctx.fillText(marca.toUpperCase(), W / 2, H - 34))
+
+  return canvas.toDataURL('image/jpeg', 0.92)
+}
+
+// "Marcos (2), Wallace" — o número só aparece quando é mais que 1.
+const comContagem = (lista, campo) =>
+  lista.map((p) => (Number(p[campo]) > 1 ? `${p.name} (${p[campo]})` : p.name)).join(', ')
+
+// O resultado de uma rodada como imagem.
+//
+// Substitui o `renderRoundCard` do `share.js` — o último que ainda era da
+// geração antiga (900px, PNG, paleta verde). Mesmo molde das outras seis.
+export async function renderResultadoImagem({ m, marca = 'PELADA BROWNS' } = {}) {
+  try {
+    await document.fonts.ready
+  } catch {
+    /* segue com as fontes por defeito */
+  }
+  if (!m) return null
+
+  const win = matchWinner(m)
+  const gols = scorers(m)
+  const assist = assisters(m)
+  const craque = awardWinners(m.craque)
+  const bagre = awardWinners(m.bagre)
+  const foto = await carregarImagem(m.winner_photo)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H)
+  bg.addColorStop(0, AZUL)
+  bg.addColorStop(0.55, '#081029')
+  bg.addColorStop(1, '#060b1d')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+
+  const luz = ctx.createRadialGradient(W / 2, -40, 0, W / 2, -40, W * 0.85)
+  luz.addColorStop(0, 'rgba(53,167,255,0.2)')
+  luz.addColorStop(1, 'rgba(53,167,255,0)')
+  ctx.fillStyle = luz
+  ctx.fillRect(0, 0, W, H * 0.6)
+
+  ctx.strokeStyle = 'rgba(90,200,255,0.22)'
+  ctx.lineWidth = 3
+  roundRect(ctx, 8, 8, W - 16, H - 16, 26)
+  ctx.stroke()
+
+  // ---- cabeçalho ----
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(140,190,240,0.8)'
+  ctx.font = FONTE(700, 22)
+  comEspacamento(ctx, 6, () => ctx.fillText(marca.toUpperCase(), W / 2, 64))
+
+  ctx.fillStyle = '#fff'
+  ctx.font = FONTE(800, 64)
+  ctx.fillText('RESULTADO', W / 2, 136)
+
+  ctx.fillStyle = OURO
+  ctx.font = FONTE(700, 22)
+  comEspacamento(ctx, 2, () => ctx.fillText(formatDia(m.played_at).toUpperCase(), W / 2, 178))
+
+  // ---- placar ----
+  const nomeA = m.team_a_name || 'Pretos'
+  const nomeB = m.team_b_name || 'Brancos'
+  ctx.fillStyle = 'rgba(255,255,255,0.05)'
+  roundRect(ctx, PAD, 210, W - PAD * 2, 220, 20)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(90,200,255,0.18)'
+  ctx.lineWidth = 1.5
+  roundRect(ctx, PAD, 210, W - PAD * 2, 220, 20)
+  ctx.stroke()
+
+  ctx.fillStyle = 'rgba(200,225,250,0.85)'
+  ctx.font = FONTE(700, 26)
+  ctx.fillText(nomeA, PAD + 150, 266)
+  ctx.fillText(nomeB, W - PAD - 150, 266)
+
+  ctx.fillStyle = '#fff'
+  ctx.font = FONTE(800, 104)
+  ctx.fillText(`${m.score_a ?? 0} × ${m.score_b ?? 0}`, W / 2, 372)
+
+  ctx.fillStyle = win.isDraw ? 'rgba(200,225,250,0.85)' : '#34D058'
+  ctx.font = FONTE(700, 24)
+  ctx.fillText(win.isDraw ? '🤝 EMPATE' : `🥇 ${win.name.toUpperCase()}`, W / 2, 412)
+
+  // ---- secções, medidas ANTES de desenhar ----
+  //
+  // O conteúdo varia muito de rodada para rodada: umas têm foto e resenha,
+  // outras têm quatro golos e mais nada. Desenhando de cima para baixo, uma
+  // rodada curta deixava mais de um terço da imagem em branco no fundo.
+  // Medir primeiro e centrar o bloco no espaço disponível resolve as duas
+  // pontas sem mudar a altura da arte.
+  const seccoes = []
+  const add = (icone, rotulo, texto) => texto && seccoes.push([icone, rotulo, texto])
+  add('⚽', 'GOLS', gols.length ? comContagem(gols, 'goals') : null)
+  add('🅰️', 'ASSISTÊNCIAS', assist.length ? comContagem(assist, 'assists') : null)
+  // Os votos só quando há contagem: "undefined votos" seria pior do que nada.
+  const comVotos = (w) => (w.votes != null ? `${w.names} — ${w.votes} votos` : w.names)
+  add('👑', 'CRAQUE DA RODADA', craque ? comVotos(craque) : null)
+  add('🐟', 'BAGRE DA RODADA', bagre ? comVotos(bagre) : null)
+
+  const ALT_FOTO = 300
+  const medir = (texto, fonte) => {
+    ctx.font = fonte
+    return quebrar(ctx, texto, W - PAD * 2)
+  }
+  const linhasPorSeccao = seccoes.map(([, , t]) => medir(t, FONTE(600, 25)))
+  const linhasNota = m.notes ? medir(`📝 ${m.notes}`, FONTE(600, 22)) : []
+
+  let altura = foto ? ALT_FOTO + 34 : 0
+  linhasPorSeccao.forEach((ls) => {
+    altura += 32 + ls.length * 34 + 18
+  })
+  altura += linhasNota.length * 30
+
+  // A faixa livre vai do fim do placar ao rodapé.
+  const topo = 460
+  const fundo = H - 90
+  let y = Math.max(topo, topo + (fundo - topo - altura) / 2)
+
+  // ---- foto da rodada ----
+  if (foto) {
+    fotoCover(ctx, foto, PAD, y, W - PAD * 2, ALT_FOTO, 18)
+    ctx.strokeStyle = 'rgba(120,200,255,0.3)'
+    ctx.lineWidth = 1.5
+    roundRect(ctx, PAD, y, W - PAD * 2, ALT_FOTO, 18)
+    ctx.stroke()
+    y += ALT_FOTO + 34
+  }
+
+  seccoes.forEach(([icone, rotulo], i) => {
+    ctx.textAlign = 'left'
+    ctx.fillStyle = 'rgba(140,190,240,0.85)'
+    ctx.font = FONTE(700, 20)
+    comEspacamento(ctx, 1.5, () => ctx.fillText(`${icone}  ${rotulo}`, PAD, y))
+    y += 32
+    ctx.fillStyle = '#fff'
+    ctx.font = FONTE(600, 25)
+    for (const linha of linhasPorSeccao[i]) {
+      ctx.fillText(linha, PAD, y)
+      y += 34
+    }
+    y += 18
+  })
+
+  if (linhasNota.length) {
+    ctx.textAlign = 'left'
+    ctx.fillStyle = 'rgba(225,235,250,0.8)'
+    ctx.font = FONTE(600, 22)
+    for (const linha of linhasNota) {
+      ctx.fillText(linha, PAD, y)
+      y += 30
     }
   }
 

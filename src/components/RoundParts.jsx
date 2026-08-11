@@ -4,11 +4,11 @@ import { StarScore } from './StarRating'
 import { assisters, matchWinner, ownScorers, scorers, teamPlayers } from '../lib/format'
 import { ICONE } from '../lib/icones'
 import { GIF_BAGRE, GIF_CRAQUE } from '../lib/gifs'
+import { renderResultadoImagem } from '../lib/jogoImagem'
 import {
   copiarTexto,
   partilharImagem,
   partilharTexto,
-  renderRoundCard,
   resumoRodada,
 } from '../lib/share'
 import { colors, fonts, styles } from '../theme'
@@ -307,7 +307,7 @@ export function ShareRound({ m }) {
   const imagem = async () => {
     setBusy(true)
     try {
-      const url = await renderRoundCard(m)
+      const url = await renderResultadoImagem({ m })
       dizer(AVISOS[await partilharImagem(url, m)] ?? '')
     } catch {
       dizer('Não consegui gerar a imagem.')

@@ -4,13 +4,12 @@ import {
   copiarTexto,
   partilharImagem,
   partilharTexto,
-  renderRoundCard,
   resumoSorteio,
 } from '../lib/share'
 import { nomeDaEquipa } from '../lib/substitutions'
 import { resultadoBloqueado } from '../lib/voting'
 import Avatar from './Avatar'
-import { renderSorteioImagem } from '../lib/jogoImagem'
+import { renderResultadoImagem, renderSorteioImagem } from '../lib/jogoImagem'
 import PrevisaoDaPelada from './PrevisaoDaPelada'
 import { colors, fonts, chip } from '../theme'
 
@@ -309,7 +308,7 @@ function Publicacao({ post, jogo, jogadores, onProfile, onAbrirJogo, bloqueado, 
       const dataUrl =
         post.type === 'SORTEIO'
           ? await renderSorteioImagem({ jogo: jogoPartilha, nota: post.body || '' })
-          : await renderRoundCard({
+          : await renderResultadoImagem({ m: {
               played_at: p.played_at,
               team_a_name: 'Pretos',
               team_b_name: 'Brancos',
@@ -320,7 +319,7 @@ function Publicacao({ post, jogo, jogadores, onProfile, onAbrirJogo, bloqueado, 
               players: [...porNome.values()],
               craque: post.craque?.player_id ? [{ name: post.craque.name, votes: null }] : [],
               bagre: post.bagre?.player_id ? [{ name: post.bagre.name, votes: null }] : [],
-            })
+            } })
       // no telemóvel abre a partilha nativa (WhatsApp); no desktop descarrega
       const r = await partilharImagem(dataUrl, { played_at: p.played_at || post.published_at })
       if (r !== 'cancelado') avisar(r === 'partilhado' ? 'Partilhado!' : 'Imagem gerada!')
