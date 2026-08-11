@@ -1394,3 +1394,79 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* -----------------------------------------------------------------------------
+   8e. Campeonatinho
+   -------------------------------------------------------------------------- */
+.pb-camp-campeao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--pb-line);
+  border-radius: var(--pb-radius);
+  background: rgba(255, 197, 49, 0.06);
+}
+
+.pb-camp-tab {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-camp-tab th,
+.pb-camp-tab td {
+  padding: 6px 7px;
+  text-align: center;
+  border-bottom: 1px solid var(--pb-line);
+  white-space: nowrap;
+}
+
+.pb-camp-tab thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pb-muted);
+}
+
+/* As duas primeiras vao a final — ve-se na tabela sem ser preciso contar. */
+.pb-camp-tab tbody tr.is-finalista th,
+.pb-camp-tab tbody tr.is-finalista td {
+  background: var(--pb-grass-soft);
+}
+
+.pb-camp-jogos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pb-camp-jogo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--pb-line);
+  font-size: 13px;
+}
+
+.pb-camp-jogo strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+}
+
+.pb-camp-jogo.is-final {
+  background: rgba(255, 197, 49, 0.07);
+  border-radius: var(--pb-radius-sm);
+  border-bottom: none;
+}
+
+/* A terceira coluna da grelha ja esta ocupada; o craque passa para a linha
+   de baixo, a ocupar a largura toda. */
+.pb-camp-craque {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--pb-muted);
+  text-align: center;
+}

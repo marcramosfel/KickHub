@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { destaquesDoDuelo, dueloDosPerebas, melhorJogoPossivel, numerosDoDuelo } from '../lib/curiosidades'
 import { nomeDaPosicao } from '../lib/positions'
 import Avatar from './Avatar'
+import Campeonato from './Campeonato'
 import FootballPitch from './FootballPitch'
 import ListaPorEquipa from './ListaPorEquipa'
 import { colors, styles } from '../theme'
@@ -263,6 +264,8 @@ export default function CuriosidadesScreen({ jogadores, onAbrirJogador }) {
         onOutro={() => setTentativaMelhor((n) => n + 1)}
         onAbrirJogador={onAbrirJogador}
       />
+
+      <Campeonato jogadores={jogadores} />
 
       <Duelo
         duelo={perebas}
