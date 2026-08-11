@@ -203,7 +203,8 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
   const rodizio = jogo.gk_mode === 'ROTATING'
 
   return (
-    <div className="pb-grid">
+    <>
+      <div className="pb-grid">
       <div className="pb-col-8 pb-col-md-12">
         <div className="pb-card pb-fill-row" style={{ padding: 12 }}>
           {rodizio && (
@@ -256,10 +257,6 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
           {/* Antes da escalação: quem começa no gol é a primeira coisa que
               o jogador quer saber ao abrir um sorteio com rodízio. */}
           <RodizioTimeline jogo={jogo} meuId={meuId} compacto />
-
-          {/* A previsao entra depois do rodizio: primeiro quem joga e quem
-              comeca no gol, depois o palpite sobre o jogo. */}
-          <PrevisaoDaPelada jogo={jogo} />
 
           {temEscalacao && (
             <div className="pb-card">
@@ -373,6 +370,16 @@ export default function NextMatch({ jogo, onPlayerClick, meuId, compacto = false
           )}
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* A previsao vive FORA da grelha, a largura toda.
+          Estava na barra lateral e crescia-a; como o card do campo acompanha a
+          altura da coluna (`pb-fill-row`), cada linha que a lateral ganhava
+          virava espaco vazio a volta do campo — e com a previsao inteira la
+          dentro isso passou a ser um vao enorme por cima e por baixo.
+          Aqui em baixo tambem se le melhor: as barras e o texto pedem largura,
+          nao uma coluna de 445px. */}
+      <PrevisaoDaPelada jogo={jogo} />
+    </>
   )
 }

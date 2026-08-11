@@ -200,6 +200,11 @@ function Seccao({ titulo, children, tom }) {
 function PrevisaoDoJogo({ pw, jogo, jogadores, onAtualizado }) {
   const [estado, setEstado] = useState('parado')
   const [recado, setRecado] = useState('')
+  // Cada clique a seguir ao primeiro sorteia OUTRA. A previsão de um sorteio é
+  // sempre a mesma (a semente é o id do jogo) para o grupo nunca ver dois
+  // números — mas isso não pode impedir quem publica de ver outra antes de a
+  // mandar. Depois de gravada, quem lê vai à base e não recalcula nada.
+  const [tentativa, setTentativa] = useState(0)
 
   const temEscalacao = Array.isArray(jogo?.lineup) && jogo.lineup.length > 0
   if (!temEscalacao) return null
@@ -210,13 +215,14 @@ function PrevisaoDoJogo({ pw, jogo, jogadores, onAtualizado }) {
     setRecado('')
     setEstado('a-gerar')
     try {
-      const f = preverJogo({ jogo, jogadores })
+      const f = preverJogo({ jogo, jogadores, tentativa })
       if (!f) {
         setRecado('Sem escalação suficiente para prever.')
         return
       }
       await adminSaveForecast(pw, jogo.id, f)
       setRecado(`Previsão gravada: ${f.nomeA} ${f.golosA}–${f.golosB} ${f.nomeB}.`)
+      setTentativa((n) => n + 1)
       await onAtualizado?.()
     } catch (e) {
       setRecado(e.message)
@@ -232,7 +238,7 @@ function PrevisaoDoJogo({ pw, jogo, jogadores, onAtualizado }) {
       </div>
       <p style={{ ...styles.mutedText, fontSize: 12, margin: '0 0 10px' }}>
         {jaTem
-          ? `Este jogo já tem previsão (${jogo.forecast.gols_a}–${jogo.forecast.gols_b}). Gerar outra vez substitui-a.`
+          ? `Este jogo já tem previsão (${jogo.forecast.gols_a}–${jogo.forecast.gols_b}). Gerar outra vez sorteia uma nova e substitui esta.`
           : 'Este jogo ainda não tem previsão. Sai da escalação gravada e dos overalls do sorteio.'}
       </p>
       <button
@@ -241,7 +247,7 @@ function PrevisaoDoJogo({ pw, jogo, jogadores, onAtualizado }) {
         disabled={estado === 'a-gerar'}
         style={{ ...styles.buttonGhost, fontSize: 13 }}
       >
-        {estado === 'a-gerar' ? 'A gerar…' : jaTem ? '🤖 Gerar outra vez' : '🤖 Gerar previsão'}
+        {estado === 'a-gerar' ? 'A gerar…' : jaTem ? '🎲 Sortear outra previsão' : '🤖 Gerar previsão'}
       </button>
       {recado && (
         <p style={{ ...styles.mutedText, fontSize: 12, margin: '8px 0 0' }} role="status">

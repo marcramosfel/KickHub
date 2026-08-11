@@ -10,6 +10,7 @@
 // Puro: não fala com a API. Quem grava é o `api.adminSaveForecast`.
 
 import { simularPartida } from './simulador.js'
+import { nomeDaEquipa } from './substitutions.js'
 
 // As linhas da escalação trazem `player_id` e `assigned_position`; as
 // estatísticas vivem na lista de jogadores que os ecrãs já têm. Isto junta as
@@ -37,16 +38,31 @@ export function lineupsDoJogo(jogo, jogadores = []) {
 
 // Prevê um jogo. Devolve `null` quando não há escalação — sem equipas não há
 // previsão nenhuma para fazer, e inventar uma seria pior do que não ter.
-export function preverJogo({ jogo, jogadores = [], nomeA, nomeB } = {}) {
+// `nomeDaEquipa` traz o simbolo ("⚫ Pretos"), que serve as etiquetas do campo
+// mas nao serve uma frase: "mas ⚫ Pretos foi mais eficaz" nao se le.
+const semSimbolo = (n) => String(n || '').replace(/^[^\p{L}]+/u, '').trim()
+
+// `tentativa` a 0 usa o ID do jogo como semente — a previsao de um sorteio e
+// SEMPRE a mesma, e e isso que permite ao grupo dizer "a IA disse 5x4".
+// Acima de 0 sorteia outra: serve o admin, que pode querer ver outra antes de
+// a mandar. Depois de gravada, quem ve le a da base e nao recalcula nada,
+// portanto isto nunca faz o numero mudar debaixo de ninguem.
+export function preverJogo({ jogo, jogadores = [], nomeA, nomeB, tentativa = 0 } = {}) {
   const { a, b } = lineupsDoJogo(jogo, jogadores)
   if (!a.length || !b.length) return null
+
+  const semente = tentativa ? `${jogo?.id || 'previsao'}#${tentativa}` : jogo?.id || 'previsao'
 
   const s = simularPartida({
     equipaA: a,
     equipaB: b,
-    seed: jogo?.id || 'previsao',
-    nomeA: nomeA || jogo?.team_a_name || 'Pretos',
-    nomeB: nomeB || jogo?.team_b_name || 'Brancos',
+    seed: semente,
+    // `nomeDaEquipa` e NAO `jogo.team_a_name`: a base guarda "Amarelos"/"Azuis"
+    // (o valor por omissao herdado das rodadas antigas) mas todos os ecras ao
+    // vivo mostram Pretos/Brancos. A previsao dizia "Amarelos 11 x 8 Azuis"
+    // por cima de um campo com Pretos e Brancos escritos.
+    nomeA: nomeA || semSimbolo(nomeDaEquipa('A')),
+    nomeB: nomeB || semSimbolo(nomeDaEquipa('B')),
   })
 
   // O artilheiro previsto é quem marcou mais NESTA simulação, dos dois lados.
@@ -68,7 +84,7 @@ export function preverJogo({ jogo, jogadores = [], nomeA, nomeB } = {}) {
     bagreId: s.bagre?.id ?? null,
     bagre: s.bagre?.name ?? null,
     narrativa: s.narrativa,
-    seed: jogo?.id || 'previsao',
+    seed: semente,
     nomeA: s.nomeA,
     nomeB: s.nomeB,
   }
@@ -85,6 +101,16 @@ export function compararComResultado(forecast, jogo) {
   const realA = jogo?.score_a
   const realB = jogo?.score_b
   if (previstoA == null || realA == null || realB == null) return null
+
+  // Um jogo por jogar tem placar 0-0 por OMISSÃO, e não nulo. Sem esta linha,
+  // o sorteio da semana aparecia com o selo "Falhou" no instante em que a
+  // previsão era gravada — visto a sério, com o jogo ainda por acontecer.
+  // `result_status = 'PUBLISHED'` é a mesma régua que o resto do sistema usa
+  // para saber se um jogo já conta.
+  //
+  // O `!= null` é deliberado: um jogo antigo, de antes desta coluna existir,
+  // chega sem `result_status` nenhum e não se pode assumir que não jogou.
+  if (jogo?.result_status != null && jogo.result_status !== 'PUBLISHED') return null
 
   const vencedor = (x, y) => (x > y ? 'A' : y > x ? 'B' : 'EMPATE')
   const previu = vencedor(previstoA, previstoB)

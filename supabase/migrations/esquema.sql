@@ -3431,7 +3431,13 @@ returns json language sql stable security definer set search_path = public, exte
            else 'EMPATE' end as saiu
     from match_forecasts f
     join matches m on m.id = f.match_id
-    where m.score_a is not null and m.score_b is not null
+    -- `result_status = 'PUBLISHED'` e nao "score nao e null": um jogo por
+    -- jogar tem placar 0-0 por omissao, e nao null. Com o teste antigo, o
+    -- sorteio da semana entrava na conta no momento em que a previsao era
+    -- gravada e era contado como FALHADO — a previsao comecava a 0 de 1 antes
+    -- de a bola rolar. E a mesma regra que o resto do esquema usa para saber
+    -- se um jogo ja conta.
+    where m.result_status = 'PUBLISHED'
   )
   select json_build_object(
     'total', count(*)::int,

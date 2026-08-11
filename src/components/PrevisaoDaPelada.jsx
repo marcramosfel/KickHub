@@ -1,4 +1,5 @@
 import { compararComResultado } from '../lib/previsao'
+import { nomeDaEquipa } from '../lib/substitutions'
 import { colors, styles } from '../theme'
 
 // 🤖 A PREVISÃO DA PELADA.
@@ -40,8 +41,14 @@ export default function PrevisaoDaPelada({ jogo, compacto = false }) {
   const f = jogo?.forecast
   if (!f) return null
 
-  const nomeA = jogo?.team_a_name || 'Pretos'
-  const nomeB = jogo?.team_b_name || 'Brancos'
+  // Os mesmos nomes que o resto da app mostra. O `team_a_name` da base diz
+  // "Amarelos"/"Azuis" nas rodadas herdadas, e a previsao ficava a contradizer
+  // o campo mesmo ao lado.
+  // Sem o simbolo: aqui sao rotulos de barras e cabecalhos de placar, e o
+  // "⚫" so acrescenta ruido a um sitio onde as cores ja dizem quem e quem.
+  const semSimbolo = (n) => String(n || '').replace(/^[^\p{L}]+/u, '').trim()
+  const nomeA = semSimbolo(nomeDaEquipa('A'))
+  const nomeB = semSimbolo(nomeDaEquipa('B'))
   const comparacao = compararComResultado(f, jogo)
 
   return (

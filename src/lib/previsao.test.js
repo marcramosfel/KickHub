@@ -87,6 +87,26 @@ describe('previsao — previsão do jogo', () => {
     expect(a.seed).toBe('jogo-1')
   })
 
+  it('a tentativa sorteia outra previsão sem mudar de jogo', () => {
+    // A estabilidade é para o GRUPO não ver dois números; não pode impedir
+    // quem publica de ver outra antes de a mandar.
+    const base = preverJogo({ jogo: jogoCom(), jogadores: plantel() })
+    const outra = preverJogo({ jogo: jogoCom(), jogadores: plantel(), tentativa: 1 })
+    expect(`${outra.golosA}-${outra.golosB}`).not.toBe(`${base.golosA}-${base.golosB}`)
+    // ...e cada tentativa continua a ser reproduzível.
+    const repetida = preverJogo({ jogo: jogoCom(), jogadores: plantel(), tentativa: 1 })
+    expect(repetida.golosA).toBe(outra.golosA)
+  })
+
+  it('os nomes das equipas saem sem o símbolo', () => {
+    // `nomeDaEquipa` traz "⚫ Pretos", que serve as etiquetas do campo mas não
+    // uma frase: "mas ⚫ Pretos foi mais eficaz" não se lê.
+    const f = preverJogo({ jogo: jogoCom(), jogadores: plantel() })
+    expect(f.nomeA).toBe('Pretos')
+    expect(f.nomeB).toBe('Brancos')
+    expect(f.narrativa).not.toMatch(/[⚫⚪]/)
+  })
+
   it('jogos diferentes dão previsões diferentes', () => {
     const x = preverJogo({ jogo: { ...jogoCom(), id: 'outro' }, jogadores: plantel() })
     const y = preverJogo({ jogo: jogoCom(), jogadores: plantel() })
@@ -136,6 +156,26 @@ describe('previsao — comparação com o resultado', () => {
   it('sem resultado ainda não há comparação', () => {
     expect(compararComResultado(f, { score_a: null, score_b: null })).toBeNull()
     expect(compararComResultado(null, { score_a: 1, score_b: 0 })).toBeNull()
+  })
+
+  it('um jogo por jogar não conta, mesmo com placar 0-0 gravado', () => {
+    // Apanhado com dados reais: o placar por omissão é 0-0 e NÃO nulo, por
+    // isso o sorteio da semana aparecia logo com o selo "Falhou" — e a
+    // percentagem de acertos começava a 0 de 1 antes de a bola rolar.
+    const porJogar = { score_a: 0, score_b: 0, result_status: 'NONE' }
+    expect(compararComResultado(f, porJogar)).toBeNull()
+    expect(compararComResultado(f, { ...porJogar, result_status: 'DRAFT' })).toBeNull()
+  })
+
+  it('conta assim que o resultado é publicado', () => {
+    const r = compararComResultado(f, { score_a: 9, score_b: 7, result_status: 'PUBLISHED' })
+    expect(r.acertou).toBe(true)
+  })
+
+  it('um jogo antigo sem result_status continua a contar', () => {
+    // Rodadas anteriores a esta coluna chegam sem ela; assumir que não
+    // jogaram apagava o histórico todo.
+    expect(compararComResultado(f, { score_a: 9, score_b: 7 }).acertou).toBe(true)
   })
 
   it('aceita as duas formas do campo (base de dados e memória)', () => {
