@@ -322,49 +322,8 @@ body {
 }
 
 /* -----------------------------------------------------------------------------
-   5. Navegacao — header no desktop, barra inferior no telemovel
+   5. Navegacao — barra de cima em todos os tamanhos, barra inferior no telemovel
    -------------------------------------------------------------------------- */
-.pb-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: var(--pb-panel-blur);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--pb-line);
-  /* como a `.pb-topbar` — vale para o iPad instalado no ecra inicial */
-  padding-top: var(--pb-safe-t);
-}
-
-/* Abaixo de 768px a navegacao vive na barra inferior. */
-@media (max-width: 767.98px) {
-  .pb-header {
-    display: none;
-  }
-}
-
-.pb-header-inner {
-  display: flex;
-  align-items: center;
-  gap: var(--pb-gap-sm);
-  min-height: var(--pb-header-h);
-  flex-wrap: wrap;
-}
-
-.pb-header-nav {
-  display: flex;
-  align-items: center;
-  gap: var(--pb-gap-xs);
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
-/* Separador elastico para empurrar o que vem a seguir para a direita. */
-.pb-header-spacer {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
 .pb-tab {
   position: relative;
   display: inline-flex;
@@ -414,10 +373,9 @@ body {
 }
 
 /* --- barra de topo do AppShell ---
-   Ao contrario do `.pb-header` (que desaparece no telemovel), a `.pb-topbar`
-   existe em todos os tamanhos: no telemovel ainda guarda o logotipo e o botao
-   "Mais", que dao acesso as paginas que nao cabem na barra de baixo. Esconde-la
-   deixaria essas paginas inalcancaveis. */
+   Existe em TODOS os tamanhos, ao contrario da barra de baixo: no telemovel
+   ainda guarda o logotipo e o botao "Mais", que dao acesso as paginas que nao
+   cabem na barra de baixo. Esconde-la deixaria essas paginas inalcancaveis. */
 .pb-topbar {
   position: sticky;
   top: 0;
@@ -451,11 +409,67 @@ body {
     display: flex;
     flex: 1 1 auto;
     align-items: center;
-    gap: var(--pb-gap-xs);
-    /* com muitos separadores prefere-se passar a duas linhas a criar scroll
-       lateral na pagina */
-    flex-wrap: wrap;
+    gap: 2px;
+    /* UMA linha, sempre. Envolver era a regra antiga e nao chegava: os oito
+       destinos pedem ~1400px e o contentor da-lhes 1368 no maximo, portanto
+       a barra partia em TODAS as larguras de desktop (2 filas a 1600px, 3 a
+       920px). Com as filas a barra passava de 60px para 94/144px e o logotipo,
+       centrado na vertical, descia para o meio da pilha — era isto que dava o
+       ar de pagina desformatada.
+       Quando mesmo assim nao couber (tablet, ou um admin com o separador a
+       mais), desliza na horizontal aqui dentro: nada desaparece e a pagina
+       continua sem scroll lateral proprio. */
+    flex-wrap: nowrap;
     min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    /* a barra de scroll roubava altura a barra de cima e piscava no hover */
+    scrollbar-width: none;
+    /* Esbate a ponta direita, para se perceber que ha mais destinos para la da
+       margem. Entre os 768px e os 1023px isto NAO e um enfeite: a barra de
+       baixo so aparece abaixo dos 768 e o menu "Mais" tambem, portanto esta
+       fila e a unica navegacao que existe nessa faixa — sem a pista, metade
+       dos destinos parecia nao existir.
+       Quando tudo cabe, a faixa esbatida fica por cima de espaco vazio e nao
+       se ve nada. */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    /* navegar pelo teclado nao deixa o separador focado debaixo do esbatido */
+    scroll-padding-inline: 4px 32px;
+  }
+
+  .pb-nav-desktop::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Sem isto os separadores encolhiam ate o texto partir em duas linhas em vez
+     de deslizarem. */
+  .pb-nav-desktop > * {
+    flex: 0 0 auto;
+  }
+
+  /* Aperto so DENTRO da barra de cima: o `.pb-tab` e usado em mais de vinte
+     sitios (cards, modais, admin) e ai a folga original e a certa. Isto poupa
+     ~150px, o suficiente para os oito destinos caberem numa linha a 1280px. */
+  .pb-nav-desktop .pb-tab {
+    gap: 6px;
+    padding: 10px 9px;
+    font-size: 13px;
+  }
+
+  .pb-nav-desktop .pb-tab.is-active::after {
+    left: 8px;
+    right: 8px;
+  }
+}
+
+/* Abaixo de 1400px saem os emojis dos separadores: sao decorativos (ja vao com
+   `aria-hidden`) e valem ~170px — que e exatamente a diferenca entre caber e
+   nao caber. Acima disso ha largura para eles e voltam. */
+@media (min-width: 768px) and (max-width: 1399.98px) {
+  .pb-nav-desktop .pb-tab > [aria-hidden='true'] {
+    display: none;
   }
 }
 
