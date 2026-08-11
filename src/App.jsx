@@ -11,7 +11,6 @@ import {
   getPendingRatings,
   getPlayers,
   getPlayerStats,
-  getPublishedDraw,
   loginWithDevice,
   revokeDevice,
 } from './api'
@@ -33,7 +32,6 @@ import AdminScreen from './components/AdminScreen'
 import AppShell from './components/AppShell'
 import BallotScreen from './components/BallotScreen'
 import CuriosidadesScreen from './components/CuriosidadesScreen'
-import DrawsScreen from './components/DrawsScreen'
 import HomeScreen from './components/HomeScreen'
 import LoginScreen from './components/LoginScreen'
 import NextMatch from './components/NextMatch'
@@ -56,7 +54,6 @@ const VIEWS_COM_SHELL = [
   'home',
   'next',
   'ranking',
-  'draws',
   'players',
   'stats',
   'history',
@@ -111,7 +108,7 @@ export default function App() {
     try {
       // Só `getPlayers` é obrigatório. Tudo o resto degrada: sem uma migração
       // aplicada, a secção respetiva desaparece em vez de a app rebentar.
-      const [players, playerStats, gkStats, matches, proximo, latest, draw, porVotar, pending, chamada, curiosidades] =
+      const [players, playerStats, gkStats, matches, proximo, latest, porVotar, pending, chamada, curiosidades] =
         await Promise.all([
           getPlayers(),
           getPlayerStats().catch(() => []),
@@ -119,7 +116,6 @@ export default function App() {
           getMatches().catch(() => []),
           getNextMatch().catch(() => undefined),
           getLatestMatch().catch(() => undefined),
-          getPublishedDraw().catch(() => null),
           // O que este jogador ainda tem por votar (0025), já com o prazo.
           // Substitui a contagem antiga, que só olhava para o craque/bagre e
           // ignorava por completo a avaliação por estrelas — era por isso que
@@ -149,7 +145,6 @@ export default function App() {
         matches: rodadas,
         proximoJogo: proximo || null,
         latestMatch: latest,
-        draw,
         convocatoria: chamada,
         curiosidades,
         pendingRatings: pending,
@@ -596,14 +591,6 @@ export default function App() {
           </h1>
           <CuriosidadesScreen jogadores={jogadores} onAbrirJogador={abrirCard} />
         </>
-      )}
-
-      {view === 'draws' && (
-        <DrawsScreen
-          proximoJogo={dados?.proximoJogo}
-          draw={dados?.draw}
-          onProfile={abrirCard}
-        />
       )}
 
       {(view === 'stats' || view === 'history') && (

@@ -17,7 +17,6 @@ export const NAV_PRINCIPAIS = [
   { id: 'home', label: 'Início', curto: 'Início', icon: '🏠' },
   { id: 'next', label: 'Próximo jogo', curto: 'Jogo', icon: '📅' },
   { id: 'ranking', label: 'Ranking', curto: 'Ranking', icon: '🏅' },
-  { id: 'draws', label: 'Sorteios', curto: 'Sorteio', icon: '🎲' },
   { id: 'profile', label: 'Perfil', curto: 'Perfil', icon: '👤' },
 ]
 

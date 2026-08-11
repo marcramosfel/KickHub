@@ -152,7 +152,6 @@ export const updatePhoto = (id, pin, photo) =>
 export const changePin = (id, pin, novo) =>
   rpc('change_pin', { p_id: id, p_pin: pin, p_new: novo })
 
-export const getPublishedDraw = () => rpc('get_published_draw')
 
 // ---------- Cards (migração 0022) ----------
 // Só o próprio jogador escolhe o seu card e o seu apelido — daí o PIN.

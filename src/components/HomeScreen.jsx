@@ -529,7 +529,6 @@ export default function HomeScreen({
           { id: 'ranking', rotulo: '🏅 Ranking' },
           { id: 'history', rotulo: '📜 Rodadas e últimas' },
           { id: 'stats', rotulo: '📊 Estatísticas' },
-          { id: 'draws', rotulo: '🎲 Sorteios' },
         ].map((l) => (
           <button
             key={l.id}
