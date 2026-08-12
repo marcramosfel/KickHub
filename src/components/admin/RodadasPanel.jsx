@@ -393,9 +393,8 @@ export default function RodadasPanel({
 
       {matchesErr && (
         <ErrorBox>
-          Não consegui carregar as rodadas ({matchesErr}). Se ainda não correste o{' '}
-          <strong>supabase/migrations/esquema.sql</strong> no SQL Editor do Supabase, é isso que
-          falta.
+          Não consegui carregar as rodadas ({matchesErr}). A base pode não estar na versão
+          esperada; consulta <strong>supabase/APLICAR.md</strong> antes de aplicar migrations.
         </ErrorBox>
       )}
 

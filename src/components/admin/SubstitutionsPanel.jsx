@@ -62,11 +62,10 @@ function Aviso({ tom = 'aviso', children }) {
   )
 }
 
-// Sem o esquema em dia, as ações novas chegam como SEMMIGRACAO genérico —
-// dizer o que falta correr poupa a caça ao erro.
+// Sem o schema em dia, as ações novas chegam como SEMMIGRACAO genérico.
 const erroLegivel = (e) =>
   e?.code === 'SEMMIGRACAO'
-    ? 'Falta correr o supabase/migrations/esquema.sql no Supabase (instruções em supabase/APLICAR.md).'
+    ? 'A base não está na versão esperada. Consulta supabase/APLICAR.md antes de aplicar migrations.'
     : e?.message
 
 // O overall que vai ficar congelado na escalação. O neutro é o mesmo que o
@@ -244,9 +243,8 @@ export default function SubstitutionsPanel({ pw, jogadores, onDadosAlterados }) 
     return (
       <div className="pb-card">
         <p style={{ ...styles.mutedText, fontSize: 13 }}>
-          ⚠️ As desistências ainda não estão ativas na base de dados. Corre o{' '}
-          <strong>supabase/migrations/esquema.sql</strong> no SQL Editor do Supabase — instruções
-          em <code>supabase/APLICAR.md</code>.
+          ⚠️ As desistências ainda não estão ativas na base de dados. Consulta{' '}
+          <strong>supabase/APLICAR.md</strong> antes de aplicar migrations.
         </p>
       </div>
     )

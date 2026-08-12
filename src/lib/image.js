@@ -2,6 +2,15 @@
 // e devolve um data URL JPEG (qualidade 0.82) — é isto que vai para o registo.
 export function fileToDataURL(file, maxSize = 480, quality = 0.82) {
   return new Promise((resolve, reject) => {
+    const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
+    if (!allowedTypes.has(file?.type)) {
+      reject(new Error('Usa uma imagem JPEG, PNG ou WebP válida.'))
+      return
+    }
+    if (Number(file?.size) > 12 * 1024 * 1024) {
+      reject(new Error('A imagem é demasiado grande. O limite é 12 MB.'))
+      return
+    }
     const reader = new FileReader()
     reader.onerror = () => reject(new Error('Não foi possível ler a foto.'))
     reader.onload = () => {

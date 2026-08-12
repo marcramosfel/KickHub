@@ -1,15 +1,30 @@
-# Como pôr a base de dados em dia
+# Histórico do banco e procedimento de aplicação
 
-Há **um ficheiro só**: [`migrations/esquema.sql`](migrations/esquema.sql). Abre-o, copia tudo,
-cola no **SQL Editor** do Supabase (`gfowkkchpqoirubumnau` → SQL Editor → Run). Acabou.
+O schema consolidado passou a ser o baseline versionado
+[`migrations/20260811000000_browns_baseline.sql`](migrations/20260811000000_browns_baseline.sql).
+Ele reconstrói o estado histórico da Pelada Browns em uma base vazia e fica **congelado** depois
+do primeiro commit. Mudanças novas devem ser migrations timestamped adicionais; não edite o
+baseline nem o copie para o SQL Editor.
 
-> **Não apaga nem altera um único dado.** Cria o que falta, actualiza definições, e não toca em
-> nenhuma linha das tabelas. Correr duas vezes é inofensivo. Serve tanto para uma base vazia como
-> para a que está a trabalhar agora.
+Localmente, o procedimento suportado é:
+
+```bash
+npm run db:start
+npm run db:reset
+npm run db:test
+```
+
+Em uma base remota existente, primeiro compare o schema com `pg_dump --schema-only`, resolva
+qualquer drift e repare o histórico remoto para marcar o baseline como aplicado. Revise o
+dry-run antes de `supabase db push`. Nunca trate uma base existente como se estivesse vazia.
+
+A migration `20260812000000_security_hardening.sql` faz um cutover coordenado para a Edge
+Function `secure-rpc`. Antes de aplicá-la remotamente, siga `docs/deploy-pr2-hardening.md`;
+aplicá-la sem publicar a função e o frontend correspondente interrompe login e administração.
 
 As 28 migrações numeradas (`0001` → `0028`) desapareceram desta pasta. Ao longo do tempo
 reescreveram as mesmas funções 179 vezes — a `login` sete vezes, a `match_public_json` seis — e
-para saber o que estava de pé era preciso ler as 28 por ordem. O `esquema.sql` tem só a última
+para saber o que estava de pé era preciso ler as 28 por ordem. O baseline tem só a última
 versão de cada coisa. O que lá estava continua no histórico do git, se alguma vez for preciso.
 
 **Duas coisas ficaram deliberadamente de fora**, no fim do ficheiro, comentadas e explicadas: as
@@ -28,7 +43,7 @@ que o Postgres dá ao `PUBLIC` por omissão. Na prática: **qualquer pessoa com 
 (que está no bundle, por desenho) podia adivinhar a senha de admin à velocidade de HTTP**, com
 resposta limpa de sim/não, sem nada registado e sem limite de tentativas.
 
-O `esquema.sql` fecha-a. Nada no frontend a chama — é o porteiro que as outras funções usam por
+O baseline fecha-a. Nada no frontend a chama — é o porteiro que as outras funções usam por
 dentro, e por dentro continua a funcionar, porque são todas `security definer`. As mesmas duas
 linhas fecham também a `gen_user_id` e a `slugify`, pela mesma razão.
 
@@ -121,7 +136,7 @@ que as mostra a quem as recebeu.
 
 Daqui para baixo é **referência**, não instruções. Uma secção por migração antiga, na ordem em que
 foram escritas, com o que cada uma resolveu e as decisões que ficaram pelo caminho. Nada disto é
-preciso para aplicar o `esquema.sql` — serve para quando alguém (tu, daqui a seis meses) precisar
+preciso para entender o baseline — serve para quando alguém (tu, daqui a seis meses) precisar
 de perceber *porquê*.
 
 ---
@@ -627,7 +642,7 @@ risco do que removia. Quando alguma delas tiver de mudar por outra razão, tira-
 ## Depois de aplicar
 
 1. **Faz um backup antes** — Admin → IDs → "💾 Backup dos dados" → "Exportar (leve)".
-2. Corre o `migrations/esquema.sql` no SQL Editor.
+2. Em ambiente local, reconstrói com `npm run db:reset` e valida com `npm run db:test`.
 3. Faz o **deploy do frontend**. O SQL sozinho não chega: o código novo só chega ao grupo depois
    do rebuild.
 4. Admin → **Novo sorteio** → confirma que o passo 1 mostra os dois cartões de formato

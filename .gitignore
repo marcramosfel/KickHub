@@ -12,3 +12,6 @@ dist
 
 # ferramentas de uso único (geraram o esquema.sql a partir das migrações antigas)
 .scratch
+
+# artefatos locais de auditoria (podem descrever o schema real)
+artifacts/

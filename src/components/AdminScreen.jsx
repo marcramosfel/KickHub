@@ -417,6 +417,7 @@ export default function AdminScreen({ onExit }) {
           onAcao={acao}
           onErro={setError}
           onBusy={setBusy}
+          onPasswordChanged={setPw}
         />
       )}
         </div>

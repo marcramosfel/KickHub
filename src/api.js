@@ -11,6 +11,10 @@ const ERROS = {
   SCOREDECIMAL: 'A nota tem de ser um número entre 0 e 5 (por exemplo 3.7).',
   NOME: 'O nome é obrigatório.',
   FOTO: 'A foto é obrigatória.',
+  FOTOGRANDE: 'A imagem é demasiado grande. Escolhe uma foto menor.',
+  FOTOTIPO: 'Usa uma imagem JPEG, PNG ou WebP válida.',
+  RATELIMIT: 'Demasiadas tentativas. Aguarda alguns minutos e tenta novamente.',
+  SENHAFRACA: 'A senha de admin deve ter entre 12 e 128 caracteres.',
   PIN: 'O PIN tem de ter exatamente 4 dígitos.',
   DATA: 'A data do jogo é obrigatória.',
   JOGADORES: 'Marca pelo menos 3 jogadores que jogaram.',
@@ -108,7 +112,38 @@ function traduz(error) {
   return new ApiError('Ocorreu um erro de ligação. Tenta novamente.', 'DESCONHECIDO')
 }
 
+const SECURE_RPC_NAMES = new Set([
+  'register',
+  'login',
+  'publish_draw',
+  'update_photo',
+  'issue_device_token',
+])
+
+const isSecureRpc = (fn) =>
+  SECURE_RPC_NAMES.has(fn) || (fn.startsWith('admin_') && fn !== 'admin_ok')
+
+async function secureRpc(fn, args) {
+  const { data, error } = await supabase.functions.invoke('secure-rpc', {
+    body: { operation: fn, args: args || {} },
+  })
+
+  if (error) {
+    let detail = error
+    try {
+      const payload = await error.context?.clone?.().json()
+      if (payload?.error) detail = payload.error
+    } catch {
+      // A resposta pode não ser JSON em falhas de gateway; `traduz` trata o fallback.
+    }
+    throw traduz(detail)
+  }
+  if (data?.error) throw traduz(data.error)
+  return data?.data
+}
+
 async function rpc(fn, args) {
+  if (isSecureRpc(fn)) return secureRpc(fn, args)
   const { data, error } = await supabase.rpc(fn, args)
   if (error) throw traduz(error)
   return data
@@ -141,6 +176,9 @@ export const getRatingsReceived = (playerId) =>
 
 // Progresso da ronda e quem falta (admin).
 export const adminRatingsProgress = (pw) => rpc('admin_ratings_progress', { p_pw: pw })
+
+export const adminChangePassword = (pw, nextPassword) =>
+  rpc('admin_change_password', { p_pw: pw, p_new: nextPassword })
 
 // Abrir à força: um jogador que nunca vote não pode trancar o grupo todo.
 export const adminRevealRatings = (pw) => rpc('admin_reveal_ratings', { p_pw: pw })

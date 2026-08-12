@@ -1,7 +1,10 @@
 -- =====================================================================
---  PELADA BROWNS — ESQUEMA COMPLETO
+--  PELADA BROWNS — BASELINE HISTÓRICO (2026-08-11)
 --
---  Este e o UNICO ficheiro a correr. Substitui as 28 migracoes que
+--  BASELINE CONGELADO: depois do primeiro commit, não editar este ficheiro.
+--  Toda alteração futura deve entrar numa nova migração timestamped.
+--
+--  Consolida as 28 migrações que
 --  existiam (0001 -> 0028), onde a mesma funcao foi reescrita vezes sem
 --  conta (`login` 7, `match_public_json` 6, `get_matches` 5) — 179 definicoes ao todo, para
 --  as 106 que ficam de pe. Aqui esta so a ULTIMA versao de cada coisa.
@@ -4711,11 +4714,11 @@ revoke select on resultados_esperados          from public, anon, authenticated;
 revoke select on saldo_esperado_por_jogador    from public, anon, authenticated;
 
 -- ====================== SEMENTE (base vazia) ========================
--- Senha inicial do admin. Numa base que ja exista, o ON CONFLICT faz
--- disto um no-op: a senha atual nao e tocada.
--- senha inicial do admin = 'pelada2026'
+-- Uma base nova recebe um segredo aleatório que não é exibido nem utilizável
+-- como senha. O seed local define uma credencial exclusiva de desenvolvimento.
+-- Numa base existente, ON CONFLICT mantém a senha atual sem alterações.
 insert into app_config (id, admin_pw_hash)
-values (1, crypt('pelada2026', gen_salt('bf')))
+values (1, crypt(encode(gen_random_bytes(32), 'hex'), gen_salt('bf')))
 on conflict (id) do nothing;
 
 -- ================== OPERACOES DE DADOS JA EXECUTADAS ================

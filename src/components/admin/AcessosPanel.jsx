@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import {
+  adminChangePassword,
   adminExport,
   adminRegenUserId,
   adminRevokeDevices,
@@ -9,7 +10,7 @@ import {
 import { formatDia, hojeLocal } from '../../lib/format'
 import { APP_NAME } from '../../config'
 import FiltroLista, { useFiltro } from './FiltroLista'
-import { colors, fonts, styles } from '../../theme'
+import { colors, disabled, fonts, styles } from '../../theme'
 
 // Acessos: o ID de entrada de cada jogador, o PIN e o backup dos dados.
 //
@@ -32,11 +33,24 @@ const ORDENS = [
 
 const CAMPOS = (u) => [u.name, u.user_id]
 
-export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, onErro, onBusy }) {
+export default function AcessosPanel({
+  pw,
+  users = [],
+  usersErr,
+  busy,
+  onAcao,
+  onErro,
+  onBusy,
+  onPasswordChanged,
+}) {
   const [copiedId, setCopiedId] = useState(null)
   const [copiedList, setCopiedList] = useState(false)
   const [novoPin, setNovoPin] = useState(null)
   const [copiedAcesso, setCopiedAcesso] = useState(false)
+  const [novaSenha, setNovaSenha] = useState('')
+  const [confirmacaoSenha, setConfirmacaoSenha] = useState('')
+  const [senhaErro, setSenhaErro] = useState('')
+  const [senhaOk, setSenhaOk] = useState('')
   const filtroAcessos = useFiltro({ lista: users, campos: CAMPOS, ordens: ORDENS })
 
   const copiarTexto = async (texto, onOk) => {
@@ -155,15 +169,97 @@ export default function AcessosPanel({ pw, users = [], usersErr, busy, onAcao, o
     }
   }
 
+  const alterarSenhaAdmin = async (e) => {
+    e.preventDefault()
+    setSenhaErro('')
+    setSenhaOk('')
+    if (novaSenha.length < 12 || novaSenha.length > 128) {
+      setSenhaErro('A nova senha deve ter entre 12 e 128 caracteres.')
+      return
+    }
+    if (novaSenha !== confirmacaoSenha) {
+      setSenhaErro('As duas senhas não coincidem.')
+      return
+    }
+
+    onBusy(true)
+    try {
+      await adminChangePassword(pw, novaSenha)
+      onPasswordChanged?.(novaSenha)
+      setNovaSenha('')
+      setConfirmacaoSenha('')
+      setSenhaOk('Senha administrativa atualizada. As próximas ações já usam a nova senha.')
+    } catch (err) {
+      setSenhaErro(err.message)
+    } finally {
+      onBusy(false)
+    }
+  }
+
   return (
 
     <div>
+      <form onSubmit={alterarSenhaAdmin} style={{ ...styles.panel, marginBottom: 16 }}>
+        <h3 style={{ ...styles.title, fontSize: 18, margin: 0 }}>🔐 Segurança do admin</h3>
+        <p id="admin-password-help" style={{ ...styles.mutedText, fontSize: 13, marginTop: 4 }}>
+          Use uma senha exclusiva com pelo menos 12 caracteres. A alteração não encerra sessões
+          guardadas dos jogadores.
+        </p>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 10,
+            marginTop: 12,
+          }}
+        >
+          <div>
+            <label htmlFor="nova-senha-admin" style={styles.label}>Nova senha</label>
+            <input
+              id="nova-senha-admin"
+              type="password"
+              minLength={12}
+              maxLength={128}
+              required
+              autoComplete="new-password"
+              value={novaSenha}
+              onChange={(e) => setNovaSenha(e.target.value)}
+              aria-invalid={Boolean(senhaErro)}
+              aria-describedby="admin-password-help admin-password-status"
+              style={styles.input}
+            />
+          </div>
+          <div>
+            <label htmlFor="confirmar-senha-admin" style={styles.label}>Confirmar senha</label>
+            <input
+              id="confirmar-senha-admin"
+              type="password"
+              minLength={12}
+              maxLength={128}
+              required
+              autoComplete="new-password"
+              value={confirmacaoSenha}
+              onChange={(e) => setConfirmacaoSenha(e.target.value)}
+              aria-invalid={Boolean(senhaErro)}
+              aria-describedby="admin-password-status"
+              style={styles.input}
+            />
+          </div>
+        </div>
+        <div id="admin-password-status" aria-live="polite" style={{ minHeight: 20, marginTop: 8 }}>
+          {senhaErro && <span style={{ color: colors.error, fontSize: 13 }}>{senhaErro}</span>}
+          {senhaOk && <span style={{ color: colors.grass, fontSize: 13 }}>{senhaOk}</span>}
+        </div>
+        <button type="submit" disabled={busy} style={busy ? disabled(styles.button) : styles.button}>
+          {busy ? 'A atualizar…' : 'Atualizar senha administrativa'}
+        </button>
+      </form>
+
       {usersErr && (
         <div style={{ ...styles.panel, marginBottom: 12 }}>
           <p style={{ ...styles.mutedText, fontSize: 13 }}>
-            ⚠️ Não consegui carregar os utilizadores ({usersErr}). Se ainda não correste o{' '}
-            <strong>supabase/migrations/esquema.sql</strong> no SQL Editor do Supabase, é isso
-            que falta.
+            ⚠️ Não consegui carregar os utilizadores ({usersErr}). A base pode não estar na
+            versão esperada; consulta <strong>supabase/APLICAR.md</strong> antes de aplicar migrations.
           </p>
         </div>
       )}

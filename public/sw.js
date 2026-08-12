@@ -9,7 +9,7 @@
 // semana passada e não teria como saber que estava a ver o passado. Sem
 // rede, a app abre e diz que não conseguiu carregar — que é a verdade.
 
-const VERSAO = 'pelada-v1'
+const VERSAO = 'kickhub-v2-foundation-1'
 
 // A casca mínima. O resto (os pedaços com hash do Vite) entra em cache à
 // medida que for pedido, e sai quando a versão mudar.
