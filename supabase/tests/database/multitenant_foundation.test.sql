@@ -38,7 +38,7 @@ select is(
 );
 
 select ok(not has_table_privilege('anon', 'public.profiles', 'select'), 'anon não lê profiles');
-select ok(not has_table_privilege('anon', 'public.peladas', 'select'), 'anon não lê peladas diretamente');
+select ok(not has_table_privilege('anon', 'public.peladas', 'select'), 'anon não lê a tabela completa de peladas');
 select ok(has_function_privilege('authenticated', 'public.create_pelada(text,text,text,text,text,text,text,text)', 'execute'), 'authenticated cria pelada via RPC');
 select ok(exists (
   select 1 from pg_trigger where tgname = 'on_auth_user_created' and not tgisinternal

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { I18nProvider } from './lib/i18n'
+import { OnboardingProvider } from './lib/onboarding'
 import './styles.css'
 
 const queryClient = new QueryClient({
@@ -14,9 +15,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <OnboardingProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </OnboardingProvider>
       </I18nProvider>
     </QueryClientProvider>
   </React.StrictMode>,

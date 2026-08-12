@@ -23,10 +23,14 @@ vínculo legado é preservado em `legacy_player_id`.
 
 Helpers `SECURITY DEFINER` mínimos convertem `auth.uid()` em profile e respondem se a membership está
 ativa ou possui um dos papéis requeridos. Policies usam esses helpers em todas as tabelas tenant.
-Inserção direta de peladas é bloqueada; a criação acontece pela RPC transacional.
+Inserção direta de peladas é bloqueada; a criação acontece pela RPC transacional. Transições de
+membership também são exclusivas das RPCs de onboarding: um jogador pede entrada ou consome um
+convite, enquanto owner/admin aprova ou rejeita. Cada transição relevante cria auditoria e, na
+revisão, uma notificação para o jogador.
 
-Anon não recebe acesso direto às tabelas Foundation. Uma camada pública futura deve expor DTOs
-específicos, sem localização exata nem dados privados.
+Anon descobre somente peladas com `visibility = public` e `status = active` através da RPC
+`discover_public_peladas`. O DTO exclui coordenadas, owner e campos internos. Perfis, memberships,
+pedidos, convites e demais dados continuam fechados, sem expor o endereço dos jogos.
 
 ## Rotas
 
@@ -36,6 +40,7 @@ específicos, sem localização exata nem dados privados.
 /app                    dashboard global
 /descobrir              descoberta
 /criar                  criação de pelada
+/convite/:token         consumo seguro de convite
 /u/:username            perfil global
 /p/:slug                visão geral da pelada
 /p/:slug/jogos          jogos
@@ -53,8 +58,9 @@ preferências do dispositivo.
 
 ## Próximas migrations
 
-1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
-2. constraints compostas para impedir FKs cross-tenant;
-3. claim legado e revogação progressiva de PIN/token;
-4. DTOs público/membro/admin e Storage com paths por tenant;
-5. entidades novas de jogos somente depois do legado estar carimbado e reconciliado.
+1. aplicar e validar o onboarding em staging com pgTAP;
+2. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
+3. constraints compostas para impedir FKs cross-tenant;
+4. claim legado e revogação progressiva de PIN/token;
+5. DTOs público/membro/admin e Storage com paths por tenant;
+6. entidades novas de jogos somente depois do legado estar carimbado e reconciliado.

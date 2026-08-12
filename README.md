@@ -11,6 +11,7 @@ O produto inclui:
 - landing, login por magic link e demonstração navegável;
 - dashboard global “Minhas Peladas”;
 - descoberta por nome/localização;
+- pedidos de entrada, aprovação administrativa e convites privados de uso limitado;
 - wizard acessível de criação em seis etapas;
 - perfil global do jogador;
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
@@ -47,6 +48,7 @@ As migrations são append-only:
 1. `20260811000000_browns_baseline.sql` — baseline legado;
 2. `20260812000000_security_hardening.sql` — gateway/rate limiting/tokens;
 3. `20260813000000_multitenant_foundation.sql` — profiles, peladas, memberships, settings e RLS.
+4. `20260814000000_onboarding_workflows.sql` — entrada aberta, pedidos, aprovação, convites e auditoria.
 
 Com Docker disponível:
 

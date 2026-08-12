@@ -10,10 +10,11 @@ const api = read('src/api.js')
 const baseline = read('supabase/migrations/20260811000000_browns_baseline.sql')
 const hardening = read('supabase/migrations/20260812000000_security_hardening.sql')
 const foundation = read('supabase/migrations/20260813000000_multitenant_foundation.sql')
+const onboarding = read('supabase/migrations/20260814000000_onboarding_workflows.sql')
 const edgeFunction = read('supabase/functions/secure-rpc/index.ts')
 const vercelConfig = read('vercel.json')
 const env = read('.env')
-const allMigrations = `${baseline}\n${hardening}\n${foundation}`
+const allMigrations = `${baseline}\n${hardening}\n${foundation}\n${onboarding}`
 
 function readBrowserSources(directoryPath) {
   return readdirSync(directoryPath, { withFileTypes: true })
@@ -169,5 +170,16 @@ describe('fronteira de segurança do baseline', () => {
     expect(foundation).toContain("values (v_pelada.id, v_profile, 'owner', 'active'")
     expect(foundation).toContain('public.has_pelada_role(pelada_id')
     expect(foundation).toContain('auth_user_id uuid unique references auth.users(id)')
+  })
+
+  it('move o onboarding para transações autorizadas e auditáveis', () => {
+    for (const name of ['request_pelada_membership', 'review_pelada_join_request', 'create_pelada_invite', 'accept_pelada_invite', 'discover_public_peladas']) {
+      expect(functionNames).toContain(name)
+      expect(exposedFunctions).toContain(name)
+    }
+    expect(onboarding).toContain("revoke update on public.pelada_memberships from authenticated")
+    expect(onboarding).toContain("'join_request.' || p_decision")
+    expect(onboarding).toContain("where token_hash = digest(p_token, 'sha256')")
+    expect(onboarding).not.toContain('grant select on public.peladas to anon')
   })
 })

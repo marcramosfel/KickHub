@@ -1,21 +1,24 @@
-import { Activity, ArrowRight, CalendarDays, ChevronRight, ClipboardList, Crown, MapPin, Settings, ShieldCheck, Sparkles, Trophy, UsersRound } from 'lucide-react'
+import { Activity, ArrowRight, CalendarDays, Check, ChevronRight, ClipboardList, Copy, Crown, Inbox, Link2, MapPin, Settings, ShieldCheck, Sparkles, Trophy, UserCheck, UsersRound, UserX } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { Avatar, Badge, Button, Card } from '../components/ui'
 import { peladas, rankings, upcomingPlayers } from '../data/demo'
+import { useOnboarding } from '../lib/onboarding'
 
-const tabs = [
+const memberTabs = [
   ['', 'Visão geral'], ['jogos', 'Jogos'], ['jogadores', 'Plantel'], ['ranking', 'Ranking'], ['estatisticas', 'Estatísticas'], ['admin', 'Admin'],
 ]
 
 export function PeladaPage() {
   const { slug = 'browns', section } = useParams()
   const pelada = peladas.find((item) => item.slug === slug) ?? peladas[0]
+  const tabs = pelada.role === 'owner' || pelada.role === 'admin' ? memberTabs : memberTabs.filter(([path]) => path !== 'admin')
   return <div className="pelada-page">
     <header className="pelada-hero" style={{ '--accent': pelada.accent } as React.CSSProperties}>
       <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{pelada.visibility === 'private' ? 'PRIVADA' : 'PÚBLICA'}</Badge></div><p><MapPin/> {pelada.city}, {pelada.country} · {pelada.members} jogadores</p></div><div className="pelada-actions"><Button variant="outline"><Settings/> Definições</Button><Button><CalendarDays/> Novo jogo</Button></div></div>
       <nav aria-label="Secções da pelada">{tabs.map(([path, label]) => <NavLink key={path} end={!path} to={`/p/${slug}${path ? `/${path}` : ''}`}>{label}</NavLink>)}</nav>
     </header>
-    <main id="main-content" className="page pelada-content">{section ? <SectionPlaceholder section={section} slug={slug}/> : <Overview slug={slug}/>}</main>
+    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel peladaId={pelada.id} canAdmin={pelada.role === 'owner' || pelada.role === 'admin'}/> : section ? <SectionPlaceholder section={section} slug={slug}/> : <Overview slug={slug}/>}</main>
   </div>
 }
 
@@ -37,8 +40,58 @@ function SectionPlaceholder({ section, slug }: { section: string; slug: string }
     jogadores: ['Plantel', 'Perfis, posições, disponibilidade e papéis desta comunidade.', <UsersRound key="jogadores"/>],
     ranking: ['Ranking', 'Overall, forma recente e evolução dos jogadores da pelada.', <Trophy key="ranking"/>],
     estatisticas: ['Estatísticas', 'Gols, assistências, defesas, química e recordes por período.', <Activity key="estatisticas"/>],
-    admin: ['Centro de administração', 'Membros, regras, convites, jogos e permissões num único lugar.', <Settings key="admin"/>],
   }
   const [title, body, icon] = content[section] ?? content.jogos
   return <div className="section-placeholder"><span>{icon}</span><p className="eyebrow dark-text">MÓDULO FOUNDATION</p><h2>{title}</h2><p>{body}</p><div><Button>Começar tarefa</Button><Link className="btn btn-outline btn-md" to={`/p/${slug}`}>Voltar à visão geral</Link></div></div>
+}
+
+function AdminPanel({ peladaId, canAdmin }: { peladaId: string; canAdmin: boolean }) {
+  const { requests, loadRequests, reviewRequest, createInvite } = useOnboarding()
+  const [busyId, setBusyId] = useState('')
+  const [inviteUrl, setInviteUrl] = useState('')
+  const [inviteExpiry, setInviteExpiry] = useState('')
+  const [notice, setNotice] = useState('')
+  const pending = requests.filter((request) => request.peladaId === peladaId && request.status === 'pending')
+
+  useEffect(() => { if (canAdmin) void loadRequests(peladaId) }, [canAdmin, loadRequests, peladaId])
+
+  if (!canAdmin) return <div className="section-placeholder"><span><ShieldCheck/></span><p className="eyebrow dark-text">ÁREA PROTEGIDA</p><h2>Só para a equipa de organização.</h2><p>Owners e administradores gerem membros, convites e regras. Jogadores não recebem estas permissões.</p></div>
+
+  const decide = async (requestId: string, decision: 'approved' | 'rejected') => {
+    setBusyId(requestId); setNotice('')
+    try {
+      await reviewRequest(requestId, decision)
+      setNotice(decision === 'approved' ? 'Jogador aprovado e adicionado ao plantel.' : 'Pedido rejeitado.')
+    } catch { setNotice('Não foi possível rever o pedido. Tenta novamente.') }
+    finally { setBusyId('') }
+  }
+
+  const generateInvite = async () => {
+    setBusyId('invite'); setNotice('')
+    try {
+      const invite = await createInvite(peladaId)
+      setInviteUrl(invite.url)
+      setInviteExpiry(new Intl.DateTimeFormat('pt', { dateStyle: 'medium' }).format(new Date(invite.expiresAt)))
+      setNotice('Convite criado. O token só é mostrado nesta sessão.')
+    } catch { setNotice('Não foi possível criar o convite. Tenta novamente.') }
+    finally { setBusyId('') }
+  }
+
+  const copyInvite = async () => {
+    await navigator.clipboard.writeText(inviteUrl)
+    setNotice('Link copiado para a área de transferência.')
+  }
+
+  return <div className="admin-page">
+    <header className="page-heading split-heading"><div><span className="eyebrow dark-text">CENTRO DE ADMINISTRAÇÃO</span><h1>Organiza o balneário.</h1><p>Aprova jogadores e cria convites sem expor permissões sensíveis.</p></div><Badge tone="lime"><ShieldCheck/> OWNER</Badge></header>
+    {notice && <p className="inline-notice" role="status"><Check/> {notice}</p>}
+    <div className="admin-grid">
+      <section aria-labelledby="requests-title"><div className="section-title-row"><div><span className="eyebrow dark-text">FILA DE ENTRADA</span><h2 id="requests-title">Pedidos pendentes</h2></div><Badge tone={pending.length ? 'orange' : 'neutral'}>{pending.length}</Badge></div>
+        {pending.length ? <div className="request-list">{pending.map((request) => <Card className="request-card" key={request.id}><div className="request-person"><span className="avatar avatar-md">{request.playerName.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><strong>{request.playerName}</strong><small>@{request.username} · {request.createdAt}</small></div></div><blockquote>{request.message || 'Sem mensagem de apresentação.'}</blockquote><div className="request-actions"><Button variant="outline" disabled={busyId === request.id} onClick={() => decide(request.id, 'rejected')}><UserX/> Rejeitar</Button><Button disabled={busyId === request.id} onClick={() => decide(request.id, 'approved')}><UserCheck/> Aprovar</Button></div></Card>)}</div> : <Card className="empty-state compact"><span className="empty-icon"><Inbox/></span><h2>Fila limpa</h2><p>Não existem pedidos aguardando revisão.</p></Card>}
+      </section>
+      <aside><Card className="invite-builder"><span className="invite-icon"><Link2/></span><p className="eyebrow dark-text">CONVITE CONTROLADO</p><h2>Chama a equipa.</h2><p>Cria um link válido por 7 dias e até 25 utilizações. Novos membros entram como jogadores.</p>{inviteUrl ? <div className="invite-result"><label htmlFor="invite-url">Link privado</label><div><input id="invite-url" readOnly value={inviteUrl}/><Button size="icon" variant="outline" onClick={copyInvite} aria-label="Copiar convite"><Copy/></Button></div><small>Expira em {inviteExpiry}. Podes gerar outro link quando necessário.</small></div> : <Button onClick={generateInvite} disabled={busyId === 'invite'}>{busyId === 'invite' ? 'A criar…' : 'Criar convite'} <ArrowRight/></Button>}</Card>
+        <Card className="permission-card"><ShieldCheck/><div><strong>Permissões no servidor</strong><p>Pedidos, convites e memberships são validados pelas regras da pelada, não apenas pela interface.</p></div></Card>
+      </aside>
+    </div>
+  </div>
 }
