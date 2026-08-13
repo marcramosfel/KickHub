@@ -38,8 +38,17 @@ create extension if not exists pgcrypto with schema extensions;
 -- ficheiro funciona tanto numa base vazia como numa ja a trabalhar.
 --
 -- Ordem inversa da de criacao: quem depende sai antes de quem sustenta.
-drop trigger if exists match_lineup_gk_order_trg on match_lineup;
-drop trigger if exists matches_voting_sync_trg on matches;
+do $$
+begin
+  if to_regclass('public.match_lineup') is not null then
+    drop trigger if exists match_lineup_gk_order_trg on public.match_lineup;
+  end if;
+
+  if to_regclass('public.matches') is not null then
+    drop trigger if exists matches_voting_sync_trg on public.matches;
+  end if;
+end
+$$;
 drop view if exists saldo_esperado_por_jogador;
 drop view if exists resultados_esperados;
 drop view if exists premios_da_rodada;

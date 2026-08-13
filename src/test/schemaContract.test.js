@@ -137,6 +137,13 @@ describe('fronteira de segurança do baseline', () => {
     expect(baseline).not.toContain('pelada2026')
   })
 
+  it('protege drops de trigger quando o banco ainda está vazio', () => {
+    expect(baseline).toContain("to_regclass('public.match_lineup') is not null")
+    expect(baseline).toContain("to_regclass('public.matches') is not null")
+    expect(baseline).not.toMatch(/drop trigger if exists match_lineup_gk_order_trg on match_lineup;/i)
+    expect(baseline).not.toMatch(/drop trigger if exists matches_voting_sync_trg on matches;/i)
+  })
+
   it('não inclui credencial privilegiada no código do browser', () => {
     const browserSource = `${browserSources}\n${env}`
     expect(browserSource).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY|sb_secret_/i)
