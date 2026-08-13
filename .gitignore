@@ -4,10 +4,11 @@ dist
 
 # ficheiros locais/temporários
 *.local
+.env
 .DS_Store
 
-# NOTA: o .env NÃO está ignorado de propósito — só contém a chave
-# publishable do Supabase (sb_publishable_...), que é pública.
+# Cada ambiente recebe URL e chave publishable próprias. Não versionar `.env`
+# evita que Preview/Test use acidentalmente o Supabase de produção.
 # NUNCA commitar chaves sb_secret_... nem a connection string do Postgres.
 
 # ferramentas de uso único (geraram o esquema.sql a partir das migrações antigas)

@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { LEGACY_TABLES } from '../../scripts/lib/brownsSnapshot.mjs'
@@ -13,7 +13,8 @@ const foundation = read('supabase/migrations/20260813000000_multitenant_foundati
 const onboarding = read('supabase/migrations/20260814000000_onboarding_workflows.sql')
 const edgeFunction = read('supabase/functions/secure-rpc/index.ts')
 const vercelConfig = read('vercel.json')
-const env = read('.env')
+const envPath = join(projectRoot, '.env')
+const env = existsSync(envPath) ? readFileSync(envPath, 'utf8') : ''
 const allMigrations = `${baseline}\n${hardening}\n${foundation}\n${onboarding}`
 
 function readBrowserSources(directoryPath) {

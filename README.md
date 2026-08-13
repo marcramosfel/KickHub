@@ -78,3 +78,5 @@ supabase/
 ```
 
 Decisões e limites da arquitetura: `docs/architecture-v2.md`.
+
+Pipeline `feature → test → main`, ambientes Vercel e Supabase: `docs/deployment-environments.md`.
