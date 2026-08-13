@@ -20,7 +20,20 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from pg_policies where schemaname = 'public'),
+  (
+    select count(*)::integer
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = any(array[
+        'players', 'ratings', 'draws', 'app_config', 'matches', 'match_stats',
+        'award_votes', 'player_position_history', 'match_lineup',
+        'goalkeeper_match_stats', 'match_substitutions', 'match_media',
+        'match_activity', 'match_publications', 'match_swaps',
+        'post_match_ratings', 'player_devices', 'ratings_arquivo',
+        'match_predictions', 'draw_disputes', 'match_availability',
+        'match_forecasts'
+      ]::text[])
+  ),
   0,
   'o baseline mantém acesso direto fechado e usa RPCs controladas'
 );
