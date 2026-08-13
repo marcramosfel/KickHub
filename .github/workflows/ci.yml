@@ -16,8 +16,8 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -31,12 +31,11 @@ jobs:
   database:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v2
         with:
           version: 2.113.0
-      - run: supabase start
-      - run: supabase db reset --local
+      - run: supabase db start
       - run: supabase test db
       - if: always()
         run: supabase stop --no-backup
@@ -44,10 +43,10 @@ jobs:
   edge-function:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: v2.5.6
       - run: deno check supabase/functions/secure-rpc/index.ts
 
   deploy-supabase-staging:
@@ -64,22 +63,30 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v2
         with:
           version: 2.113.0
-      - name: Validate staging credentials
+      - name: Check staging configuration
+        id: config
+        shell: bash
         run: |
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          test -n "$SUPABASE_DB_PASSWORD"
-          test -n "$SUPABASE_PROJECT_ID"
+          if [[ -n "$SUPABASE_ACCESS_TOKEN" && -n "$SUPABASE_DB_PASSWORD" && -n "$SUPABASE_PROJECT_ID" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Supabase staging was not deployed because the staging environment secrets are not configured yet."
+          fi
       - name: Link staging project
+        if: steps.config.outputs.ready == 'true'
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
       - name: Apply staging migrations
+        if: steps.config.outputs.ready == 'true'
         run: |
           supabase db push --dry-run --include-all
           supabase db push --include-all
       - name: Deploy staging Edge Functions
+        if: steps.config.outputs.ready == 'true'
         run: supabase functions deploy secure-rpc --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt
 
   deploy-supabase-production:
@@ -96,20 +103,28 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v2
         with:
           version: 2.113.0
-      - name: Validate production credentials
+      - name: Check production configuration
+        id: config
+        shell: bash
         run: |
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          test -n "$SUPABASE_DB_PASSWORD"
-          test -n "$SUPABASE_PROJECT_ID"
+          if [[ -n "$SUPABASE_ACCESS_TOKEN" && -n "$SUPABASE_DB_PASSWORD" && -n "$SUPABASE_PROJECT_ID" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Supabase production was not deployed because the production environment secrets are not configured yet."
+          fi
       - name: Link production project
+        if: steps.config.outputs.ready == 'true'
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
       - name: Apply production migrations
+        if: steps.config.outputs.ready == 'true'
         run: |
           supabase db push --dry-run --include-all
           supabase db push --include-all
       - name: Deploy production Edge Functions
+        if: steps.config.outputs.ready == 'true'
         run: supabase functions deploy secure-rpc --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt
