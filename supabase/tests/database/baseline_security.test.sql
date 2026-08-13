@@ -118,7 +118,7 @@ select is(
 
 select ok(
   not ('dob' = any(coalesce(
-    (select p.proallargnames from pg_proc p
+    (select p.proargnames from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname = 'get_players'),
     array[]::text[]

@@ -43,7 +43,7 @@ select ok(has_function_privilege('authenticated', 'public.create_pelada(text,tex
 select ok(exists (
   select 1 from pg_trigger where tgname = 'on_auth_user_created' and not tgisinternal
 ), 'trigger de provisionamento Auth ativo');
-select like(
+select alike(
   pg_get_functiondef('public.create_pelada(text,text,text,text,text,text,text,text)'::regprocedure),
   '%tenant_audit_log%',
   'criação de pelada produz auditoria'

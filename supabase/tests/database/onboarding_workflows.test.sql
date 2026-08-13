@@ -22,10 +22,10 @@ select ok(not has_table_privilege('authenticated', 'public.pelada_join_requests'
 select ok(not has_table_privilege('authenticated', 'public.pelada_memberships', 'update'), 'mudança direta de membership é bloqueada');
 select ok(not has_table_privilege('authenticated', 'public.pelada_invites', 'insert'), 'convite direto é bloqueado');
 
-select like(pg_get_functiondef('public.review_pelada_join_request(uuid,text)'::regprocedure), '%tenant_audit_log%', 'revisão produz auditoria');
-select like(pg_get_functiondef('public.accept_pelada_invite(text)'::regprocedure), '%for update%', 'consumo do convite bloqueia a linha');
-select like(pg_get_functiondef('public.create_pelada_invite(uuid,text,integer,integer)'::regprocedure), '%OWNER_REQUIRED%', 'só owner cria convite de admin');
-select like(pg_get_functiondef('public.accept_pelada_invite(text)'::regprocedure), '%already_member%', 'aceitação repetida não consome nova utilização');
+select alike(pg_get_functiondef('public.review_pelada_join_request(uuid,text)'::regprocedure), '%tenant_audit_log%', 'revisão produz auditoria');
+select alike(pg_get_functiondef('public.accept_pelada_invite(text)'::regprocedure), '%for update%', 'consumo do convite bloqueia a linha');
+select alike(pg_get_functiondef('public.create_pelada_invite(uuid,text,integer,integer)'::regprocedure), '%OWNER_REQUIRED%', 'só owner cria convite de admin');
+select alike(pg_get_functiondef('public.accept_pelada_invite(text)'::regprocedure), '%already_member%', 'aceitação repetida não consome nova utilização');
 select ok(exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'pelada_join_requests_one_pending_per_profile'), 'apenas um pedido pendente por perfil');
 
 select * from finish();
