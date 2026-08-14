@@ -1,10 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { App } from './App'
 import { I18nProvider } from './lib/i18n'
 import { OnboardingProvider } from './lib/onboarding'
+
+vi.mock('./lib/supabase', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./lib/supabase')>(),
+  isSupabaseConfigured: false,
+}))
 
 function renderAt(path: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -25,10 +30,12 @@ describe('KickHub V2', () => {
     expect(screen.getByText('JOGADOR')).toBeInTheDocument()
   })
 
-  it('exige autenticação antes de criar uma pelada persistente', () => {
+  it('exige um nome antes de avançar no wizard demonstrativo', () => {
     renderAt('/criar')
-    expect(screen.getByRole('heading', { name: 'Entra para criar uma pelada.' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Entrar ou criar conta/ })).toHaveAttribute('href', '/entrar')
+    const continueButton = screen.getByRole('button', { name: /Continuar/ })
+    expect(continueButton).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Nome da pelada'), { target: { value: 'Futebol das Sextas' } })
+    expect(continueButton).toBeEnabled()
   })
 
   it('envia pedido de entrada pela descoberta e mostra o estado pendente', async () => {
