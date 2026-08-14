@@ -1,14 +1,17 @@
 import { ArrowRight, CalendarDays, ChevronRight, Clock3, MapPin, Plus, Shield, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge, Card } from '../components/ui'
-import { currentProfile, peladas } from '../data/demo'
+import { peladas } from '../data/demo'
+import { getAuthDisplayName, useAuth } from '../lib/auth'
 import { useI18n } from '../lib/i18n'
 
 export function DashboardPage() {
   const { t } = useI18n()
+  const { user, profile } = useAuth()
+  const firstName = getAuthDisplayName(user, profile).split(' ')[0]
   return (
     <div className="page page-dashboard">
-      <header className="page-heading split-heading"><div><span className="eyebrow dark-text">QUARTA-FEIRA · 12 AGO</span><h1>Bom dia, {currentProfile.name.split(' ')[0]}.</h1><p>Duas peladas, uma semana cheia de futebol.</p></div><Link className="btn btn-primary btn-md" to="/criar"><Plus size={18}/> Nova pelada</Link></header>
+      <header className="page-heading split-heading"><div><span className="eyebrow dark-text">QUARTA-FEIRA · 12 AGO</span><h1>Bom dia, {firstName}.</h1><p>Duas peladas, uma semana cheia de futebol.</p></div><Link className="btn btn-primary btn-md" to="/criar"><Plus size={18}/> Nova pelada</Link></header>
 
       <section aria-labelledby="next-title">
         <div className="section-title-row"><div><span className="eyebrow dark-text">EM DESTAQUE</span><h2 id="next-title">{t('nextMatch')}</h2></div><Link to="/p/browns/jogos">Ver calendário <ArrowRight size={16}/></Link></div>

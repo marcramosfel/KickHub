@@ -8,7 +8,7 @@ histórias de várias comunidades na mesma conta.
 A V2 é o ponto de entrada ativo e foi reconstruída com arquitetura multi-pelada desde a Foundation.
 O produto inclui:
 
-- landing, login por magic link e demonstração navegável;
+- landing, cadastro/login por Google, magic link e demonstração navegável;
 - dashboard global “Minhas Peladas”;
 - descoberta por nome/localização;
 - pedidos de entrada, aprovação administrativa e convites privados de uso limitado;
@@ -78,5 +78,7 @@ supabase/
 ```
 
 Decisões e limites da arquitetura: `docs/architecture-v2.md`.
+
+Configuração e fluxo de autenticação: `docs/authentication.md`.
 
 Pipeline `feature → test → main`, ambientes Vercel e Supabase: `docs/deployment-environments.md`.

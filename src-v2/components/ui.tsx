@@ -13,9 +13,13 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
   return <span className={cn('badge', `badge-${tone}`)}>{children}</span>
 }
 
-export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+export function Avatar({ name, size = 'md', src }: { name: string; size?: 'sm' | 'md' | 'lg'; src?: string }) {
   const initials = name.split(' ').slice(0, 2).map((part) => part[0]).join('')
-  return <span className={cn('avatar', `avatar-${size}`)} aria-label={name}>{initials}</span>
+  return (
+    <span className={cn('avatar', `avatar-${size}`)} aria-label={name}>
+      {src ? <img src={src} alt="" referrerPolicy="no-referrer"/> : initials}
+    </span>
+  )
 }
 
 export function EmptyState({ icon, title, body, action }: { icon: ReactNode; title: string; body: string; action?: ReactNode }) {
