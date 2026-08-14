@@ -9,10 +9,10 @@ A V2 é o ponto de entrada ativo e foi reconstruída com arquitetura multi-pelad
 O produto inclui:
 
 - landing, cadastro/login por Google, magic link e demonstração navegável;
-- dashboard global “Minhas Peladas”;
+- dashboard global “Minhas Peladas” alimentado pelas memberships ativas do utilizador;
 - descoberta por nome/localização;
 - pedidos de entrada, aprovação administrativa e convites privados de uso limitado;
-- wizard acessível de criação em seis etapas;
+- wizard acessível de criação em seis etapas, com formato e frequência persistidos;
 - perfil global do jogador;
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
 - tema claro/escuro, PWA, mobile navigation e base i18n para PT/EN/ES/FR/DE;
@@ -49,6 +49,7 @@ As migrations são append-only:
 2. `20260812000000_security_hardening.sql` — gateway/rate limiting/tokens;
 3. `20260813000000_multitenant_foundation.sql` — profiles, peladas, memberships, settings e RLS.
 4. `20260814000000_onboarding_workflows.sql` — entrada aberta, pedidos, aprovação, convites e auditoria.
+5. `20260814010000_my_peladas_vertical_slice.sql` — read model “Minhas Peladas” e criação completa com settings.
 
 Com Docker disponível:
 

@@ -13,8 +13,10 @@
 ## Fluxo de identidade
 
 Um registro em `auth.users` cria automaticamente um `profile`. O profile pode possuir várias
-`pelada_memberships`, inclusive com papéis diferentes. A RPC `create_pelada` cria em uma transação a
-pelada, a membership owner, os settings e o evento de auditoria.
+`pelada_memberships`, inclusive com papéis diferentes. A RPC `create_pelada_with_settings` cria em uma
+transação a pelada, a membership owner, os settings escolhidos no wizard e os eventos de auditoria.
+O read model `list_my_peladas` deriva a identidade da sessão e devolve apenas memberships e peladas
+ativas, sem aceitar um identificador de utilizador fornecido pelo browser.
 
 Jogadores Browns sem Auth permanecem com `auth_user_id` nulo até o claim descrito no ADR 0001. O
 vínculo legado é preservado em `legacy_player_id`.
@@ -53,14 +55,14 @@ pedidos, convites e demais dados continuam fechados, sem expor o endereço dos j
 ## Estado demonstrativo e estado autoritativo
 
 As fixtures de `src-v2/data/demo.ts` existem para desenvolvimento visual e não são fonte de verdade.
-Dados persistentes pertencem ao Supabase. Tema e idioma podem usar `localStorage` porque são apenas
-preferências do dispositivo.
+Quando existe uma sessão, o dashboard e o contexto `/p/:slug` usam `list_my_peladas`; não recorrem à
+Pelada Browns demonstrativa como fallback. Dados persistentes pertencem ao Supabase. Tema e idioma
+podem usar `localStorage` porque são apenas preferências do dispositivo.
 
 ## Próximas migrations
 
-1. aplicar e validar o onboarding em staging com pgTAP;
-2. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
-3. constraints compostas para impedir FKs cross-tenant;
-4. claim legado e revogação progressiva de PIN/token;
-5. DTOs público/membro/admin e Storage com paths por tenant;
-6. entidades novas de jogos somente depois do legado estar carimbado e reconciliado.
+1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
+2. constraints compostas para impedir FKs cross-tenant;
+3. claim legado e revogação progressiva de PIN/token;
+4. DTOs público/membro/admin e Storage com paths por tenant;
+5. entidades novas de jogos somente depois do legado estar carimbado e reconciliado.

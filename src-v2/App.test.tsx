@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { App } from './App'
@@ -6,7 +7,8 @@ import { I18nProvider } from './lib/i18n'
 import { OnboardingProvider } from './lib/onboarding'
 
 function renderAt(path: string) {
-  return render(<I18nProvider><OnboardingProvider><MemoryRouter initialEntries={[path]}><App/></MemoryRouter></OnboardingProvider></I18nProvider>)
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={queryClient}><I18nProvider><OnboardingProvider><MemoryRouter initialEntries={[path]}><App/></MemoryRouter></OnboardingProvider></I18nProvider></QueryClientProvider>)
 }
 
 describe('KickHub V2', () => {
@@ -16,19 +18,17 @@ describe('KickHub V2', () => {
     expect(screen.getByRole('link', { name: 'Explorar demonstração' })).toHaveAttribute('href', '/app')
   })
 
-  it('mostra duas memberships com papéis distintos', () => {
+  it('mostra duas memberships de demonstração com papéis distintos', () => {
     renderAt('/app')
     expect(screen.getByRole('heading', { name: 'Minhas peladas' })).toBeInTheDocument()
     expect(screen.getByText('OWNER')).toBeInTheDocument()
     expect(screen.getByText('JOGADOR')).toBeInTheDocument()
   })
 
-  it('exige um nome antes de avançar no wizard', () => {
+  it('exige autenticação antes de criar uma pelada persistente', () => {
     renderAt('/criar')
-    const continueButton = screen.getByRole('button', { name: /Continuar/ })
-    expect(continueButton).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('Nome da pelada'), { target: { value: 'Futebol das Sextas' } })
-    expect(continueButton).toBeEnabled()
+    expect(screen.getByRole('heading', { name: 'Entra para criar uma pelada.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Entrar ou criar conta/ })).toHaveAttribute('href', '/entrar')
   })
 
   it('envia pedido de entrada pela descoberta e mostra o estado pendente', async () => {

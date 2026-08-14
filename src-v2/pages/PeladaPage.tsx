@@ -2,8 +2,10 @@ import { Activity, ArrowRight, CalendarDays, Check, ChevronRight, ClipboardList,
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { Avatar, Badge, Button, Card } from '../components/ui'
-import { peladas, rankings, upcomingPlayers } from '../data/demo'
+import { peladas as demoPeladas, rankings, upcomingPlayers } from '../data/demo'
+import { useAuth } from '../lib/auth'
 import { useOnboarding } from '../lib/onboarding'
+import { useMyPeladas } from '../lib/peladas'
 
 const memberTabs = [
   ['', 'Visão geral'], ['jogos', 'Jogos'], ['jogadores', 'Plantel'], ['ranking', 'Ranking'], ['estatisticas', 'Estatísticas'], ['admin', 'Admin'],
@@ -11,18 +13,42 @@ const memberTabs = [
 
 export function PeladaPage() {
   const { slug = 'browns', section } = useParams()
-  const pelada = peladas.find((item) => item.slug === slug) ?? peladas[0]
-  const tabs = pelada.role === 'owner' || pelada.role === 'admin' ? memberTabs : memberTabs.filter(([path]) => path !== 'admin')
+  const { user } = useAuth()
+  const myPeladas = useMyPeladas(user?.id)
+  const isDemo = !user
+  const pelada = (isDemo ? demoPeladas : (myPeladas.data ?? [])).find((item) => item.slug === slug)
+
+  if (!isDemo && myPeladas.isPending) {
+    return <PeladaRouteState title="A abrir a pelada…" body="Estamos a confirmar a tua membership e permissões."/>
+  }
+  if (!pelada) {
+    return <PeladaRouteState title="Pelada não encontrada." body="Ela pode não existir ou a tua conta não possui uma membership ativa." action={<Link className="btn btn-primary btn-md" to="/app">Voltar às minhas peladas</Link>}/>
+  }
+
+  const canAdmin = pelada.role === 'owner' || pelada.role === 'admin'
+  const tabs = canAdmin ? memberTabs : memberTabs.filter(([path]) => path !== 'admin')
   return <div className="pelada-page">
     <header className="pelada-hero" style={{ '--accent': pelada.accent } as React.CSSProperties}>
-      <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{pelada.visibility === 'private' ? 'PRIVADA' : 'PÚBLICA'}</Badge></div><p><MapPin/> {pelada.city}, {pelada.country} · {pelada.members} jogadores</p></div><div className="pelada-actions"><Button variant="outline"><Settings/> Definições</Button><Button><CalendarDays/> Novo jogo</Button></div></div>
+      <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{pelada.visibility === 'private' ? 'PRIVADA' : 'PÚBLICA'}</Badge></div><p><MapPin/> {pelada.city}, {pelada.country} · {pelada.members} jogadores</p></div>{canAdmin && <div className="pelada-actions"><Button variant="outline"><Settings/> Definições</Button><Button><CalendarDays/> Novo jogo</Button></div>}</div>
       <nav aria-label="Secções da pelada">{tabs.map(([path, label]) => <NavLink key={path} end={!path} to={`/p/${slug}${path ? `/${path}` : ''}`}>{label}</NavLink>)}</nav>
     </header>
-    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel peladaId={pelada.id} canAdmin={pelada.role === 'owner' || pelada.role === 'admin'}/> : section ? <SectionPlaceholder section={section} slug={slug}/> : <Overview slug={slug}/>}</main>
+    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel peladaId={pelada.id} canAdmin={canAdmin}/> : section ? <SectionPlaceholder section={section} slug={slug}/> : <Overview slug={slug} isDemo={isDemo} peladaName={pelada.name} canAdmin={canAdmin}/>}</main>
   </div>
 }
 
-function Overview({ slug }: { slug: string }) {
+function Overview({ slug, isDemo, peladaName, canAdmin }: { slug: string; isDemo: boolean; peladaName: string; canAdmin: boolean }) {
+  if (!isDemo) {
+    return (
+      <div className="authoritative-pelada-start">
+        <section className="pelada-welcome"><div><span className="eyebrow dark-text">COMUNIDADE PRONTA</span><h2>{peladaName} já tem uma casa no KickHub.</h2></div>{canAdmin && <Button><CalendarDays/> Criar primeiro jogo</Button>}</section>
+        <div className="pelada-start-grid">
+          <Card><span><UsersRound/></span><div><p className="eyebrow dark-text">PLANTEL</p><h3>{canAdmin ? 'Convida os jogadores' : 'Conhece o plantel'}</h3><p>{canAdmin ? 'Partilha um convite seguro ou gere pedidos de entrada conforme as regras da comunidade.' : 'Consulta os jogadores e os papéis que fazem parte desta comunidade.'}</p></div><Link to={`/p/${slug}/${canAdmin ? 'admin' : 'jogadores'}`}>{canAdmin ? 'Gerir entradas' : 'Abrir plantel'} <ArrowRight/></Link></Card>
+          <Card><span><Settings/></span><div><p className="eyebrow dark-text">CONFIGURAÇÃO</p><h3>{canAdmin ? 'Afina as regras' : 'Regras da comunidade'}</h3><p>{canAdmin ? 'Formato, frequência e permissões ficam isolados nesta pelada e podem evoluir sem afetar as outras.' : 'Consulta o formato e as regras definidas pela equipa de organização.'}</p></div>{canAdmin ? <Button variant="outline">Abrir definições</Button> : <Link to={`/p/${slug}/jogos`}>Consultar jogos <ArrowRight/></Link>}</Card>
+        </div>
+      </div>
+    )
+  }
+
   return <>
     <section className="pelada-welcome"><div><span className="eyebrow dark-text">SEXTA-FEIRA É DIA</span><h2>O próximo capítulo começa em 2 dias.</h2></div><Button>Confirmar presença <ArrowRight/></Button></section>
     <div className="pelada-overview-grid">
@@ -32,6 +58,20 @@ function Overview({ slug }: { slug: string }) {
       <Card className="pulse-card"><div className="card-head"><div><span className="eyebrow dark-text">PULSO DA COMUNIDADE</span><h2>Últimas histórias</h2></div><Activity/></div><div className="story"><span className="story-icon lime"><Crown/></span><p><strong>Tiago foi o craque</strong><small>Jogo #86 · 8 votos</small></p></div><div className="story"><span className="story-icon blue"><ShieldCheck/></span><p><strong>Bruno fez 12 defesas</strong><small>Novo recorde da época</small></p></div><div className="story"><span className="story-icon orange"><ClipboardList/></span><p><strong>A resenha do jogo saiu</strong><small>“Noite de reviravolta…”</small></p></div></Card>
     </div>
   </>
+}
+
+function PeladaRouteState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+  return (
+    <main className="pelada-route-state">
+      <Card>
+        <span><ShieldCheck/></span>
+        <p className="eyebrow dark-text">CONTEXTO DA PELADA</p>
+        <h1>{title}</h1>
+        <p>{body}</p>
+        {action}
+      </Card>
+    </main>
+  )
 }
 
 function SectionPlaceholder({ section, slug }: { section: string; slug: string }) {

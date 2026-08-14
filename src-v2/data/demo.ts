@@ -10,7 +10,7 @@ export type Pelada = {
   members: number
   nextMatch: string
   accent: string
-  visibility: 'public' | 'private'
+  visibility: 'public' | 'unlisted' | 'private'
   description: string
 }
 

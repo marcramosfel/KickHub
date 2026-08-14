@@ -15,7 +15,12 @@ const edgeFunction = read('supabase/functions/secure-rpc/index.ts')
 const vercelConfig = read('vercel.json')
 const envPath = join(projectRoot, '.env')
 const env = existsSync(envPath) ? readFileSync(envPath, 'utf8') : ''
-const allMigrations = `${baseline}\n${hardening}\n${foundation}\n${onboarding}`
+const migrationsDirectory = join(projectRoot, 'supabase', 'migrations')
+const allMigrations = readdirSync(migrationsDirectory)
+  .filter((name) => name.endsWith('.sql'))
+  .sort()
+  .map((name) => readFileSync(join(migrationsDirectory, name), 'utf8'))
+  .join('\n')
 
 function readBrowserSources(directoryPath) {
   return readdirSync(directoryPath, { withFileTypes: true })
