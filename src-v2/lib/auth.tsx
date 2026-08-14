@@ -33,9 +33,9 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: unavailable,
 })
 
-export function getAuthDisplayName(user: User | null, profile: GlobalProfile | null) {
+export function getAuthDisplayName(user: User | null, profile: GlobalProfile | null, fallback = 'Jogador') {
   const metadataName = user?.user_metadata?.full_name ?? user?.user_metadata?.name
-  return profile?.display_name || metadataName || user?.email?.split('@')[0] || 'Jogador'
+  return profile?.display_name || metadataName || user?.email?.split('@')[0] || fallback
 }
 
 export function getAuthAvatarUrl(user: User | null) {

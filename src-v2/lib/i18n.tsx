@@ -1,32 +1,104 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { commonCatalog } from '../i18n/common'
+import { createPeladaCatalog } from '../i18n/createPelada'
+import { dashboardCatalog } from '../i18n/dashboard'
+import { landingCatalog } from '../i18n/landing'
+import type { Locale, TranslationValue } from '../i18n/types'
+import { useAuth } from './auth'
 
-type Locale = 'pt' | 'en' | 'es' | 'fr' | 'de'
-type TranslationKey = keyof typeof copy.pt
+const supportedLocales: Locale[] = ['pt', 'en', 'es', 'fr', 'de']
+const localeLabels: Record<Locale, string> = {
+  pt: 'Português', en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch',
+}
+const intlLocales: Record<Locale, string> = {
+  pt: 'pt-PT', en: 'en-GB', es: 'es-ES', fr: 'fr-FR', de: 'de-DE',
+}
+const pluralRules = Object.fromEntries(supportedLocales.map((locale) => [locale, new Intl.PluralRules(intlLocales[locale])])) as Record<Locale, Intl.PluralRules>
+const numberFormatters = Object.fromEntries(supportedLocales.map((locale) => [locale, new Intl.NumberFormat(intlLocales[locale])])) as Record<Locale, Intl.NumberFormat>
 
-const copy = {
-  pt: { home: 'Início', discover: 'Descobrir', create: 'Criar pelada', profile: 'Perfil', signIn: 'Entrar', myGroups: 'Minhas peladas', nextMatch: 'Próximo jogo', viewGroup: 'Abrir pelada', members: 'jogadores', hero: 'A casa digital da sua pelada.', heroBody: 'Organize jogos, sorteie equipas equilibradas e transforme cada sexta-feira em história.', start: 'Começar agora', explore: 'Explorar demonstração' },
-  en: { home: 'Home', discover: 'Discover', create: 'Create group', profile: 'Profile', signIn: 'Sign in', myGroups: 'My groups', nextMatch: 'Next match', viewGroup: 'Open group', members: 'players', hero: 'The digital home of your football group.', heroBody: 'Organize games, balance teams and turn every match into a story.', start: 'Get started', explore: 'Explore demo' },
-  es: { home: 'Inicio', discover: 'Descubrir', create: 'Crear grupo', profile: 'Perfil', signIn: 'Entrar', myGroups: 'Mis grupos', nextMatch: 'Próximo partido', viewGroup: 'Abrir grupo', members: 'jugadores', hero: 'La casa digital de tu fútbol.', heroBody: 'Organiza partidos, equilibra equipos y convierte cada fecha en historia.', start: 'Empezar', explore: 'Explorar demo' },
-  fr: { home: 'Accueil', discover: 'Découvrir', create: 'Créer un groupe', profile: 'Profil', signIn: 'Connexion', myGroups: 'Mes groupes', nextMatch: 'Prochain match', viewGroup: 'Ouvrir le groupe', members: 'joueurs', hero: 'La maison numérique de votre groupe de foot.', heroBody: 'Organisez les matchs, équilibrez les équipes et écrivez votre histoire.', start: 'Commencer', explore: 'Explorer la démo' },
-  de: { home: 'Start', discover: 'Entdecken', create: 'Gruppe erstellen', profile: 'Profil', signIn: 'Anmelden', myGroups: 'Meine Gruppen', nextMatch: 'Nächstes Spiel', viewGroup: 'Gruppe öffnen', members: 'Spieler', hero: 'Das digitale Zuhause eurer Fußballrunde.', heroBody: 'Spiele organisieren, Teams ausgleichen und jede Partie zur Geschichte machen.', start: 'Loslegen', explore: 'Demo ansehen' },
-} as const
+const catalogs = Object.fromEntries(supportedLocales.map((locale) => [locale, {
+  ...commonCatalog[locale],
+  ...landingCatalog[locale],
+  ...dashboardCatalog[locale],
+  ...createPeladaCatalog[locale],
+}])) as Record<Locale, typeof commonCatalog.pt & typeof landingCatalog.pt & typeof dashboardCatalog.pt & typeof createPeladaCatalog.pt>
 
-const localeLabels: Record<Locale, string> = { pt: 'PT', en: 'EN', es: 'ES', fr: 'FR', de: 'DE' }
+export type TranslationKey = keyof typeof catalogs.pt
+type TranslationParams = Record<string, string | number>
 
-type I18nValue = { locale: Locale; setLocale: (locale: Locale) => void; t: (key: TranslationKey) => string }
+function isLocale(value: unknown): value is Locale {
+  return typeof value === 'string' && supportedLocales.includes(value as Locale)
+}
+
+function localeFromBrowser(language: string | undefined) {
+  const base = language?.toLowerCase().split('-')[0]
+  return isLocale(base) ? base : undefined
+}
+
+export function resolveLocale(saved: unknown, account: unknown, browser: string | undefined): Locale {
+  if (isLocale(saved)) return saved
+  if (isLocale(account)) return account
+  return localeFromBrowser(browser) ?? 'en'
+}
+
+function interpolate(locale: Locale, message: string, params: TranslationParams) {
+  return message.replace(/\{([a-zA-Z0-9_]+)\}/g, (token, key: string) => (
+    params[key] === undefined ? token : typeof params[key] === 'number' ? numberFormatters[locale].format(params[key]) : String(params[key])
+  ))
+}
+
+function translate(locale: Locale, key: TranslationKey, params: TranslationParams = {}) {
+  const value: TranslationValue = catalogs[locale][key]
+  const message = typeof value === 'string'
+    ? value
+    : value[pluralRules[locale].select(Number(params.count)) === 'one' ? 'one' : 'other']
+  return interpolate(locale, message, params)
+}
+
+type I18nValue = {
+  locale: Locale
+  setLocale: (locale: Locale) => void
+  t: (key: TranslationKey, params?: TranslationParams) => string
+  formatDate: (value: Date | number | string, options?: Intl.DateTimeFormatOptions) => string
+  formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string
+}
+
 const I18nContext = createContext<I18nValue | null>(null)
 
+function readSavedLocale() {
+  try { return localStorage.getItem('kickhub-locale') } catch { return null }
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => (localStorage.getItem('kickhub-locale') as Locale) || 'pt')
-  const value = useMemo(() => ({
+  const { profile } = useAuth()
+  const [initialSavedLocale] = useState(readSavedLocale)
+  const hasExplicitPreference = useRef(isLocale(initialSavedLocale))
+  const [locale, setLocaleState] = useState<Locale>(() => resolveLocale(
+    initialSavedLocale,
+    profile?.locale,
+    typeof navigator === 'undefined' ? undefined : navigator.language,
+  ))
+
+  useEffect(() => {
+    if (!hasExplicitPreference.current && isLocale(profile?.locale)) setLocaleState(profile.locale)
+  }, [profile?.locale])
+
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
+
+  const value = useMemo<I18nValue>(() => ({
     locale,
-    setLocale(next: Locale) {
-      localStorage.setItem('kickhub-locale', next)
-      document.documentElement.lang = next
+    setLocale(next) {
+      hasExplicitPreference.current = true
+      try { localStorage.setItem('kickhub-locale', next) } catch { /* preference remains active in memory */ }
       setLocaleState(next)
     },
-    t: (key: TranslationKey) => copy[locale][key],
+    t: (key, params) => translate(locale, key, params),
+    formatDate: (date, options) => new Intl.DateTimeFormat(intlLocales[locale], options).format(new Date(date)),
+    formatNumber: (number, options) => new Intl.NumberFormat(intlLocales[locale], options).format(number),
   }), [locale])
+
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
@@ -37,13 +109,13 @@ export function useI18n() {
 }
 
 export function LocaleSelect({ compact = false }: { compact?: boolean }) {
-  const { locale, setLocale } = useI18n()
+  const { locale, setLocale, t } = useI18n()
   return (
     <label className="locale-select">
-      <span className="sr-only">Idioma</span>
-      <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)} aria-label="Idioma">
-        {(Object.keys(localeLabels) as Locale[]).map((value) => (
-          <option key={value} value={value}>{compact ? localeLabels[value] : `${localeLabels[value]} · ${value}`}</option>
+      <span className="sr-only">{t('common.language')}</span>
+      <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)} aria-label={t('common.language')}>
+        {supportedLocales.map((value) => (
+          <option key={value} value={value}>{compact ? value.toUpperCase() : localeLabels[value]}</option>
         ))}
       </select>
     </label>

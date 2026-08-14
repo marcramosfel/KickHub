@@ -15,7 +15,7 @@ O produto inclui:
 - wizard acessível de criação em seis etapas, com formato e frequência persistidos;
 - perfil global do jogador;
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
-- tema claro/escuro, PWA, mobile navigation e base i18n para PT/EN/ES/FR/DE;
+- tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE no núcleo da experiência;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
 - Browns preservada como tenant #1 e segundo tenant no seed local.
 
@@ -81,5 +81,7 @@ supabase/
 Decisões e limites da arquitetura: `docs/architecture-v2.md`.
 
 Configuração e fluxo de autenticação: `docs/authentication.md`.
+
+Catálogos, prioridade de locale e formatação internacional: `docs/i18n.md`.
 
 Pipeline `feature → test → main`, ambientes Vercel e Supabase: `docs/deployment-environments.md`.

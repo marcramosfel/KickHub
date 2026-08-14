@@ -59,6 +59,13 @@ Quando existe uma sessão, o dashboard e o contexto `/p/:slug` usam `list_my_pel
 Pelada Browns demonstrativa como fallback. Dados persistentes pertencem ao Supabase. Tema e idioma
 podem usar `localStorage` porque são apenas preferências do dispositivo.
 
+## Internacionalização
+
+O núcleo global usa catálogos tipados por domínio para `pt`, `en`, `es`, `fr` e `de`. A preferência
+local tem prioridade sobre o locale da conta e do browser. Plurais, datas e números são formatados
+por `Intl`, evitando concatenações dependentes de português. A expansão incremental dos namespaces
+está documentada em `docs/i18n.md`.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;

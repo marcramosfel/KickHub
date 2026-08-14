@@ -69,7 +69,7 @@ export function toPeladaSummary(row: MyPeladaRow, index = 0): Pelada {
     joinMode,
     role,
     members: Number(row.member_count) || 0,
-    nextMatch: 'Primeiro jogo por marcar',
+    nextMatch: '',
     accent: accents[index % accents.length],
     visibility,
   }

@@ -30,6 +30,7 @@ function renderDashboard(path = '/app') {
 
 describe('DashboardPage autoritativa', () => {
   beforeEach(() => {
+    localStorage.setItem('kickhub-locale', 'pt')
     dashboardMocks.query = { data: [], isPending: false, isError: false, refetch: vi.fn() }
   })
 

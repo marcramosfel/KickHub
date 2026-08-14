@@ -9,6 +9,7 @@ export type Pelada = {
   joinMode: 'invite' | 'approval' | 'open'
   members: number
   nextMatch: string
+  nextMatchAt?: string
   accent: string
   visibility: 'public' | 'unlisted' | 'private'
   description: string
@@ -29,12 +30,12 @@ export const currentProfile = {
 export const peladas: Pelada[] = [
   {
     id: '00000000-0000-4000-8000-000000000101', slug: 'browns', name: 'Pelada Browns', city: 'Zürich', country: 'CH',
-    role: 'owner', membership: 'active', joinMode: 'invite', members: 34, nextMatch: 'Sex, 20:30', accent: '#d8ff45', visibility: 'private',
+    role: 'owner', membership: 'active', joinMode: 'invite', members: 34, nextMatch: 'Sex, 20:30', nextMatchAt: '2026-08-14T20:30:00', accent: '#d8ff45', visibility: 'private',
     description: 'A sexta-feira mais disputada de Zürich. Futebol, resenha e história desde 2019.',
   },
   {
     id: '10000000-0000-4000-8000-000000000101', slug: 'limmat-united', name: 'Limmat United', city: 'Zürich', country: 'CH',
-    role: 'player', membership: 'active', joinMode: 'approval', members: 22, nextMatch: 'Dom, 10:00', accent: '#72d8ff', visibility: 'public',
+    role: 'player', membership: 'active', joinMode: 'approval', members: 22, nextMatch: 'Dom, 10:00', nextMatchAt: '2026-08-16T10:00:00', accent: '#72d8ff', visibility: 'public',
     description: 'Futebol de domingo às margens do Limmat. Aberta a novos jogadores.',
   },
 ]

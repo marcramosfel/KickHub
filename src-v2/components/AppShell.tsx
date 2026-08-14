@@ -10,15 +10,15 @@ export function AppShell() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
-  const displayName = getAuthDisplayName(user, profile)
+  const displayName = getAuthDisplayName(user, profile, t('common.player'))
   const username = profile?.username ? `@${profile.username}` : user?.email ?? '@marcos'
   const profileSlug = profile?.username ?? 'marcos'
   const avatarUrl = getAuthAvatarUrl(user)
   const links = [
-    { to: '/app', label: t('home'), icon: House },
-    { to: '/descobrir', label: t('discover'), icon: Compass },
-    { to: '/criar', label: t('create'), icon: Plus },
-    { to: `/u/${profileSlug}`, label: t('profile'), icon: UserRound },
+    { to: '/app', label: t('common.home'), icon: House },
+    { to: '/descobrir', label: t('common.discover'), icon: Compass },
+    { to: '/criar', label: t('common.createPelada'), icon: Plus },
+    { to: `/u/${profileSlug}`, label: t('common.profile'), icon: UserRound },
   ]
 
   const handleSignOut = async () => {
@@ -28,10 +28,10 @@ export function AppShell() {
 
   return (
     <div className="app-layout">
-      <a href="#main-content" className="skip-link">Saltar para o conteúdo</a>
+      <a href="#main-content" className="skip-link">{t('common.skipToContent')}</a>
       <aside className="sidebar">
-        <Brand />
-        <nav aria-label="Navegação principal">
+        <Brand ariaLabel={t('common.brandHome')} />
+        <nav aria-label={t('common.mainNavigation')}>
           {links.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'side-link active' : 'side-link'}>
               <Icon size={20} aria-hidden="true"/><span>{label}</span>
@@ -42,7 +42,7 @@ export function AppShell() {
           <Avatar name={displayName} size="sm" src={avatarUrl}/>
           <div className="account-copy"><strong>{displayName}</strong><small>{username}</small></div>
           {user && (
-            <button className="account-signout" type="button" aria-label="Sair da conta" title="Sair" onClick={handleSignOut}>
+            <button className="account-signout" type="button" aria-label={t('common.signOutAccount')} title={t('common.signOut')} onClick={handleSignOut}>
               <LogOut size={16}/>
             </button>
           )}
@@ -50,13 +50,13 @@ export function AppShell() {
       </aside>
       <div className="app-main">
         <header className="app-topbar">
-          <Brand />
+          <Brand ariaLabel={t('common.brandHome')} />
           <div className="topbar-actions">
             <LocaleSelect compact />
             <ThemeToggle />
             <Avatar name={displayName} size="sm" src={avatarUrl}/>
             {user && (
-              <button className="account-signout" type="button" aria-label="Sair da conta" title="Sair" onClick={handleSignOut}>
+              <button className="account-signout" type="button" aria-label={t('common.signOutAccount')} title={t('common.signOut')} onClick={handleSignOut}>
                 <LogOut size={16}/>
               </button>
             )}
@@ -64,7 +64,7 @@ export function AppShell() {
         </header>
         <main id="main-content"><Outlet /></main>
       </div>
-      <nav className="bottom-nav" aria-label="Navegação móvel">
+      <nav className="bottom-nav" aria-label={t('common.mobileNavigation')}>
         {links.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'active' : ''}>
             <Icon size={21} aria-hidden="true"/><span>{label}</span>

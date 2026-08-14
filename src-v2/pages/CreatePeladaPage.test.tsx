@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CreatePeladaPage } from './CreatePeladaPage'
+import { I18nProvider } from '../lib/i18n'
 
 const createMocks = vi.hoisted(() => ({
   user: { id: 'user-1' } as { id: string } | null,
@@ -24,18 +25,19 @@ function renderCreate() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/criar']}>
-        <Routes>
-          <Route path="/criar" element={<CreatePeladaPage/>}/>
-          <Route path="/app" element={<p>Dashboard criada</p>}/>
-        </Routes>
-      </MemoryRouter>
+      <I18nProvider><MemoryRouter initialEntries={['/criar']}>
+          <Routes>
+            <Route path="/criar" element={<CreatePeladaPage/>}/>
+            <Route path="/app" element={<p>Dashboard criada</p>}/>
+          </Routes>
+      </MemoryRouter></I18nProvider>
     </QueryClientProvider>,
   )
 }
 
 describe('CreatePeladaPage', () => {
   beforeEach(() => {
+    localStorage.setItem('kickhub-locale', 'pt')
     createMocks.user = { id: 'user-1' }
     createMocks.createPelada.mockReset().mockResolvedValue({ id: 'pelada-1', name: 'Futebol das Sextas', slug: 'futebol-das-sextas' })
   })

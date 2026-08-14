@@ -12,6 +12,7 @@ vi.mock('./lib/supabase', async (importOriginal) => ({
 }))
 
 function renderAt(path: string) {
+  localStorage.setItem('kickhub-locale', 'pt')
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(<QueryClientProvider client={queryClient}><I18nProvider><OnboardingProvider><MemoryRouter initialEntries={[path]}><App/></MemoryRouter></OnboardingProvider></I18nProvider></QueryClientProvider>)
 }
@@ -21,6 +22,13 @@ describe('KickHub V2', () => {
     renderAt('/')
     expect(screen.getByRole('heading', { name: 'A casa digital da sua pelada.' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Explorar demonstração' })).toHaveAttribute('href', '/app')
+  })
+
+  it('troca o idioma da experiência principal sem perder a rota', () => {
+    renderAt('/')
+    fireEvent.change(screen.getByLabelText('Idioma'), { target: { value: 'en' } })
+    expect(screen.getByRole('heading', { name: 'The digital home of your football group.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Explore demo' })).toHaveAttribute('href', '/app')
   })
 
   it('mostra duas memberships de demonstração com papéis distintos', () => {
