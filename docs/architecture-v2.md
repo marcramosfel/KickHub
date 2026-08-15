@@ -84,10 +84,30 @@ por `Intl`, evitando concatenações dependentes de português. Landing, AppShel
 autenticação, convite, descoberta, perfil global e o contexto `/p/:slug` (incluindo administração)
 já saem dos catálogos. A expansão incremental dos namespaces está documentada em `docs/i18n.md`.
 
+## Jogos e presenças
+
+`games` e `game_attendance` são tenant-native: referenciam `pelada_memberships`,
+não a tabela legada `players`, cuja âncora de identidade é o PIN que o ADR 0001 retira. As chaves
+compostas `(id, pelada_id)` tornam um vínculo cross-tenant impossível no banco, e não apenas negado
+pela RLS.
+
+A escrita passa por RPCs `security definer` porque cada transição tem regras que a RLS não exprime:
+a vaga é atribuída sob lock da linha do jogo, quem desiste liberta o lugar para o primeiro da lista
+de espera, e a criação escreve auditoria e convocatória na mesma transação.
+
+O import da Pelada Browns remapeia `matches`/`match_stats` para estas entidades através de
+`pelada_memberships.legacy_player_id`. As tabelas legadas continuam a ser a origem até à
+reconciliação; depois congelam.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
-2. constraints compostas para impedir FKs cross-tenant;
+2. ~~constraints compostas para impedir FKs cross-tenant~~ — feito em `20260815000000`;
 3. claim legado e revogação progressiva de PIN/token;
 4. DTOs público/membro/admin e Storage com paths por tenant;
-5. entidades novas de jogos somente depois do legado estar carimbado e reconciliado.
+5. sorteio, resultados e estatísticas sobre as entidades de jogo.
+
+O plano original adiava as entidades de jogo para depois do carimbo do legado, para evitar um fork
+entre o histórico Browns e as peladas novas. A ordem foi invertida deliberadamente: sem o ciclo de
+jogo não existe produto para testar, e migrar o histórico primeiro colocaria dados em tabelas que
+nenhuma interface publicada lê. O risco de fork é evitado pelo remapeamento acima, não pela ordem.

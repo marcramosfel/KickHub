@@ -4,6 +4,7 @@ import { commonCatalog } from '../i18n/common'
 import { createPeladaCatalog } from '../i18n/createPelada'
 import { dashboardCatalog } from '../i18n/dashboard'
 import { discoverCatalog } from '../i18n/discover'
+import { gamesCatalog } from '../i18n/games'
 import { inviteCatalog } from '../i18n/invite'
 import { landingCatalog } from '../i18n/landing'
 import { peladaCatalog } from '../i18n/pelada'
@@ -31,8 +32,10 @@ const catalogs = Object.fromEntries(supportedLocales.map((locale) => [locale, {
   ...discoverCatalog[locale],
   ...profileCatalog[locale],
   ...peladaCatalog[locale],
+  ...gamesCatalog[locale],
 }])) as Record<Locale, typeof commonCatalog.pt & typeof landingCatalog.pt & typeof dashboardCatalog.pt & typeof createPeladaCatalog.pt
-  & typeof authCatalog.pt & typeof inviteCatalog.pt & typeof discoverCatalog.pt & typeof profileCatalog.pt & typeof peladaCatalog.pt>
+  & typeof authCatalog.pt & typeof inviteCatalog.pt & typeof discoverCatalog.pt & typeof profileCatalog.pt & typeof peladaCatalog.pt
+  & typeof gamesCatalog.pt>
 
 export type TranslationKey = keyof typeof catalogs.pt
 type TranslationParams = Record<string, string | number>

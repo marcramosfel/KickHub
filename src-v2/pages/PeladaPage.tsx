@@ -1,6 +1,7 @@
 import { Activity, ArrowRight, CalendarDays, Check, ChevronRight, ClipboardList, Copy, Crown, Inbox, Link2, MapPin, Settings, ShieldCheck, Sparkles, Trophy, UserCheck, UsersRound, UserX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
+import { GamesSection } from '../components/GamesSection'
 import { PeladaSwitcher } from '../components/PeladaSwitcher'
 import { Avatar, Badge, Button, Card } from '../components/ui'
 import { rankings, upcomingPlayers } from '../data/demo'
@@ -38,7 +39,7 @@ export function PeladaPage() {
       <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{t(pelada.visibility === 'private' ? 'pelada.private' : 'pelada.public')}</Badge><PeladaSwitcher/></div><p><MapPin/> {pelada.city}, {pelada.country} · {t('dashboard.membersCount', { count: pelada.members })}</p></div>{canAdmin && <div className="pelada-actions"><Button variant="outline"><Settings/> {t('pelada.settings')}</Button><Button><CalendarDays/> {t('pelada.newGame')}</Button></div>}</div>
       <nav aria-label={t('pelada.sections')}>{tabs.map(([path, label]) => <NavLink key={path} end={!path} to={`/p/${slug}${path ? `/${path}` : ''}`}>{t(label)}</NavLink>)}</nav>
     </header>
-    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel/> : section ? <SectionPlaceholder section={section}/> : <Overview/>}</main>
+    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel/> : section === 'jogos' ? <GamesSection/> : section ? <SectionPlaceholder section={section}/> : <Overview/>}</main>
   </div>
 }
 

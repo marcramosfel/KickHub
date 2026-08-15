@@ -16,6 +16,7 @@ O produto inclui:
 - perfil global do jogador;
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
 - `useCurrentPelada()` como fonte única do contexto ativo e troca rápida entre comunidades;
+- calendário de jogos com convocatória, confirmação de presença e lista de espera automática;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
@@ -52,6 +53,7 @@ As migrations são append-only:
 3. `20260813000000_multitenant_foundation.sql` — profiles, peladas, memberships, settings e RLS.
 4. `20260814000000_onboarding_workflows.sql` — entrada aberta, pedidos, aprovação, convites e auditoria.
 5. `20260814010000_my_peladas_vertical_slice.sql` — read model “Minhas Peladas” e criação completa com settings.
+6. `20260815000000_game_scheduling.sql` — jogos, presenças, lista de espera e chaves compostas anti-cross-tenant.
 
 Com Docker disponível:
 
