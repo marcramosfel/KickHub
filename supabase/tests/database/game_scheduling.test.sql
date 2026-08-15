@@ -1,6 +1,6 @@
 begin;
 
-select plan(28);
+select plan(31);
 
 -- ------------------------------------------------------------------ estrutura
 
@@ -74,13 +74,22 @@ select lives_ok(
   'owner cria jogo na sua pelada'
 );
 select is((select count(*)::int from public.games), 1, 'o jogo pertence à pelada A');
+
+-- A convocatória é contada do lado de quem a recebe. Contá-la do lado do autor
+-- passaria pela RLS de `notifications`, que só mostra as do próprio perfil.
 select is(
   (select count(*)::int from public.notifications where kind = 'game.created'),
-  4,
-  'a convocatória notifica os restantes membros ativos'
+  0,
+  'quem cria o jogo não se notifica a si próprio'
 );
 
 set local request.jwt.claims to '{"sub":"a2000000-0000-4000-8000-000000000002"}';
+
+select is(
+  (select count(*)::int from public.notifications where kind = 'game.created'),
+  1,
+  'cada membro ativo recebe a convocatória'
+);
 
 select throws_ok(
   $$select public.create_game('00000000-0000-4000-8000-00000000aaaa', now() + interval '3 days', 90, null, '5x5', 5, null, null)$$,
@@ -187,6 +196,7 @@ select throws_ok(
       'confirmed'
     )$$,
   '23503',
+  null,
   'a chave composta impede uma membership de outra pelada'
 );
 
