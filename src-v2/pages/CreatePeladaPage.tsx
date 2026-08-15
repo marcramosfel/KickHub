@@ -53,8 +53,11 @@ export function CreatePeladaPage() {
   }
 
   const next = async () => {
+    // O guard usa a forma funcional: ler `step` do closure deixava dois cliques
+    // rápidos passarem ambos pela verificação antes do re-render, somando dois
+    // avanços e ultrapassando o último passo.
     if (step < steps.length - 1) {
-      setStep((current) => current + 1)
+      setStep((current) => Math.min(current + 1, steps.length - 1))
       return
     }
 

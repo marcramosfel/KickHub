@@ -90,8 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .select('id,username,display_name,avatar_path,locale,timezone')
           .eq('auth_user_id', authUserId)
           .maybeSingle()
+
+        // Uma sessão sem profile deixa o utilizador num estado em que nada
+        // funciona: `current_profile_id()` devolve null e todas as RPCs
+        // recusam. Acontece com contas anteriores ao trigger de criação, ou se
+        // ele falhar. A RPC é idempotente e devolve o profile existente.
+        const profileData = data ?? (await supabase.rpc('ensure_profile')).data
+
         if (active) {
-          setProfileState({ authUserId, data: data as GlobalProfile | null })
+          setProfileState({ authUserId, data: (profileData ?? null) as GlobalProfile | null })
         }
       } catch {
         if (active) setProfileState({ authUserId, data: null })

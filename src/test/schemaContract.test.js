@@ -82,6 +82,8 @@ const hardenedPrivateFunctions = [
   'validar_imagem_guardada',
   'touch_updated_at',
   'handle_new_auth_user',
+  'generate_profile_username',
+  'upsert_profile_for_auth_user',
 ]
 
 describe('contrato frontend ↔ Supabase', () => {
