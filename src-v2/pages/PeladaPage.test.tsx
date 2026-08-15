@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DemoJoinRequest, Pelada } from '../data/demo'
+import { CurrentPeladaProvider } from '../lib/current-pelada'
 import { I18nProvider } from '../lib/i18n'
 import { PeladaPage } from './PeladaPage'
 
@@ -49,7 +50,7 @@ function renderPelada(path: string, locale: string) {
   return render(
     <I18nProvider>
       <MemoryRouter initialEntries={[path]}>
-        <Routes><Route path="/p/:slug/:section?" element={<PeladaPage/>}/></Routes>
+        <Routes><Route path="/p/:slug/:section?" element={<CurrentPeladaProvider><PeladaPage/></CurrentPeladaProvider>}/></Routes>
       </MemoryRouter>
     </I18nProvider>,
   )
@@ -59,7 +60,7 @@ describe('PeladaPage localizada', () => {
   beforeEach(() => {
     localStorage.clear()
     peladaMocks.user = null
-    peladaMocks.query = { data: [], isPending: false, isError: false }
+    peladaMocks.query = { data: [], isPending: false, isError: false, refetch: vi.fn() }
     peladaMocks.requests = []
     peladaMocks.createInvite.mockReset()
     peladaMocks.loadRequests.mockReset()
@@ -78,6 +79,37 @@ describe('PeladaPage localizada', () => {
     expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'The next chapter starts in 2 days.' })).toBeInTheDocument()
     expect(screen.queryByText('Visão geral')).not.toBeInTheDocument()
+  })
+
+  it('permite trocar de contexto sem sair da pelada', () => {
+    renderPelada('/p/browns', 'pt')
+    const trigger = screen.getByRole('button', { name: 'Trocar de pelada' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('navigation', { name: 'Trocar de pelada' })).not.toBeInTheDocument()
+
+    fireEvent.click(trigger)
+
+    const panel = screen.getByRole('navigation', { name: 'Trocar de pelada' })
+    expect(trigger).toHaveAttribute('aria-controls', panel.id)
+    expect(screen.getByRole('link', { name: /Pelada Browns/ })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: /Limmat United/ })).toHaveAttribute('href', '/p/limmat-united')
+    expect(screen.getByRole('link', { name: /Nova pelada/ })).toHaveAttribute('href', '/criar')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('navigation', { name: 'Trocar de pelada' })).not.toBeInTheDocument()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+  })
+
+  it('mostra um estado de erro com nova tentativa quando o read model falha', () => {
+    const refetch = vi.fn()
+    peladaMocks.user = { id: 'user-1' }
+    peladaMocks.query = { data: undefined, isPending: false, isError: true, refetch }
+    renderPelada('/p/quinta-brava', 'pt')
+
+    expect(screen.getByRole('heading', { name: 'Não conseguimos abrir esta pelada.' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(refetch).toHaveBeenCalledOnce()
   })
 
   it('traduz o estado de pelada inexistente para uma conta autenticada', () => {

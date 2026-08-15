@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
+import { CurrentPeladaProvider } from './lib/current-pelada'
 import { AuthPage } from './pages/AuthPage'
 import { CreatePeladaPage } from './pages/CreatePeladaPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -21,7 +22,7 @@ export function App() {
       <Route path="/criar" element={<CreatePeladaPage/>}/>
       <Route path="/u/:username" element={<ProfilePage/>}/>
     </Route>
-    <Route path="/p/:slug/:section?" element={<PeladaPage/>}/>
+    <Route path="/p/:slug/:section?" element={<CurrentPeladaProvider><PeladaPage/></CurrentPeladaProvider>}/>
     <Route path="/home" element={<Navigate to="/app" replace/>}/>
     <Route path="*" element={<NotFoundPage/>}/>
   </Routes>

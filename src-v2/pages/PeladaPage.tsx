@@ -1,12 +1,12 @@
 import { Activity, ArrowRight, CalendarDays, Check, ChevronRight, ClipboardList, Copy, Crown, Inbox, Link2, MapPin, Settings, ShieldCheck, Sparkles, Trophy, UserCheck, UsersRound, UserX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
+import { PeladaSwitcher } from '../components/PeladaSwitcher'
 import { Avatar, Badge, Button, Card } from '../components/ui'
-import { peladas as demoPeladas, rankings, upcomingPlayers } from '../data/demo'
-import { useAuth } from '../lib/auth'
+import { rankings, upcomingPlayers } from '../data/demo'
+import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { inviteMaxUses, inviteTtlHours, useOnboarding } from '../lib/onboarding'
-import { useMyPeladas } from '../lib/peladas'
 
 const memberTabs: [string, TranslationKey][] = [
   ['', 'pelada.tabOverview'], ['jogos', 'pelada.tabGames'], ['jogadores', 'pelada.tabPlayers'],
@@ -14,39 +14,43 @@ const memberTabs: [string, TranslationKey][] = [
 ]
 
 export function PeladaPage() {
-  const { slug = 'browns', section } = useParams()
+  const { section } = useParams()
   const { t } = useI18n()
-  const { user } = useAuth()
-  const myPeladas = useMyPeladas(user?.id)
-  const isDemo = !user
-  const pelada = (isDemo ? demoPeladas : (myPeladas.data ?? [])).find((item) => item.slug === slug)
+  const { pelada, slug, status, canAdmin, retry } = useCurrentPelada()
 
-  if (!isDemo && myPeladas.isPending) {
+  if (status === 'loading') {
     return <PeladaRouteState title={t('pelada.loadingTitle')} body={t('pelada.loadingBody')}/>
+  }
+  if (status === 'error') {
+    return <PeladaRouteState
+      title={t('pelada.loadErrorTitle')}
+      body={t('pelada.loadErrorBody')}
+      action={<button type="button" className="btn btn-primary btn-md" onClick={retry}>{t('dashboard.retry')}</button>}
+    />
   }
   if (!pelada) {
     return <PeladaRouteState title={t('pelada.notFoundTitle')} body={t('pelada.notFoundBody')} action={<Link className="btn btn-primary btn-md" to="/app">{t('pelada.backToMyPeladas')}</Link>}/>
   }
 
-  const canAdmin = pelada.role === 'owner' || pelada.role === 'admin'
   const tabs = canAdmin ? memberTabs : memberTabs.filter(([path]) => path !== 'admin')
   return <div className="pelada-page">
     <header className="pelada-hero" style={{ '--accent': pelada.accent } as React.CSSProperties}>
-      <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{t(pelada.visibility === 'private' ? 'pelada.private' : 'pelada.public')}</Badge></div><p><MapPin/> {pelada.city}, {pelada.country} · {t('dashboard.membersCount', { count: pelada.members })}</p></div>{canAdmin && <div className="pelada-actions"><Button variant="outline"><Settings/> {t('pelada.settings')}</Button><Button><CalendarDays/> {t('pelada.newGame')}</Button></div>}</div>
+      <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{t(pelada.visibility === 'private' ? 'pelada.private' : 'pelada.public')}</Badge><PeladaSwitcher/></div><p><MapPin/> {pelada.city}, {pelada.country} · {t('dashboard.membersCount', { count: pelada.members })}</p></div>{canAdmin && <div className="pelada-actions"><Button variant="outline"><Settings/> {t('pelada.settings')}</Button><Button><CalendarDays/> {t('pelada.newGame')}</Button></div>}</div>
       <nav aria-label={t('pelada.sections')}>{tabs.map(([path, label]) => <NavLink key={path} end={!path} to={`/p/${slug}${path ? `/${path}` : ''}`}>{t(label)}</NavLink>)}</nav>
     </header>
-    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel peladaId={pelada.id} canAdmin={canAdmin}/> : section ? <SectionPlaceholder section={section} slug={slug}/> : <Overview slug={slug} isDemo={isDemo} peladaName={pelada.name} canAdmin={canAdmin}/>}</main>
+    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel/> : section ? <SectionPlaceholder section={section}/> : <Overview/>}</main>
   </div>
 }
 
-function Overview({ slug, isDemo, peladaName, canAdmin }: { slug: string; isDemo: boolean; peladaName: string; canAdmin: boolean }) {
+function Overview() {
   const { t, formatDate, formatNumber } = useI18n()
+  const { pelada, slug, isDemo, canAdmin } = useCurrentPelada()
   const matchDate = new Date(2026, 7, 14)
 
   if (!isDemo) {
     return (
       <div className="authoritative-pelada-start">
-        <section className="pelada-welcome"><div><span className="eyebrow dark-text">{t('pelada.readyEyebrow')}</span><h2>{t('pelada.readyTitle', { name: peladaName })}</h2></div>{canAdmin && <Button><CalendarDays/> {t('pelada.createFirstGame')}</Button>}</section>
+        <section className="pelada-welcome"><div><span className="eyebrow dark-text">{t('pelada.readyEyebrow')}</span><h2>{t('pelada.readyTitle', { name: pelada?.name ?? '' })}</h2></div>{canAdmin && <Button><CalendarDays/> {t('pelada.createFirstGame')}</Button>}</section>
         <div className="pelada-start-grid">
           <Card><span><UsersRound/></span><div><p className="eyebrow dark-text">{t('pelada.squadEyebrow')}</p><h3>{t(canAdmin ? 'pelada.squadAdminTitle' : 'pelada.squadMemberTitle')}</h3><p>{t(canAdmin ? 'pelada.squadAdminBody' : 'pelada.squadMemberBody')}</p></div><Link to={`/p/${slug}/${canAdmin ? 'admin' : 'jogadores'}`}>{t(canAdmin ? 'pelada.manageEntries' : 'pelada.openSquad')} <ArrowRight/></Link></Card>
           <Card><span><Settings/></span><div><p className="eyebrow dark-text">{t('pelada.configEyebrow')}</p><h3>{t(canAdmin ? 'pelada.configAdminTitle' : 'pelada.configMemberTitle')}</h3><p>{t(canAdmin ? 'pelada.configAdminBody' : 'pelada.configMemberBody')}</p></div>{canAdmin ? <Button variant="outline">{t('pelada.openSettings')}</Button> : <Link to={`/p/${slug}/jogos`}>{t('pelada.viewGames')} <ArrowRight/></Link>}</Card>
@@ -81,8 +85,9 @@ function PeladaRouteState({ title, body, action }: { title: string; body: string
   )
 }
 
-function SectionPlaceholder({ section, slug }: { section: string; slug: string }) {
+function SectionPlaceholder({ section }: { section: string }) {
   const { t } = useI18n()
+  const { slug } = useCurrentPelada()
   const content: Record<string, [TranslationKey, TranslationKey, React.ReactNode]> = {
     jogos: ['pelada.gamesTitle', 'pelada.gamesBody', <CalendarDays key="jogos"/>],
     jogadores: ['pelada.playersTitle', 'pelada.playersBody', <UsersRound key="jogadores"/>],
@@ -93,8 +98,10 @@ function SectionPlaceholder({ section, slug }: { section: string; slug: string }
   return <div className="section-placeholder"><span>{icon}</span><p className="eyebrow dark-text">{t('pelada.moduleEyebrow')}</p><h2>{t(title)}</h2><p>{t(body)}</p><div><Button>{t('pelada.startTask')}</Button><Link className="btn btn-outline btn-md" to={`/p/${slug}`}>{t('pelada.backToOverview')}</Link></div></div>
 }
 
-function AdminPanel({ peladaId, canAdmin }: { peladaId: string; canAdmin: boolean }) {
+function AdminPanel() {
   const { t, formatDate } = useI18n()
+  const { pelada, canAdmin, role } = useCurrentPelada()
+  const peladaId = pelada?.id ?? ''
   const { requests, loadRequests, reviewRequest, createInvite } = useOnboarding()
   const [busyId, setBusyId] = useState('')
   const [inviteUrl, setInviteUrl] = useState('')
@@ -102,7 +109,7 @@ function AdminPanel({ peladaId, canAdmin }: { peladaId: string; canAdmin: boolea
   const [notice, setNotice] = useState('')
   const pending = requests.filter((request) => request.peladaId === peladaId && request.status === 'pending')
 
-  useEffect(() => { if (canAdmin) void loadRequests(peladaId) }, [canAdmin, loadRequests, peladaId])
+  useEffect(() => { if (canAdmin && peladaId) void loadRequests(peladaId) }, [canAdmin, loadRequests, peladaId])
 
   const decide = async (requestId: string, decision: 'approved' | 'rejected') => {
     setBusyId(requestId); setNotice('')
@@ -132,7 +139,7 @@ function AdminPanel({ peladaId, canAdmin }: { peladaId: string; canAdmin: boolea
   if (!canAdmin) return <div className="section-placeholder"><span><ShieldCheck/></span><p className="eyebrow dark-text">{t('admin.restrictedEyebrow')}</p><h2>{t('admin.restrictedTitle')}</h2><p>{t('admin.restrictedBody')}</p></div>
 
   return <div className="admin-page">
-    <header className="page-heading split-heading"><div><span className="eyebrow dark-text">{t('admin.eyebrow')}</span><h1>{t('admin.title')}</h1><p>{t('admin.subtitle')}</p></div><Badge tone="lime"><ShieldCheck/> {t('dashboard.owner')}</Badge></header>
+    <header className="page-heading split-heading"><div><span className="eyebrow dark-text">{t('admin.eyebrow')}</span><h1>{t('admin.title')}</h1><p>{t('admin.subtitle')}</p></div><Badge tone="lime"><ShieldCheck/> {t(role === 'owner' ? 'dashboard.owner' : 'dashboard.admin')}</Badge></header>
     {notice && <p className="inline-notice" role="status"><Check/> {notice}</p>}
     <div className="admin-grid">
       <section aria-labelledby="requests-title"><div className="section-title-row"><div><span className="eyebrow dark-text">{t('admin.queueEyebrow')}</span><h2 id="requests-title">{t('admin.queueTitle')}</h2></div><Badge tone={pending.length ? 'orange' : 'neutral'}>{pending.length}</Badge></div>

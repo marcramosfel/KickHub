@@ -15,6 +15,7 @@ O produto inclui:
 - wizard acessível de criação em seis etapas, com formato e frequência persistidos;
 - perfil global do jogador;
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
+- `useCurrentPelada()` como fonte única do contexto ativo e troca rápida entre comunidades;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;

@@ -21,6 +21,23 @@ ativas, sem aceitar um identificador de utilizador fornecido pelo browser.
 Jogadores Browns sem Auth permanecem com `auth_user_id` nulo até o claim descrito no ADR 0001. O
 vínculo legado é preservado em `legacy_player_id`.
 
+## Contexto da pelada atual
+
+As rotas `/p/:slug` são embrulhadas por `CurrentPeladaProvider`. O provider deriva o slug da rota,
+consulta `list_my_peladas` uma única vez e expõe `useCurrentPelada()` com a pelada, a lista de
+memberships, o papel local, `canAdmin` e um estado explícito:
+
+```text
+loading → a membership ainda está a ser confirmada
+error   → o read model falhou; a sessão continua válida
+missing → não existe membership ativa para este slug
+ready   → pelada e papel resolvidos
+```
+
+As páginas do contexto não repetem o lookup nem recebem `slug`/`canAdmin` por props, e a troca
+rápida de comunidade usa a mesma lista. `canAdmin` continua a ser apenas uma decisão de
+apresentação: quem autoriza é a RLS e as RPCs.
+
 ## Autorização
 
 Helpers `SECURITY DEFINER` mínimos convertem `auth.uid()` em profile e respondem se a membership está
