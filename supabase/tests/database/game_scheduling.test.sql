@@ -162,6 +162,10 @@ select is(
 -- `security definer` e não veem a RLS, portanto a recusa tem de ser explícita.
 reset role;
 create temp table game_ref as select id from public.games;
+-- A tabela é criada por `postgres`; sem este grant, `authenticated` recebe 42501
+-- ao lê-la e os `throws_ok` seguintes apanhariam o erro de permissão em vez da
+-- recusa de autorização que se pretende exercitar.
+grant select on game_ref to authenticated;
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"b1000000-0000-4000-8000-000000000006"}';
