@@ -16,6 +16,10 @@ const pt = {
   'common.useLightTheme': 'Usar tema claro',
   'common.useDarkTheme': 'Usar tema escuro',
   'common.language': 'Idioma',
+  'common.notFoundEyebrow': '404 · BOLA FORA',
+  'common.notFoundTitle': 'Esta página saiu pela linha lateral.',
+  'common.notFoundBody': 'Volta ao campo e continua o jogo.',
+  'common.goHome': 'Ir para o início',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -26,6 +30,8 @@ const en: Record<Key, TranslationValue> = {
   'common.mainNavigation': 'Main navigation', 'common.mobileNavigation': 'Mobile navigation',
   'common.signOutAccount': 'Sign out of your account', 'common.signOut': 'Sign out',
   'common.useLightTheme': 'Use light theme', 'common.useDarkTheme': 'Use dark theme', 'common.language': 'Language',
+  'common.notFoundEyebrow': '404 · OUT OF PLAY', 'common.notFoundTitle': 'This page went out for a throw-in.',
+  'common.notFoundBody': 'Get back on the pitch and keep the game going.', 'common.goHome': 'Go to home',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -34,6 +40,8 @@ const es: Record<Key, TranslationValue> = {
   'common.mainNavigation': 'Navegación principal', 'common.mobileNavigation': 'Navegación móvil',
   'common.signOutAccount': 'Cerrar sesión', 'common.signOut': 'Salir',
   'common.useLightTheme': 'Usar tema claro', 'common.useDarkTheme': 'Usar tema oscuro', 'common.language': 'Idioma',
+  'common.notFoundEyebrow': '404 · BALÓN FUERA', 'common.notFoundTitle': 'Esta página se fue por la banda.',
+  'common.notFoundBody': 'Vuelve al campo y sigue el partido.', 'common.goHome': 'Ir al inicio',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -42,6 +50,8 @@ const fr: Record<Key, TranslationValue> = {
   'common.mainNavigation': 'Navigation principale', 'common.mobileNavigation': 'Navigation mobile',
   'common.signOutAccount': 'Se déconnecter du compte', 'common.signOut': 'Déconnexion',
   'common.useLightTheme': 'Utiliser le thème clair', 'common.useDarkTheme': 'Utiliser le thème sombre', 'common.language': 'Langue',
+  'common.notFoundEyebrow': '404 · BALLON SORTI', 'common.notFoundTitle': 'Cette page est sortie en touche.',
+  'common.notFoundBody': 'Reviens sur le terrain et continue le match.', 'common.goHome': 'Aller à l’accueil',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -50,6 +60,8 @@ const de: Record<Key, TranslationValue> = {
   'common.mainNavigation': 'Hauptnavigation', 'common.mobileNavigation': 'Mobile Navigation',
   'common.signOutAccount': 'Vom Konto abmelden', 'common.signOut': 'Abmelden',
   'common.useLightTheme': 'Helles Design verwenden', 'common.useDarkTheme': 'Dunkles Design verwenden', 'common.language': 'Sprache',
+  'common.notFoundEyebrow': '404 · BALL IM AUS', 'common.notFoundTitle': 'Diese Seite ist ins Seitenaus gegangen.',
+  'common.notFoundBody': 'Zurück auf den Platz und weiter geht das Spiel.', 'common.goHome': 'Zur Startseite',
 }
 
 export const commonCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

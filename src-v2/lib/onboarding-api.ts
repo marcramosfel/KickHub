@@ -8,6 +8,7 @@ export type JoinRequestRecord = {
   playerName: string
   username: string
   message: string
+  /** ISO 8601 timestamp; the presentation layer applies the active locale. */
   createdAt: string
   status: 'pending' | 'approved' | 'rejected'
 }
@@ -68,7 +69,7 @@ export async function listPendingJoinRequests(peladaId: string): Promise<JoinReq
       playerName: profile?.display_name ?? 'Jogador',
       username: profile?.username ?? 'jogador',
       message: row.message ?? '',
-      createdAt: new Intl.DateTimeFormat('pt', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(row.created_at)),
+      createdAt: row.created_at,
       status: row.status,
     }
   })

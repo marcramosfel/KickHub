@@ -3,10 +3,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Button, Card, EmptyState } from '../components/ui'
 import { discoverPeladas, type Pelada } from '../data/demo'
+import { useI18n } from '../lib/i18n'
 import { useOnboarding } from '../lib/onboarding'
 import { discoverPublicPeladas } from '../lib/onboarding-api'
 
+const searchRadiusKm = 30
+const referenceCity = 'Zürich'
+const messageLimit = 500
+
 export function DiscoverPage() {
+  const { t, formatNumber } = useI18n()
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Pelada | null>(null)
   const [message, setMessage] = useState('')
@@ -33,39 +39,39 @@ export function DiscoverPage() {
     setBusy(true)
     try {
       const status = await requestJoin(selected, message.trim())
-      setNotice(status === 'active' ? `Já fazes parte da ${selected.name}.` : `Pedido enviado para ${selected.name}.`)
+      setNotice(t(status === 'active' ? 'discover.noticeAlreadyMember' : 'discover.noticeRequestSent', { name: selected.name }))
       setSelected(null)
       setMessage('')
     } catch {
-      setNotice('Não foi possível enviar o pedido. Inicia sessão e tenta novamente.')
+      setNotice(t('discover.noticeError'))
     } finally {
       setBusy(false)
     }
   }
 
   return <div className="page discover-page">
-    <header className="page-heading"><span className="eyebrow dark-text">ENCONTRA O TEU PRÓXIMO JOGO</span><h1>Descobrir peladas</h1><p>Comunidades abertas perto de ti, com o ritmo e formato que procuras.</p></header>
-    <div className="search-panel"><label><span className="sr-only">Pesquisar por nome ou cidade</span><Search/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome, cidade ou região…"/></label><button type="button"><SlidersHorizontal/> Filtros</button><button type="button"><Map/> Mapa</button></div>
-    <div className="discover-summary" aria-live="polite"><strong>{loading ? 'A procurar…' : `${results.length} peladas perto de Zürich`}</strong><span>Localização aproximada · raio de 30 km</span></div>
+    <header className="page-heading"><span className="eyebrow dark-text">{t('discover.eyebrow')}</span><h1>{t('discover.title')}</h1><p>{t('discover.subtitle')}</p></header>
+    <div className="search-panel"><label><span className="sr-only">{t('discover.searchLabel')}</span><Search/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('discover.searchPlaceholder')}/></label><button type="button"><SlidersHorizontal/> {t('discover.filters')}</button><button type="button"><Map/> {t('discover.map')}</button></div>
+    <div className="discover-summary" aria-live="polite"><strong>{loading ? t('discover.searching') : t('discover.resultCount', { count: results.length, city: referenceCity })}</strong><span>{t('discover.radius', { distance: formatNumber(searchRadiusKm, { style: 'unit', unit: 'kilometer' }) })}</span></div>
     {notice && <p className="inline-notice" role="status"><Check/> {notice}</p>}
     {results.length ? <div className="discover-grid" aria-busy={loading}>{results.map((pelada) => {
       const state = pelada.membership === 'active' ? 'active' : (joinStates[pelada.id] ?? 'idle')
       return <Card key={pelada.id} className="discover-card" style={{ '--accent': pelada.accent } as React.CSSProperties}>
-        <div className="discover-card-head"><span className="pelada-monogram">{initials(pelada.name)}</span><Badge tone={state === 'active' ? 'blue' : state === 'pending' ? 'orange' : 'lime'}>{state === 'active' ? 'MEMBRO' : state === 'pending' ? 'PEDIDO PENDENTE' : pelada.joinMode === 'open' ? 'ENTRADA ABERTA' : 'ACEITA PEDIDOS'}</Badge></div>
+        <div className="discover-card-head"><span className="pelada-monogram">{initials(pelada.name)}</span><Badge tone={state === 'active' ? 'blue' : state === 'pending' ? 'orange' : 'lime'}>{state === 'active' ? t('discover.badgeMember') : state === 'pending' ? t('discover.badgePending') : pelada.joinMode === 'open' ? t('discover.badgeOpen') : t('discover.badgeApproval')}</Badge></div>
         <h2>{pelada.name}</h2><p>{pelada.description}</p>
-        <div className="discover-meta"><span><MapPin/> {pelada.city}</span><span><UsersRound/> {pelada.members} jogadores</span></div>
-        <div className="discover-foot"><span>Próximo: <strong>{pelada.nextMatch}</strong></span><Link to={`/p/${pelada.slug}`}>Ver pelada <ArrowRight/></Link></div>
-        <div className="discover-actions">{state === 'active' ? <Link className="btn btn-secondary btn-md" to={`/p/${pelada.slug}`}>Abrir comunidade</Link> : state === 'pending' ? <span className="pending-label"><Clock3/> Aguardando aprovação</span> : <Button onClick={() => { setSelected(pelada); setNotice('') }}><Send/> {pelada.joinMode === 'open' ? 'Entrar agora' : 'Pedir entrada'}</Button>}</div>
+        <div className="discover-meta"><span><MapPin/> {pelada.city}</span><span><UsersRound/> {t('dashboard.membersCount', { count: pelada.members })}</span></div>
+        <div className="discover-foot"><span>{t('discover.next')} <strong>{pelada.nextMatch}</strong></span><Link to={`/p/${pelada.slug}`}>{t('discover.viewPelada')} <ArrowRight/></Link></div>
+        <div className="discover-actions">{state === 'active' ? <Link className="btn btn-secondary btn-md" to={`/p/${pelada.slug}`}>{t('discover.openCommunity')}</Link> : state === 'pending' ? <span className="pending-label"><Clock3/> {t('discover.awaitingApproval')}</span> : <Button onClick={() => { setSelected(pelada); setNotice('') }}><Send/> {pelada.joinMode === 'open' ? t('discover.joinNow') : t('discover.requestJoin')}</Button>}</div>
       </Card>
-    })}</div> : <EmptyState icon={<Search/>} title="Nenhuma pelada encontrada" body="Tenta pesquisar outra cidade ou remove os filtros."/>}
+    })}</div> : <EmptyState icon={<Search/>} title={t('discover.emptyTitle')} body={t('discover.emptyBody')}/>}
 
     {selected && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelected(null)}>
       <section className="join-dialog" role="dialog" aria-modal="true" aria-labelledby="join-title">
-        <button className="dialog-close" type="button" onClick={() => setSelected(null)} aria-label="Fechar"><X/></button>
+        <button className="dialog-close" type="button" onClick={() => setSelected(null)} aria-label={t('discover.close')}><X/></button>
         <span className="pelada-monogram" style={{ background: selected.accent }}>{initials(selected.name)}</span>
-        <p className="eyebrow dark-text">NOVO VESTIÁRIO</p><h2 id="join-title">Entrar na {selected.name}</h2>
-        {selected.joinMode === 'open' ? <p>A entrada é imediata. Vais passar a ver jogos, plantel e atividade desta comunidade.</p> : <label htmlFor="join-message">Mensagem para os administradores<textarea id="join-message" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} placeholder="Apresenta-te, diz como jogas ou quem te convidou…"/><small>{message.length}/500</small></label>}
-        <div className="dialog-actions"><Button variant="ghost" onClick={() => setSelected(null)}>Cancelar</Button><Button disabled={busy} onClick={submitRequest}>{busy ? 'A enviar…' : selected.joinMode === 'open' ? 'Confirmar entrada' : 'Enviar pedido'} <ArrowRight/></Button></div>
+        <p className="eyebrow dark-text">{t('discover.dialogEyebrow')}</p><h2 id="join-title">{t('discover.dialogTitle', { name: selected.name })}</h2>
+        {selected.joinMode === 'open' ? <p>{t('discover.dialogOpenBody')}</p> : <label htmlFor="join-message">{t('discover.messageLabel')}<textarea id="join-message" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={messageLimit} placeholder={t('discover.messagePlaceholder')}/><small>{t('discover.messageCounter', { used: message.length, max: messageLimit })}</small></label>}
+        <div className="dialog-actions"><Button variant="ghost" onClick={() => setSelected(null)}>{t('discover.cancel')}</Button><Button disabled={busy} onClick={submitRequest}>{busy ? t('discover.sending') : selected.joinMode === 'open' ? t('discover.confirmJoin') : t('discover.sendRequest')} <ArrowRight/></Button></div>
       </section>
     </div>}
   </div>

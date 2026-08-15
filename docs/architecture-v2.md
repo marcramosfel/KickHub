@@ -63,8 +63,9 @@ podem usar `localStorage` porque são apenas preferências do dispositivo.
 
 O núcleo global usa catálogos tipados por domínio para `pt`, `en`, `es`, `fr` e `de`. A preferência
 local tem prioridade sobre o locale da conta e do browser. Plurais, datas e números são formatados
-por `Intl`, evitando concatenações dependentes de português. A expansão incremental dos namespaces
-está documentada em `docs/i18n.md`.
+por `Intl`, evitando concatenações dependentes de português. Landing, AppShell, dashboard, criação,
+autenticação, convite, descoberta, perfil global e o contexto `/p/:slug` (incluindo administração)
+já saem dos catálogos. A expansão incremental dos namespaces está documentada em `docs/i18n.md`.
 
 ## Próximas migrations
 

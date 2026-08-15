@@ -15,7 +15,8 @@ O produto inclui:
 - wizard acessível de criação em seis etapas, com formato e frequência persistidos;
 - perfil global do jogador;
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
-- tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE no núcleo da experiência;
+- tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
+  global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
 - Browns preservada como tenant #1 e segundo tenant no seed local.
 

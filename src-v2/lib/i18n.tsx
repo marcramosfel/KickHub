@@ -1,8 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { authCatalog } from '../i18n/auth'
 import { commonCatalog } from '../i18n/common'
 import { createPeladaCatalog } from '../i18n/createPelada'
 import { dashboardCatalog } from '../i18n/dashboard'
+import { discoverCatalog } from '../i18n/discover'
+import { inviteCatalog } from '../i18n/invite'
 import { landingCatalog } from '../i18n/landing'
+import { peladaCatalog } from '../i18n/pelada'
+import { profileCatalog } from '../i18n/profile'
 import type { Locale, TranslationValue } from '../i18n/types'
 import { useAuth } from './auth'
 
@@ -21,7 +26,13 @@ const catalogs = Object.fromEntries(supportedLocales.map((locale) => [locale, {
   ...landingCatalog[locale],
   ...dashboardCatalog[locale],
   ...createPeladaCatalog[locale],
-}])) as Record<Locale, typeof commonCatalog.pt & typeof landingCatalog.pt & typeof dashboardCatalog.pt & typeof createPeladaCatalog.pt>
+  ...authCatalog[locale],
+  ...inviteCatalog[locale],
+  ...discoverCatalog[locale],
+  ...profileCatalog[locale],
+  ...peladaCatalog[locale],
+}])) as Record<Locale, typeof commonCatalog.pt & typeof landingCatalog.pt & typeof dashboardCatalog.pt & typeof createPeladaCatalog.pt
+  & typeof authCatalog.pt & typeof inviteCatalog.pt & typeof discoverCatalog.pt & typeof profileCatalog.pt & typeof peladaCatalog.pt>
 
 export type TranslationKey = keyof typeof catalogs.pt
 type TranslationParams = Record<string, string | number>
@@ -62,6 +73,8 @@ type I18nValue = {
   formatDate: (value: Date | number | string, options?: Intl.DateTimeFormatOptions) => string
   formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string
 }
+
+export type Translate = I18nValue['t']
 
 const I18nContext = createContext<I18nValue | null>(null)
 

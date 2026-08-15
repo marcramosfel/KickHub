@@ -58,9 +58,9 @@ export type DemoJoinRequest = {
 }
 
 export const demoJoinRequests: DemoJoinRequest[] = [
-  { id: 'request-joana', peladaId: peladas[0].id, profileId: 'profile-joana', playerName: 'Joana Silva', username: 'joana', message: 'Jogo na ala e procuro uma pelada fixa às sextas.', createdAt: 'Hoje · 09:42', status: 'pending' },
-  { id: 'request-malik', peladaId: peladas[0].id, profileId: 'profile-malik', playerName: 'Malik Diallo', username: 'malikd', message: 'Conheço o Bruno e posso jogar no gol ou na linha.', createdAt: 'Ontem · 21:18', status: 'pending' },
-  { id: 'request-pedro', peladaId: peladas[0].id, profileId: 'profile-pedro', playerName: 'Pedro Costa', username: 'pedroc', message: 'Novo em Zürich, médio defensivo.', createdAt: '11 ago · 18:05', status: 'pending' },
+  { id: 'request-joana', peladaId: peladas[0].id, profileId: 'profile-joana', playerName: 'Joana Silva', username: 'joana', message: 'Jogo na ala e procuro uma pelada fixa às sextas.', createdAt: '2026-08-13T09:42:00.000Z', status: 'pending' },
+  { id: 'request-malik', peladaId: peladas[0].id, profileId: 'profile-malik', playerName: 'Malik Diallo', username: 'malikd', message: 'Conheço o Bruno e posso jogar no gol ou na linha.', createdAt: '2026-08-12T21:18:00.000Z', status: 'pending' },
+  { id: 'request-pedro', peladaId: peladas[0].id, profileId: 'profile-pedro', playerName: 'Pedro Costa', username: 'pedroc', message: 'Novo em Zürich, médio defensivo.', createdAt: '2026-08-11T18:05:00.000Z', status: 'pending' },
 ]
 
 export const rankings = [

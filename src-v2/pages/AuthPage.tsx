@@ -4,10 +4,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/Brand'
 import { Button } from '../components/ui'
 import { useAuth } from '../lib/auth'
+import { LocaleSelect, useI18n } from '../lib/i18n'
 import { sendMagicLink } from '../lib/supabase'
 
 export function AuthPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const { user, loading, signInWithGoogle } = useAuth()
   const [sent, setSent] = useState(false)
   const [email, setEmail] = useState('')
@@ -25,11 +27,11 @@ export function AuthPage() {
     try {
       const started = await signInWithGoogle()
       if (!started) {
-        setError('Não foi possível entrar com o Google. Tenta novamente.')
+        setError(t('auth.googleError'))
         setGoogleBusy(false)
       }
     } catch {
-      setError('Não foi possível entrar com o Google. Tenta novamente.')
+      setError(t('auth.googleError'))
       setGoogleBusy(false)
     }
   }
@@ -42,7 +44,7 @@ export function AuthPage() {
       await sendMagicLink(email)
       setSent(true)
     } catch {
-      setError('Não foi possível enviar o link. Tenta novamente.')
+      setError(t('auth.magicLinkError'))
     } finally {
       setBusy(false)
     }
@@ -51,30 +53,31 @@ export function AuthPage() {
   return (
     <main className="auth-page">
       <section className="auth-brand-panel">
-        <Brand inverse />
+        <Brand inverse ariaLabel={t('common.brandHome')} />
         <div>
-          <span className="eyebrow">JOGA. ORGANIZA. PERTENCE.</span>
-          <h1>O teu futebol não termina no apito.</h1>
-          <p>Leva a tua pelada contigo: jogos, amigos, estatísticas e histórias.</p>
+          <span className="eyebrow">{t('auth.brandEyebrow')}</span>
+          <h1>{t('auth.brandTitle')}</h1>
+          <p>{t('auth.brandBody')}</p>
         </div>
         <small>KickHub · Zürich</small>
       </section>
       <section className="auth-form-panel">
-        <Link to="/" className="back-link"><ArrowLeft size={17}/> Voltar</Link>
+        <Link to="/" className="back-link"><ArrowLeft size={17}/> {t('auth.back')}</Link>
+        <div className="auth-locale"><LocaleSelect compact/></div>
         <div className="auth-form-wrap">
           {sent ? (
             <div className="auth-success" aria-live="polite">
               <span><Check/></span>
-              <h2>Confere o teu email</h2>
-              <p>Enviámos um link seguro para <strong>{email}</strong>.</p>
-              <Button variant="outline" onClick={() => setSent(false)}>Usar outro email</Button>
-              <Button onClick={() => navigate('/app')}>Entrar na demonstração</Button>
+              <h2>{t('auth.checkEmailTitle')}</h2>
+              <p>{t('auth.checkEmailBody')} <strong>{email}</strong></p>
+              <Button variant="outline" onClick={() => setSent(false)}>{t('auth.useAnotherEmail')}</Button>
+              <Button onClick={() => navigate('/app')}>{t('auth.enterDemo')}</Button>
             </div>
           ) : (
             <>
-              <span className="eyebrow dark-text">BEM-VINDO AO KICKHUB</span>
-              <h1>Entra em campo.</h1>
-              <p className="form-intro">Uma conta para todas as tuas peladas.</p>
+              <span className="eyebrow dark-text">{t('auth.welcomeEyebrow')}</span>
+              <h1>{t('auth.title')}</h1>
+              <p className="form-intro">{t('auth.subtitle')}</p>
               <Button
                 className="google-auth-button"
                 variant="outline"
@@ -82,14 +85,12 @@ export function AuthPage() {
                 disabled={loading || googleBusy}
                 onClick={handleGoogleSignIn}
               >
-                <GoogleMark /> {googleBusy ? 'A abrir o Google…' : 'Continuar com Google'}
+                <GoogleMark /> {googleBusy ? t('auth.googleOpening') : t('auth.googleContinue')}
               </Button>
-              <p className="oauth-caption">
-                Na primeira entrada, a tua conta e o perfil global são criados automaticamente.
-              </p>
-              <div className="auth-divider"><span>ou por email</span></div>
+              <p className="oauth-caption">{t('auth.googleCaption')}</p>
+              <div className="auth-divider"><span>{t('auth.dividerEmail')}</span></div>
               <form onSubmit={handleMagicLink}>
-                <label htmlFor="email">Email</label>
+                <label htmlFor="email">{t('auth.emailLabel')}</label>
                 <div className="input-with-icon">
                   <Mail size={19}/>
                   <input
@@ -98,21 +99,21 @@ export function AuthPage() {
                     type="email"
                     required
                     autoComplete="email"
-                    placeholder="tu@email.com"
+                    placeholder={t('auth.emailPlaceholder')}
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                   />
                 </div>
                 {error && <p className="form-error" role="alert">{error}</p>}
                 <Button type="submit" size="lg" disabled={busy}>
-                  {busy ? 'A enviar…' : 'Enviar link de acesso'} {!busy && <ArrowRightIcon/>}
+                  {busy ? t('auth.sending') : t('auth.sendMagicLink')} {!busy && <ArrowRightIcon/>}
                 </Button>
               </form>
-              <div className="auth-divider"><span>ou</span></div>
+              <div className="auth-divider"><span>{t('auth.dividerOr')}</span></div>
               <Button variant="outline" size="lg" onClick={() => navigate('/app')}>
-                Explorar com dados de demonstração
+                {t('auth.exploreDemo')}
               </Button>
-              <p className="legal-copy">Ao continuar, aceitas os Termos e a Política de Privacidade.</p>
+              <p className="legal-copy">{t('auth.legal')}</p>
             </>
           )}
         </div>

@@ -5,6 +5,7 @@ import { peladas as demoPeladas, type Pelada } from '../data/demo'
 import { getAuthDisplayName, useAuth } from '../lib/auth'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useMyPeladas } from '../lib/peladas'
+import { roleLabel } from '../lib/role-label'
 
 export function DashboardPage() {
   const { t, locale, formatDate } = useI18n()
@@ -97,12 +98,6 @@ function PeladaCard({ pelada }: { pelada: Pelada }) {
       </div>
     </Link>
   )
-}
-
-function roleLabel(role: Pelada['role'], t: (key: TranslationKey) => string) {
-  if (role === 'owner') return t('dashboard.owner')
-  if (role === 'admin') return t('dashboard.admin')
-  return t('dashboard.player')
 }
 
 function RealNextStep({ pelada }: { pelada: Pelada }) {

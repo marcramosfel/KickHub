@@ -5,6 +5,9 @@ import { acceptPeladaInvite, createPeladaInvite, hasSupabaseSession, listPending
 type JoinState = 'idle' | 'pending' | 'active'
 type Invite = { token: string; url: string; expiresAt: string }
 
+export const inviteMaxUses = 25
+export const inviteTtlHours = 168
+
 type OnboardingContextValue = {
   joinStates: Record<string, JoinState>
   requests: DemoJoinRequest[]
@@ -47,9 +50,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const createInvite = useCallback(async (peladaId: string) => {
       let token = `demo-${peladaId.slice(0, 8)}-${Math.random().toString(36).slice(2, 10)}`
-      let expiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString()
+      let expiresAt = new Date(Date.now() + inviteTtlHours * 3_600_000).toISOString()
       if (await hasSupabaseSession()) {
-        const result = await createPeladaInvite(peladaId, 25, 168)
+        const result = await createPeladaInvite(peladaId, inviteMaxUses, inviteTtlHours)
         token = result.token
         expiresAt = result.expires_at
       }
