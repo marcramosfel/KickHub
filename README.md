@@ -17,6 +17,7 @@ O produto inclui:
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
 - `useCurrentPelada()` como fonte única do contexto ativo e troca rápida entre comunidades;
 - calendário de jogos com convocatória, confirmação de presença e lista de espera automática;
+- plantel com posições, tipo de jogador e overall por pelada, base do sorteio equilibrado;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
@@ -54,6 +55,8 @@ As migrations são append-only:
 4. `20260814000000_onboarding_workflows.sql` — entrada aberta, pedidos, aprovação, convites e auditoria.
 5. `20260814010000_my_peladas_vertical_slice.sql` — read model “Minhas Peladas” e criação completa com settings.
 6. `20260815000000_game_scheduling.sql` — jogos, presenças, lista de espera e chaves compostas anti-cross-tenant.
+7. `20260815010000_profile_self_healing.sql` — criação idempotente de perfis e recuperação de contas órfãs.
+8. `20260815020000_squad_attributes.sql` — atributos desportivos do plantel e overall por pelada.
 
 Com Docker disponível:
 

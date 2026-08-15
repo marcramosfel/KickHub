@@ -99,6 +99,24 @@ O import da Pelada Browns remapeia `matches`/`match_stats` para estas entidades 
 `pelada_memberships.legacy_player_id`. As tabelas legadas continuam a ser a origem até à
 reconciliação; depois congelam.
 
+## Plantel e força do jogador
+
+`pelada_memberships.overall` guarda a força do jogador **dentro daquela pelada**, não no perfil
+global: o mesmo jogador pode ser decisivo num grupo e mediano noutro.
+
+Enquanto não existir histórico de jogos no modelo multi-tenant, o valor é definido por quem
+organiza. O `overall` legado era derivado de golos, assistências e avaliações acumuladas — dados que
+o novo modelo ainda não tem, e sem os quais o sorteio não teria em que se equilibrar. Quando houver
+estatísticas suficientes, o valor passa a ser calculado e o campo manual torna-se um ponto de
+partida.
+
+Quem organiza edita o plantel todo; cada jogador edita apenas as suas posições. O `overall` é a
+avaliação que o grupo faz de alguém, por isso `update_pelada_member` recusa a alteração do próprio
+com `OVERALL_REQUIRES_ADMIN`.
+
+As posições são genéricas — `GK`, `DEF`, `MID`, `ATT` — e não os slots lateralizados do legado, que
+assumiam 7x7. O sorteio tem de servir de 5x5 a 11x11.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;

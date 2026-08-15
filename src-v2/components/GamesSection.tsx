@@ -211,10 +211,14 @@ function CreateGameForm({ onClose, onCreated }: { onClose: () => void; onCreated
         <label htmlFor="game-location">{t('games.locationLabel')}
           <input id="game-location" maxLength={160} placeholder={t('games.locationPlaceholder')} value={location} onChange={(event) => setLocation(event.target.value)}/>
         </label>
-        <label htmlFor="game-max">{t('games.maxPlayersLabel')}
-          <input id="game-max" type="number" min={4} max={60} value={maxPlayers} onChange={(event) => setMaxPlayers(event.target.value)} aria-describedby="game-max-hint"/>
+        {/* A dica fica fora do label: dentro dele passaria a fazer parte do
+            nome acessível do campo, em vez de ser apenas a sua descrição. */}
+        <div className="game-max-field">
+          <label htmlFor="game-max">{t('games.maxPlayersLabel')}
+            <input id="game-max" type="number" min={4} max={60} value={maxPlayers} onChange={(event) => setMaxPlayers(event.target.value)} aria-describedby="game-max-hint"/>
+          </label>
           <small id="game-max-hint">{t('games.maxPlayersHint')}</small>
-        </label>
+        </div>
         <label htmlFor="game-notes">{t('games.notesLabel')}
           <textarea id="game-notes" maxLength={500} placeholder={t('games.notesPlaceholder')} value={notes} onChange={(event) => setNotes(event.target.value)}/>
         </label>
