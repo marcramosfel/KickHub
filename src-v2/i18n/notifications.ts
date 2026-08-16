@@ -14,6 +14,8 @@ const pt = {
   'notifications.gameCancelled': 'O jogo de {date} foi cancelado.',
   'notifications.joinApproved': 'O teu pedido foi aprovado. Já podes entrar.',
   'notifications.joinRejected': 'O teu pedido não foi aprovado desta vez.',
+  'notifications.promoted': 'Passaste a admin desta pelada.',
+  'notifications.demoted': 'Deixaste de ser admin desta pelada.',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -32,6 +34,8 @@ const en: Record<Key, TranslationValue> = {
   'notifications.gameCancelled': 'The match on {date} was cancelled.',
   'notifications.joinApproved': 'Your request was approved. You are in.',
   'notifications.joinRejected': 'Your request was not approved this time.',
+  'notifications.promoted': 'You are now an admin of this group.',
+  'notifications.demoted': 'You are no longer an admin of this group.',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -48,6 +52,8 @@ const es: Record<Key, TranslationValue> = {
   'notifications.gameCancelled': 'El partido del {date} fue cancelado.',
   'notifications.joinApproved': 'Tu solicitud fue aprobada. Ya puedes entrar.',
   'notifications.joinRejected': 'Tu solicitud no fue aprobada esta vez.',
+  'notifications.promoted': 'Ahora eres admin de este grupo.',
+  'notifications.demoted': 'Ya no eres admin de este grupo.',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -64,6 +70,8 @@ const fr: Record<Key, TranslationValue> = {
   'notifications.gameCancelled': 'Le match du {date} a été annulé.',
   'notifications.joinApproved': 'Ta demande a été acceptée. Tu es des nôtres.',
   'notifications.joinRejected': 'Ta demande n’a pas été acceptée cette fois.',
+  'notifications.promoted': 'Tu es maintenant admin de ce groupe.',
+  'notifications.demoted': 'Tu n’es plus admin de ce groupe.',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -80,6 +88,8 @@ const de: Record<Key, TranslationValue> = {
   'notifications.gameCancelled': 'Das Spiel am {date} wurde abgesagt.',
   'notifications.joinApproved': 'Deine Anfrage wurde angenommen. Du bist dabei.',
   'notifications.joinRejected': 'Deine Anfrage wurde diesmal nicht angenommen.',
+  'notifications.promoted': 'Du bist jetzt Admin dieser Gruppe.',
+  'notifications.demoted': 'Du bist nicht mehr Admin dieser Gruppe.',
 }
 
 export const notificationsCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

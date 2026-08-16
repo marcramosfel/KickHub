@@ -187,6 +187,36 @@ O cliente conhece um conjunto fechado de tipos e recorre ao texto guardado para 
 conhece, de modo a que uma notificação nova do servidor apareça com algum conteúdo em vez de uma
 linha em branco.
 
+## Administração da pelada
+
+`20260816050000` abre a identidade, as regras de jogo e os papéis à edição. Até aí a pelada ficava
+congelada no que o assistente de criação escreveu, e promover alguém a admin só era possível por SQL
+— quem organiza não conseguia delegar.
+
+Três decisões que a migration grava:
+
+- **o slug não é editável.** É ele que forma o link partilhado; mudá-lo partia em silêncio todos os
+  convites já enviados. `update_pelada_identity` nem sequer recebe o argumento, e um teste verifica a
+  ausência do parâmetro, para que a proteção não dependa de alguém se lembrar dela;
+- **só o dono muda papéis.** Se um admin pudesse promover admins, bastava um convite mal dado para
+  alguém promover aliados e passar a controlar a pelada. `set_pelada_member_role` levanta `OWNER_ONLY`
+  a qualquer outro, e remover um admin exige o mesmo — remover é despromover pela porta do lado;
+- **o dono não se altera nem se remove.** `peladas.owner_profile_id` aponta para o perfil com
+  `on delete restrict`, portanto despromovê-lo deixaria a pelada a apontar para quem já não manda.
+  Transferir propriedade muda quem controla os dados de um grupo real e fica fora desta fatia.
+
+Remover é uma mudança de estado, não um `delete`: os jogos, as equipas sorteadas e as estatísticas
+apontam para a inscrição, e apagá-la levaria o histórico atrás ou falharia na chave estrangeira. Quem
+sai deixa de ocupar vaga nos jogos que aí vêm, e cada lugar libertado passa a quem estava em lista de
+espera, pela ordem em que respondeu — o mesmo critério de `set_game_attendance`.
+
+Sair por iniciativa própria não existe: nenhuma das funções deixa alguém remover-se a si mesmo.
+Abandonar a pelada é um gesto do jogador, não uma ação de administração, e fica por fazer.
+
+Gravar as definições são duas RPCs em série, uma por tabela. Se a segunda falhar, a identidade fica
+gravada e as regras não; a interface diz que falhou e recarrega do servidor, portanto o que o
+organizador vê a seguir é o estado real e não o que escreveu.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;

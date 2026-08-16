@@ -144,4 +144,74 @@ describe('SquadSection', () => {
     expect(await screen.findByText('Abwehr')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Kader' })).toBeInTheDocument()
   })
+
+  it('o dono promove um jogador a admin', async () => {
+    respondWith({ members: [makeRow(), makeRow({ membership_id: 'm2', display_name: 'Eu', is_me: true, role: 'owner' })] })
+    renderSquad()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Tornar admin' }))
+    await waitFor(() => expect(squadMocks.rpc).toHaveBeenCalledWith('set_pelada_member_role', {
+      p_membership_id: 'membership-1', p_role: 'admin',
+    }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Joana Silva passou a admin')
+  })
+
+  it('o dono despromove um admin', async () => {
+    respondWith({ members: [makeRow({ role: 'admin' }), makeRow({ membership_id: 'm2', display_name: 'Eu', is_me: true, role: 'owner' })] })
+    renderSquad()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Passar a jogador' }))
+    await waitFor(() => expect(squadMocks.rpc).toHaveBeenCalledWith('set_pelada_member_role', {
+      p_membership_id: 'membership-1', p_role: 'player',
+    }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Joana Silva voltou a jogador')
+  })
+
+  /**
+   * O botão não pode remover à primeira: perder um membro é o tipo de gesto que
+   * não se desfaz a partir da interface.
+   */
+  it('pede confirmação antes de remover', async () => {
+    respondWith({ members: [makeRow()] })
+    renderSquad()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remover da pelada' }))
+    expect(squadMocks.rpc).not.toHaveBeenCalledWith('remove_pelada_member', expect.anything())
+    expect(screen.getByText(/Remover Joana Silva da pelada\?/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remover da pelada' })[0])
+    await waitFor(() => expect(squadMocks.rpc).toHaveBeenCalledWith('remove_pelada_member', {
+      p_membership_id: 'membership-1',
+    }))
+  })
+
+  it('não oferece papéis nem remoção a quem só administra', async () => {
+    squadMocks.context = { ...squadMocks.context, role: 'admin' }
+    respondWith({ members: [makeRow({ membership_id: 'm2', display_name: 'Outro Admin', role: 'admin' })] })
+    renderSquad()
+
+    await screen.findByText('Outro Admin')
+    expect(screen.queryByRole('button', { name: 'Tornar admin' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remover da pelada' })).not.toBeInTheDocument()
+  })
+
+  it('não deixa ninguém mexer no dono nem em si próprio', async () => {
+    respondWith({ members: [
+      makeRow({ membership_id: 'm2', display_name: 'Eu', is_me: true, role: 'owner' }),
+      makeRow({ membership_id: 'm3', display_name: 'Fundador', role: 'owner' }),
+    ] })
+    renderSquad()
+
+    await screen.findByText('Fundador')
+    expect(screen.queryByRole('button', { name: /Tornar admin|Passar a jogador/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remover da pelada' })).not.toBeInTheDocument()
+  })
+
+  it('explica quando a mudança de papel falha', async () => {
+    respondWith({ members: [makeRow()], failing: 'set_pelada_member_role' })
+    renderSquad()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Tornar admin' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível concluir')
+  })
 })

@@ -124,5 +124,7 @@ function describe(
     case 'game.cancelled': return t('notifications.gameCancelled', { date })
     case 'join_request_approved': return t('notifications.joinApproved')
     case 'join_request_rejected': return t('notifications.joinRejected')
+    case 'membership.promoted': return t('notifications.promoted')
+    case 'membership.demoted': return t('notifications.demoted')
   }
 }

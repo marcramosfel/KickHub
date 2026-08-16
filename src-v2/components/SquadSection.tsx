@@ -1,9 +1,10 @@
-import { Check, Pencil, ShieldCheck, UsersRound } from 'lucide-react'
+import { Check, Pencil, ShieldCheck, UserMinus, UsersRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Avatar, Badge, Button, Card, EmptyState } from '../components/ui'
 import { computePlayerOverall, isProvisional } from '../domain/player-overall'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
+import { useRemoveMember, useSetMemberRole } from '../lib/pelada-admin'
 import { usePeladaRanking, type RankingRow } from '../lib/ranking'
 import { roleLabel } from '../lib/role-label'
 import {
@@ -59,6 +60,7 @@ export function SquadSection() {
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
+              onDone={setNotice}
             />
           ))}
           <EmptyState icon={<UsersRound/>} title={t('squad.emptyTitle')} body={t('squad.emptyBody')}/>
@@ -74,6 +76,7 @@ export function SquadSection() {
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
+              onDone={setNotice}
             />
           ))}
         </div>
@@ -94,13 +97,14 @@ function SquadHeading({ count }: { count: number | null }) {
   )
 }
 
-function MemberCard({ member, canAdmin, editing, onEdit, onClose, onSaved }: {
+function MemberCard({ member, canAdmin, editing, onEdit, onClose, onSaved, onDone }: {
   member: SquadMember
   canAdmin: boolean
   editing: boolean
   onEdit: () => void
   onClose: () => void
   onSaved: (name: string) => void
+  onDone: (message: string) => void
 }) {
   const { t, formatNumber } = useI18n()
 
@@ -126,10 +130,98 @@ function MemberCard({ member, canAdmin, editing, onEdit, onClose, onSaved }: {
           ? <small>{t('squad.noOverall')}</small>
           : <><strong>{formatNumber(member.overall)}</strong><small>{t('squad.overallLabel')}</small></>}
       </div>
-      {canEditMember(member, canAdmin)
-        ? <Button variant="outline" size="sm" onClick={onEdit}><Pencil size={14}/> {t('squad.edit')}</Button>
-        : null}
+      <div className="squad-actions">
+        {canEditMember(member, canAdmin)
+          ? <Button variant="outline" size="sm" onClick={onEdit}><Pencil size={14}/> {t('squad.edit')}</Button>
+          : null}
+        <MemberAdminActions member={member} onDone={onDone}/>
+      </div>
     </Card>
+  )
+}
+
+/**
+ * Papéis e remoção. As guardas repetem as do servidor porque servem propósitos
+ * diferentes: aqui é para não oferecer um botão que ia falhar, lá é para
+ * recusar quem chame a RPC directamente.
+ *
+ * Sair por iniciativa própria não cabe aqui — nenhuma das funções permite que
+ * alguém se remova a si mesmo, e abandonar a pelada é um gesto do jogador, não
+ * uma acção de administração.
+ */
+function MemberAdminActions({ member, onDone }: { member: SquadMember; onDone: (message: string) => void }) {
+  const { t } = useI18n()
+  const { pelada, role } = useCurrentPelada()
+  const setRole = useSetMemberRole(pelada?.id)
+  const remove = useRemoveMember(pelada?.id)
+  const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState('')
+
+  const isOwner = role === 'owner'
+  const canChangeRole = isOwner && !member.isMe && member.role !== 'owner'
+  const canRemove = member.role !== 'owner' && !member.isMe
+    && (member.role === 'admin' ? isOwner : role === 'owner' || role === 'admin')
+
+  if (!canChangeRole && !canRemove) return null
+
+  const run = async (action: Promise<unknown>, message: string) => {
+    setError('')
+    try {
+      await action
+      setConfirming(false)
+      onDone(message)
+    } catch {
+      setError(t('peladaAdmin.memberError'))
+    }
+  }
+
+  const busy = setRole.isPending || remove.isPending
+
+  return (
+    <>
+      {canChangeRole ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => {
+            const next = member.role === 'admin' ? 'player' : 'admin'
+            void run(
+              setRole.mutateAsync({ membershipId: member.membershipId, role: next }),
+              t(next === 'admin' ? 'peladaAdmin.promoted' : 'peladaAdmin.demoted', { name: member.displayName }),
+            )
+          }}
+        >
+          <ShieldCheck size={14}/> {t(member.role === 'admin' ? 'peladaAdmin.demote' : 'peladaAdmin.promote')}
+        </Button>
+      ) : null}
+
+      {canRemove ? (
+        confirming ? (
+          <>
+            <span className="squad-confirm" role="status">{t('peladaAdmin.removeConfirm', { name: member.displayName })}</span>
+            <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>{t('squad.cancel')}</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => void run(
+                remove.mutateAsync(member.membershipId),
+                t('peladaAdmin.removed', { name: member.displayName }),
+              )}
+            >
+              <UserMinus size={14}/> {t('peladaAdmin.remove')}
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => setConfirming(true)}>
+            <UserMinus size={14}/> {t('peladaAdmin.remove')}
+          </Button>
+        )
+      ) : null}
+
+      {error ? <span className="form-error" role="alert">{error}</span> : null}
+    </>
   )
 }
 

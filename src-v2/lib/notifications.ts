@@ -11,6 +11,8 @@ export const knownKinds = [
   'game.cancelled',
   'join_request_approved',
   'join_request_rejected',
+  'membership.promoted',
+  'membership.demoted',
 ] as const
 
 export type NotificationKind = typeof knownKinds[number]
