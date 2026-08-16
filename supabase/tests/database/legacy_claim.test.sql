@@ -90,12 +90,6 @@ select matches(
   '^[0-9A-F]{4}(-[0-9A-F]{4}){7}$',
   'o código são 128 bits em grupos de quatro, ditáveis ao telefone'
 );
-select is(
-  (select count(*)::int from public.legacy_claims where code_hash = (select valor from codigo)),
-  0,
-  'e o que fica guardado não é o código'
-);
-
 -- Um código errado não diz se existe: dizer a diferença seria dizer quais
 -- códigos existem.
 set local request.jwt.claims to '{"sub":"b2000000-0000-4000-8000-000000000002"}';
@@ -142,7 +136,16 @@ select throws_ok(
   'não se emite claim para quem já foi reclamado'
 );
 
--- Fica registado quem fez o quê.
+reset role;
+
+-- As duas asserções seguintes leem tabelas que `authenticated` não alcança — e
+-- é isso que as outras afirmam. Correm depois de largar o papel, que é a única
+-- forma honesta de as fazer sem contradizer o resto do ficheiro.
+select is(
+  (select count(*)::int from public.legacy_claims where code_hash = (select valor from codigo)),
+  0,
+  'o que fica guardado não é o código, é o hash'
+);
 select is(
   (select count(*)::int from public.tenant_audit_log
    where pelada_id = '00000000-0000-4000-8000-0000000dc001'
@@ -150,8 +153,6 @@ select is(
   2,
   'a emissão e o consumo ficam no registo de auditoria'
 );
-
-reset role;
 
 select * from finish();
 rollback;
