@@ -131,13 +131,26 @@ O cliente calcula e o servidor valida: `save_game_lineup` recusa escalar quem n�
 ou não confirmou presença. Confiar na escalação recebida deixaria um administrador escalar alguém de
 outra comunidade através da RPC.
 
+## Resultado e estatísticas
+
+O placar é guardado explicitamente em `game_results` e não derivado da soma dos golos: autogolos
+contam para o adversário, e uma pelada que só queira registar o resultado sem detalhar quem marcou
+continua a poder fechar o jogo.
+
+`game_player_stats` guarda uma linha por jogador — golos, assistências, autogolos e defesas. É sobre
+esta tabela que o ranking e o overall calculado vão assentar.
+
+`save_game_result` é idempotente: corrigir um placar mal registado substitui as estatísticas em vez
+de as somar outra vez. Só entram jogadores com presença confirmada ou escalação sorteada, portanto a
+RPC não aceita creditar golos a quem faltou nem a alguém de outra pelada.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
 2. ~~constraints compostas para impedir FKs cross-tenant~~ — feito em `20260815000000`;
 3. claim legado e revogação progressiva de PIN/token;
 4. DTOs público/membro/admin e Storage com paths por tenant;
-5. resultados, estatísticas e ranking sobre as entidades de jogo.
+5. ranking e overall calculado sobre `game_player_stats`.
 
 O plano original adiava as entidades de jogo para depois do carimbo do legado, para evitar um fork
 entre o histórico Browns e as peladas novas. A ordem foi invertida deliberadamente: sem o ciclo de
