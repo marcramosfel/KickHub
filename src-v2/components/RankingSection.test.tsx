@@ -151,6 +151,21 @@ describe('RankingSection', () => {
 
     expect(await screen.findByText('Nuno')).toBeInTheDocument()
     expect(screen.getByText('ex-membro')).toBeInTheDocument()
-    expect(screen.queryAllByText('ex-membro')).toHaveLength(1)
+  })
+
+  /**
+   * O destaque e a tabela leem a mesma linha. Sem a marca nos dois sitios, o
+   * mesmo ecra dava alguem como artilheiro da pelada duas linhas abaixo de o
+   * ter dado como ex-membro.
+   */
+  it('marca quem saiu tambem nos destaques', async () => {
+    respondWith({
+      ranking: [makeRow({ membership_id: 'm2', display_name: 'Nuno', goals: 9, assists: 9, is_former: true })],
+    })
+    renderRanking('stats')
+
+    // A tabela não existe nesta vista: as três marcas são as dos destaques —
+    // artilheiro, assistências e contributo.
+    expect(await screen.findAllByText('ex-membro')).toHaveLength(3)
   })
 })

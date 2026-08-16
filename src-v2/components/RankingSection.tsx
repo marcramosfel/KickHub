@@ -10,6 +10,12 @@ import { contribution, usePeladaRanking, usePeladaTotals, winRate, type RankingR
  * números saem já agregados do servidor — somá-los no cliente obrigaria a
  * trazer todos os jogos para o browser.
  */
+/** Nome com a marca de ex-membro, para a tabela e os destaques concordarem. */
+function PlayerName({ row }: { row: Pick<RankingRow, 'displayName' | 'isFormer'> }) {
+  const { t } = useI18n()
+  return <>{row.displayName}{row.isFormer ? <span className="ranking-former">{t('ranking.former')}</span> : null}</>
+}
+
 export function RankingSection({ variant }: { variant: 'ranking' | 'stats' }) {
   const { t } = useI18n()
   const { pelada, isDemo } = useCurrentPelada()
@@ -89,7 +95,7 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
             <tr key={row.membershipId}>
               <td>{formatNumber(index + 1)}</td>
               <th scope="row">
-                <strong>{row.displayName}{row.isFormer ? <span className="ranking-former">{t('ranking.former')}</span> : null}</strong>
+                <strong><PlayerName row={row}/></strong>
                 <small>{rate === null
                   ? t('ranking.noDecided')
                   : t('ranking.winRate', { value: formatNumber(rate, { style: 'percent' }) })}</small>
@@ -132,21 +138,24 @@ function StatsOverview({ rows, totals }: { rows: RankingRow[]; totals: { gamesPl
         </div>
       ) : null}
 
+      {/* Os destaques marcam quem saiu pela mesma razão que a tabela: sem isso,
+          o mesmo ecrã apresentava alguém como artilheiro da pelada duas linhas
+          abaixo de o ter dado como ex-membro. */}
       <div className="stats-highlights">
         <Card>
           <Badge tone="lime">{t('ranking.topScorer')}</Badge>
-          <strong>{topScorer?.displayName ?? t('ranking.noneYet')}</strong>
+          <strong>{topScorer ? <PlayerName row={topScorer}/> : t('ranking.noneYet')}</strong>
           {topScorer ? <small>{formatNumber(topScorer.goals)} {t('ranking.goals')}</small> : null}
         </Card>
         <Card>
           <Badge tone="blue">{t('ranking.topAssists')}</Badge>
-          <strong>{topAssists?.displayName ?? t('ranking.noneYet')}</strong>
+          <strong>{topAssists ? <PlayerName row={topAssists}/> : t('ranking.noneYet')}</strong>
           {topAssists ? <small>{formatNumber(topAssists.assists)} {t('ranking.assists')}</small> : null}
         </Card>
         <Card>
           <Badge tone="orange">{t('ranking.contribution')}</Badge>
           <strong>{rows[0] ? formatNumber(contribution(rows[0])) : t('ranking.noneYet')}</strong>
-          {rows[0] ? <small>{rows[0].displayName}</small> : null}
+          {rows[0] ? <small><PlayerName row={rows[0]}/></small> : null}
         </Card>
       </div>
     </>
