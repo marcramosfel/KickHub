@@ -65,10 +65,11 @@ function attendanceRows(count: number): AttendanceRow[] {
   }))
 }
 
-function respondWith({ attendance = attendanceRows(10), lineup = [] as unknown[], failing = '', goalkeeperMode = 'rotating' }: { attendance?: AttendanceRow[]; lineup?: unknown[]; failing?: string; goalkeeperMode?: string } = {}) {
+function respondWith({ attendance = attendanceRows(10), lineup = [] as unknown[], ranking = [] as unknown[], failing = '', goalkeeperMode = 'rotating' }: { attendance?: AttendanceRow[]; lineup?: unknown[]; ranking?: unknown[]; failing?: string; goalkeeperMode?: string } = {}) {
   drawMocks.rpc.mockImplementation(async (fn: string) => {
     if (fn === failing) return { data: null, error: { message: 'denied' } }
     if (fn === 'list_game_attendance') return { data: attendance, error: null }
+    if (fn === 'get_pelada_ranking') return { data: ranking, error: null }
     if (fn === 'get_game_lineup') return { data: lineup, error: null }
     if (fn === 'get_pelada_settings') {
       return { data: [{ default_format: '5x5', default_team_size: 5, goalkeeper_mode: goalkeeperMode, ratings_enabled: true, awards_enabled: true }], error: null }
@@ -136,6 +137,34 @@ describe('GameDraw', () => {
     expect(payload).toHaveLength(10)
     expect(payload.every((entry) => typeof entry.overall_at_draw === 'number')).toBe(true)
     expect(new Set(payload.map((entry) => entry.team))).toEqual(new Set(['A', 'B']))
+  })
+
+  /**
+   * O sorteio tem de equilibrar pelo mesmo número que o ranking publica.
+   * Enquanto usou a nota escrita à mão, o valor que formava as equipas não era
+   * o valor que a pelada via: em staging, 82 aqui e 53 na tabela.
+   */
+  it('congela o overall calculado, não a nota que a organização escreveu', async () => {
+    respondWith({
+      attendance: attendanceRows(10).map((row, index) => ({ ...row, overall: index === 0 ? 90 : 50 })),
+      ranking: [{
+        membership_id: 'm0', display_name: 'Jogador 0', games_played: 20,
+        goals: 0, assists: 0, own_goals: 0, saves: 0, wins: 0, draws: 0, losses: 0,
+        is_former: false, base_rating: 90,
+      }],
+    })
+    renderDraw()
+    fireEvent.click(await screen.findByRole('button', { name: /Sortear equipas/ }))
+    await screen.findByText('Equipa A')
+    fireEvent.click(screen.getByRole('button', { name: /Guardar sorteio/ }))
+
+    await waitFor(() => expect(drawMocks.rpc).toHaveBeenCalledWith('save_game_lineup', expect.anything()))
+    const call = drawMocks.rpc.mock.calls.find(([fn]) => fn === 'save_game_lineup')!
+    const payload = (call[1] as { p_lineup: Array<Record<string, unknown>> }).p_lineup
+    const primeiro = payload.find((entry) => entry.membership_id === 'm0')!
+
+    // 0,7 × 90 + 0,3 × 10 (desempenho nulo em 20 jogos, encolhido) = 66.
+    expect(primeiro.overall_at_draw).toBe(66)
   })
 
   it('separa os guarda-redes quando a pelada joga com eles fixos', async () => {
