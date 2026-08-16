@@ -1,6 +1,6 @@
 begin;
 
-select plan(37);
+select plan(39);
 
 select has_table('public', 'game_award_votes', 'tabela de votos existe');
 select has_table('public', 'game_award_decisions', 'a decisão de cada prémio é um facto próprio');
@@ -28,7 +28,10 @@ insert into auth.users (id, email) values
   ('c2000000-0000-4000-8000-000000000002', 'ganhador2@example.test'),
   ('c3000000-0000-4000-8000-000000000003', 'ganhador3@example.test'),
   ('c4000000-0000-4000-8000-000000000004', 'perdedor1@example.test'),
-  ('c5000000-0000-4000-8000-000000000005', 'perdedor2@example.test');
+  ('c5000000-0000-4000-8000-000000000005', 'perdedor2@example.test'),
+  -- Um terceiro perdedor: com dois, cada um só pode votar no outro e o empate
+  -- 1-1 é inquebrável — não havia forma de exercitar o desempate.
+  ('c6000000-0000-4000-8000-000000000006', 'perdedor3@example.test');
 
 insert into public.peladas (id, slug, name, country_code, city, visibility, join_mode, owner_profile_id)
 select '00000000-0000-4000-8000-0000000ca001', 'award-a', 'Award A', 'PT', 'Lisboa', 'private', 'invite', p.id
@@ -49,6 +52,9 @@ from public.profiles p where p.auth_user_id = 'c4000000-0000-4000-8000-000000000
 insert into public.pelada_memberships (id, pelada_id, profile_id, role, status)
 select '00000000-0000-4000-8000-0000000cb005', '00000000-0000-4000-8000-0000000ca001', p.id, 'player', 'active'
 from public.profiles p where p.auth_user_id = 'c5000000-0000-4000-8000-000000000005';
+insert into public.pelada_memberships (id, pelada_id, profile_id, role, status)
+select '00000000-0000-4000-8000-0000000cb006', '00000000-0000-4000-8000-0000000ca001', p.id, 'player', 'active'
+from public.profiles p where p.auth_user_id = 'c6000000-0000-4000-8000-000000000006';
 
 -- --------------------------------------------------------- comportamento real
 
@@ -73,15 +79,19 @@ begin
   perform public.set_game_attendance(v_game, 'confirmed', null);
   perform set_config('request.jwt.claims', '{"sub":"c5000000-0000-4000-8000-000000000005"}', true);
   perform public.set_game_attendance(v_game, 'confirmed', null);
+  perform set_config('request.jwt.claims', '{"sub":"c6000000-0000-4000-8000-000000000006"}', true);
+  perform public.set_game_attendance(v_game, 'confirmed', null);
   perform set_config('request.jwt.claims', '{"sub":"c1000000-0000-4000-8000-000000000001"}', true);
 
-  -- Equipa A vence por 3-1: cb001, cb002 e cb003 ganham; cb004 e cb005 perdem.
+  -- Equipa A vence por 3-1: cb001, cb002 e cb003 ganham; cb004, cb005 e cb006
+  -- perdem. Três de cada lado, para o desempate ser possível nos dois prémios.
   perform public.save_game_lineup(v_game, 'semente', jsonb_build_array(
     jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000cb001', 'team', 'A', 'overall_at_draw', 70),
     jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000cb002', 'team', 'A', 'overall_at_draw', 65),
     jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000cb003', 'team', 'A', 'overall_at_draw', 60),
     jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000cb004', 'team', 'B', 'overall_at_draw', 68),
-    jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000cb005', 'team', 'B', 'overall_at_draw', 62)));
+    jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000cb005', 'team', 'B', 'overall_at_draw', 62),
+    jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000cb006', 'team', 'B', 'overall_at_draw', 64)));
   perform public.save_game_result(v_game, 3, 1, null, '[]'::jsonb);
 end $setup$;
 
@@ -151,8 +161,20 @@ select is(
   'bagre empatado não castiga ninguém'
 );
 
--- Desempata: cb004 leva dois votos, cb005 um.
-set local request.jwt.claims to '{"sub":"c4000000-0000-4000-8000-000000000004"}';
+-- O terceiro perdedor desempata: cb005 fica com dois votos e cb004 com um.
+set local request.jwt.claims to '{"sub":"c6000000-0000-4000-8000-000000000006"}';
+select is(
+  public.vote_game_awards((select id from jogo), null, '00000000-0000-4000-8000-0000000cb005'),
+  1,
+  'o terceiro perdedor vota'
+);
+select is(
+  (select membership_id from public.get_game_awards((select id from jogo)) where award = 'bagre'),
+  '00000000-0000-4000-8000-0000000cb005'::uuid,
+  'com dois votos contra um, há bagre'
+);
+
+-- E ao mudar de ideias, o voto muda de lado em vez de se acumular.
 select is(
   public.vote_game_awards((select id from jogo), null, '00000000-0000-4000-8000-0000000cb004'),
   1,
@@ -161,7 +183,7 @@ select is(
 select is(
   (select membership_id from public.get_game_awards((select id from jogo)) where award = 'bagre'),
   '00000000-0000-4000-8000-0000000cb004'::uuid,
-  'com dois votos contra um, há bagre'
+  'e o bagre passa para o outro'
 );
 
 -- Cada um vê o que votou, e mais nada.
