@@ -61,6 +61,8 @@ export function GameDraw({ game }: { game: Game }) {
             postRatingAvg: statsByMember.get(player.id)?.postRatingAvg ?? null,
             craques: statsByMember.get(player.id)?.craques ?? 0,
             bagres: statsByMember.get(player.id)?.bagres ?? 0,
+            waeSaldo: statsByMember.get(player.id)?.waeSaldo ?? null,
+            waeMatches: statsByMember.get(player.id)?.waeMatches ?? 0,
           }),
         })),
         teamSize,

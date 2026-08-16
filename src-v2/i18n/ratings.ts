@@ -13,6 +13,7 @@ const pt = {
   'ratings.partPostRating': 'Avaliação dos companheiros',
   'ratings.partCraque': 'Craque da rodada',
   'ratings.partBagre': 'Bagre da rodada',
+  'ratings.partWae': 'Vitórias acima do esperado',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -30,6 +31,7 @@ const en: Record<Key, TranslationValue> = {
   'ratings.partPostRating': 'Teammate ratings',
   'ratings.partCraque': 'Player of the round',
   'ratings.partBagre': 'Flop of the round',
+  'ratings.partWae': 'Wins above expectation',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -45,6 +47,7 @@ const es: Record<Key, TranslationValue> = {
   'ratings.partPostRating': 'Valoración de los compañeros',
   'ratings.partCraque': 'Crack de la jornada',
   'ratings.partBagre': 'Peor de la jornada',
+  'ratings.partWae': 'Victorias por encima de lo esperado',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -60,6 +63,7 @@ const fr: Record<Key, TranslationValue> = {
   'ratings.partPostRating': 'Notes des coéquipiers',
   'ratings.partCraque': 'Joueur de la journée',
   'ratings.partBagre': 'Flop de la journée',
+  'ratings.partWae': 'Victoires au-dessus des attentes',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -75,6 +79,7 @@ const de: Record<Key, TranslationValue> = {
   'ratings.partPostRating': 'Bewertung der Mitspieler',
   'ratings.partCraque': 'Spieler des Spieltags',
   'ratings.partBagre': 'Flop des Spieltags',
+  'ratings.partWae': 'Siege über der Erwartung',
 }
 
 export const ratingsCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

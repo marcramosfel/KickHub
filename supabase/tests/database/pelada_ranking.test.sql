@@ -1,6 +1,6 @@
 begin;
 
-select plan(21);
+select plan(26);
 
 select has_function('public', 'get_pelada_ranking', array['uuid'], 'ranking da pelada existe');
 select has_function('public', 'get_pelada_totals', array['uuid'], 'totais da pelada existem');
@@ -167,6 +167,44 @@ select is(
    where membership_id = '00000000-0000-4000-8000-0000000000e2'),
   null::int,
   'quem não tem nota vem a nulo, e não a zero'
+);
+
+-- O saldo de vitórias acima do esperado. A pergunta não é "ganhaste?" — é
+-- "ganhaste mais do que era suposto?". A taxa crua não serve numa pelada com
+-- sorteio equilibrado: se o motor funcionar, converge para 50% e mede ruído.
+select is(
+  (select wae_matches from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e1'),
+  1,
+  'a rodada com escalação e resultado é medida'
+);
+
+-- As duas equipas foram escaladas a 70 e 66 de overall: a de e1 era favorita, e
+-- ganhou. Vale menos do que meio ponto, porque já era suposto ganhar.
+select ok(
+  (select wae_saldo from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e1') between 0 and 0.5,
+  'o favorito que ganha soma pouco'
+);
+select ok(
+  (select wae_saldo from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e2') between -0.5 and 0,
+  'e quem perdia era esperado perder, portanto desconta pouco'
+);
+
+-- Quem só confirmou presença conta como jogo disputado, mas não tem lado: sem
+-- escalação não há expectativa a comparar.
+select is(
+  (select wae_matches from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e3'),
+  0,
+  'quem não foi escalado não tem rodadas medidas'
+);
+select is(
+  (select wae_saldo from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e3'),
+  null::numeric,
+  'e o saldo vem a nulo, não a zero — zero seria dizer que rendeu o esperado'
 );
 
 set local request.jwt.claims to '{"sub":"a4400000-0000-4000-8000-000000000004"}';

@@ -113,6 +113,7 @@ function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => s
     opinion: 'squad.partOpinion',
     performance: 'squad.partPerformance',
     postRating: 'ratings.partPostRating',
+    wae: 'ratings.partWae',
   }
   const premio: Record<OverallBreakdown['adjustments'][number]['key'], TranslationKey> = {
     craque: 'ratings.partCraque',
@@ -154,6 +155,8 @@ function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved
     postRatingAvg: stats?.postRatingAvg ?? null,
     craques: stats?.craques ?? 0,
     bagres: stats?.bagres ?? 0,
+    waeSaldo: stats?.waeSaldo ?? null,
+    waeMatches: stats?.waeMatches ?? 0,
   })
 
   return (

@@ -6,7 +6,7 @@ import {
 
 const player = (overrides: Partial<OverallInput> = {}): OverallInput => ({
   gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null,
-  craques: 0, bagres: 0, ...overrides,
+  craques: 0, bagres: 0, waeSaldo: null, waeMatches: 0, ...overrides,
 })
 
 describe('contributo por jogo', () => {
@@ -163,6 +163,71 @@ describe('craque e bagre', () => {
 
   it('não inventa um ajuste para quem nunca levou prémio', () => {
     expect(explainOverall(player({ gamesPlayed: 10, baseRating: 50 }))!.adjustments).toEqual([])
+  })
+})
+
+describe('vitórias acima do esperado', () => {
+  /**
+   * 50 é "exactamente o esperado". Ganhar sendo favorito folgado quase não
+   * conta; ganhar sendo azarão conta muito. É o que distingue esta parcela da
+   * taxa de vitórias crua, que numa pelada com sorteio equilibrado mede ruído.
+   */
+  it('põe o esperado no meio da escala', () => {
+    const comoEsperado = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0, waeMatches: 10 }))!
+    expect(comoEsperado.parts.find((part) => part.key === 'wae')!.value).toBe(50)
+
+    // Favorito a 93% que ganha: saldo +0,07 por rodada.
+    const favorito = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0.07 * 10, waeMatches: 10 }))!
+    expect(favorito.parts.find((part) => part.key === 'wae')!.value).toBeCloseTo(57, 6)
+
+    // Ligeiro favorito a 74% que ganha: saldo +0,26 por rodada.
+    const ligeiro = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0.26 * 10, waeMatches: 10 }))!
+    expect(ligeiro.parts.find((part) => part.key === 'wae')!.value).toBeCloseTo(76, 6)
+
+    // Ganhar sempre como azarão a 7% dá 143 e trava no topo da escala: quem o
+    // faz esgotou o que esta parcela consegue medir.
+    const azarao = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0.93 * 10, waeMatches: 10 }))!
+    expect(azarao.parts.find((part) => part.key === 'wae')!.value).toBe(100)
+  })
+
+  it('não sai da escala mesmo com saldos extremos', () => {
+    const impossivel = explainOverall(player({ gamesPlayed: 3, waeSaldo: 30, waeMatches: 3 }))!
+    expect(impossivel.parts.find((part) => part.key === 'wae')!.value).toBe(100)
+    const fundo = explainOverall(player({ gamesPlayed: 3, waeSaldo: -30, waeMatches: 3 }))!
+    expect(fundo.parts.find((part) => part.key === 'wae')!.value).toBe(0)
+  })
+
+  /**
+   * O peso desliza em vez de ligar de repente às cinco rodadas: um jogador que
+   * rendeu exactamente o esperado não pode perder pontos de um dia para o outro
+   * só por cruzar uma fronteira.
+   */
+  it('faz o peso deslizar até às cinco rodadas', () => {
+    const pesoCom = (matches: number) => {
+      const parts = explainOverall(player({ gamesPlayed: 10, baseRating: 60, waeSaldo: 0, waeMatches: matches }))!.parts
+      return parts.find((part) => part.key === 'wae')?.weight ?? 0
+    }
+    // Nominal 0,15, mas renormalizado — o que importa é crescer sem saltos.
+    expect(pesoCom(0)).toBe(0)
+    expect(pesoCom(1)).toBeGreaterThan(0)
+    expect(pesoCom(1)).toBeLessThan(pesoCom(3))
+    expect(pesoCom(3)).toBeLessThan(pesoCom(5))
+    expect(pesoCom(5)).toBeCloseTo(pesoCom(20), 10)
+  })
+
+  it('não inventa a parcela sem rodadas medidas', () => {
+    const sem = explainOverall(player({ gamesPlayed: 10, baseRating: 60 }))!
+    expect(sem.parts.map((part) => part.key)).not.toContain('wae')
+  })
+
+  /**
+   * Sem esta guarda, um jogador com saldo exactamente zero e nenhuma rodada
+   * medida entraria com nota 50 e um peso de zero — inofensivo, mas a parcela
+   * apareceria na decomposição a dizer que foi medida quando não foi.
+   */
+  it('trata saldo nulo como ausência, e não como zero', () => {
+    expect(explainOverall(player({ gamesPlayed: 10, baseRating: 60, waeSaldo: null, waeMatches: 3 }))!
+      .parts.map((part) => part.key)).not.toContain('wae')
   })
 })
 

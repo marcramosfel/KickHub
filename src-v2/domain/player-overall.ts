@@ -15,10 +15,9 @@
  *     parcela com os pesos efetivos, e as parcelas somam ao total — se um dia
  *     deixarem de somar, o painel está errado ou a conta está.
  *
- * O que ainda não existe: votação de craque e bagre, saldo de vitórias acima do
- * esperado, títulos e escala própria de guarda-redes. Nenhum desses dados é
- * recolhido hoje, e as parcelas em falta não entram a zero — não são produzidas,
- * e o peso reparte-se pelas que existem.
+ * O que ainda não existe: títulos e escala própria de guarda-redes. As parcelas
+ * em falta não entram a zero — não são produzidas, e o peso reparte-se pelas
+ * que existem.
  */
 
 export type OverallInput = {
@@ -38,6 +37,12 @@ export type OverallInput = {
   /** Quantas vezes foi eleito craque e bagre da rodada. Zero é um facto. */
   craques?: number
   bagres?: number
+  /**
+   * Saldo de vitórias acima do esperado: por cada rodada, o resultado real
+   * menos o que a diferença de forças previa. `null` = nenhuma rodada medida.
+   */
+  waeSaldo?: number | null
+  waeMatches?: number
 }
 
 export const NEUTRAL_OVERALL = 50
@@ -59,21 +64,24 @@ const FULL_CONTRIBUTION_PER_GAME = 3
 const ASSIST_WEIGHT = 0.7
 
 /**
- * Pesos nominais, renormalizados sempre que uma parcela não existe.
- *
- * Falta aqui a quarta parcela — o saldo de vitórias acima do esperado, 15% —
- * que ainda não é calculada. Não está a zero: simplesmente não é produzida, e a
- * renormalização reparte o peso pelas que existem. Quando chegar, entra sem
- * mexer nestas constantes.
- *
- * Quem ainda não tem estrelas fica com 0,4 e 0,2 renormalizados, ou seja 67/33,
- * onde antes das estrelas existirem era 70/30. O número mexe-se por isso em
- * 0,033 × (opinião − desempenho): até cerca de três pontos para quem tem as
- * duas parcelas muito afastadas, e nada para quem as tem próximas.
+ * Pesos nominais, renormalizados sempre que uma parcela não existe ou pesa
+ * menos do que o seu máximo. As quatro do modelo estão aqui.
  */
 const OPINION_WEIGHT = 0.4
 const PERFORMANCE_WEIGHT = 0.2
 const POST_RATING_WEIGHT = 0.25
+const WAE_WEIGHT = 0.15
+
+/**
+ * Rodadas medidas a partir das quais o saldo pesa o máximo. Abaixo disso o peso
+ * **desliza** proporcionalmente, de zero até 15%.
+ *
+ * A alternativa — ligar a parcela de uma vez às cinco rodadas — fazia um jogador
+ * que rendeu exactamente o esperado perder cinco pontos de um dia para o outro,
+ * só por cruzar a fronteira. Um número que cai sem nada ter acontecido em campo
+ * é impossível de explicar a quem o vê.
+ */
+const WAE_FULL_MATCHES = 5
 
 /** As estrelas vão de 1 a 5; a parcela vive na escala de 0 a 100 como as outras. */
 const MAX_STARS = 5
@@ -94,7 +102,7 @@ const BAGRE_PENALTY = 4
 const clamp = (value: number) => Math.min(Math.max(Math.round(value), MIN_OVERALL), MAX_OVERALL)
 
 export type OverallPart = {
-  key: 'opinion' | 'performance' | 'postRating'
+  key: 'opinion' | 'performance' | 'postRating' | 'wae'
   /** Valor da parcela na escala 0–100. */
   value: number
   /** Peso já renormalizado. Os pesos efetivos somam 1. */
@@ -141,6 +149,23 @@ function postRatingPart(input: OverallInput): OverallPart | null {
   return { key: 'postRating', value: (stars / MAX_STARS) * 100, weight: POST_RATING_WEIGHT }
 }
 
+/**
+ * A nota do saldo, com 50 a significar "exactamente o esperado".
+ *
+ * Ganhar sendo favorito a 93% vale +0,07 de saldo; ganhar sendo favorito a 74%
+ * vale +0,26. É a pergunta certa numa pelada com sorteio equilibrado: a taxa de
+ * vitórias crua luta contra o próprio motor, porque se ele funcionar as taxas
+ * convergem para 50% e a parcela passa a medir ruído.
+ */
+function waePart(input: OverallInput): OverallPart | null {
+  const matches = input.waeMatches ?? 0
+  const saldo = input.waeSaldo
+  if (matches <= 0 || saldo === null || saldo === undefined || !Number.isFinite(saldo)) return null
+
+  const value = Math.min(Math.max(NEUTRAL_OVERALL + (saldo / matches) * 100, 0), 100)
+  return { key: 'wae', value, weight: WAE_WEIGHT * Math.min(matches / WAE_FULL_MATCHES, 1) }
+}
+
 function opinionPart(input: OverallInput): OverallPart | null {
   const rating = input.baseRating
   if (rating === null || rating === undefined || !Number.isFinite(rating)) return null
@@ -168,7 +193,7 @@ function adjustmentsOf(input: OverallInput): OverallAdjustment[] {
  * Os prémios somam-se depois, em pontos.
  */
 export function explainOverall(input: OverallInput): OverallBreakdown | null {
-  const present = [opinionPart(input), performancePart(input), postRatingPart(input)].filter((part): part is OverallPart => part !== null)
+  const present = [opinionPart(input), performancePart(input), postRatingPart(input), waePart(input)].filter((part): part is OverallPart => part !== null)
   if (present.length === 0) return null
 
   const total = present.reduce((sum, part) => sum + part.weight, 0)

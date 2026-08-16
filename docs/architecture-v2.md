@@ -184,14 +184,10 @@ Três regras governam a conta:
    fecha.
 
 Os pesos nominais são quatro: nota do grupo 40%, saldo de vitórias acima do esperado 15%,
-desempenho 20% e estrelas dos companheiros 25%. **Três são produzidos**; o saldo ainda não é
-calculado, e o seu peso reparte-se em vez de entrar a zero. Só o desempenho sofre encolhimento
+desempenho 20% e estrelas dos companheiros 25%, e **os quatro são produzidos**. O do saldo é o único
+que desliza — ver [Vitórias acima do esperado](#vitórias-acima-do-esperado). Só o desempenho sofre encolhimento
 bayesiano contra cinco jogos-fantasma no neutro, porque só ele é uma amostra pequena — a nota do
 grupo e as estrelas são juízos, e valem desde o primeiro dia.
-
-Quem ainda não tem estrelas fica com 67/33 entre nota e desempenho, onde antes das estrelas
-existirem era 70/30. O número mexe-se por isso em `0,033 × (opinião − desempenho)`: até cerca de três
-pontos para quem tem as parcelas muito afastadas, e nada para quem as tem próximas.
 
 A taxa de vitórias crua **saiu** da conta. Numa pelada com sorteio equilibrado ela luta contra o
 próprio motor: se o sorteio funcionar, as taxas convergem para 50% e a parcela mede ruído. O que a
@@ -201,9 +197,7 @@ que ganhar sendo favorito a 74% — e ainda não está implementado.
 A sugestão que o plantel oferece a quem organiza é calculada **sem** a nota do grupo. Se partisse da
 própria nota, o número passaria a alimentar-se a si mesmo e deixaria de haver forma de o explicar.
 
-Por implementar, e por esta ordem: saldo de vitórias acima do esperado — que tem os dados de que
-precisa, porque `overall_at_draw` já fica congelado por jogo —, títulos, e escala própria de
-guarda-redes — um
+Por implementar, e por esta ordem: títulos, e escala própria de guarda-redes — um
 guarda-redes não cabe na fórmula de campo, e corrigir-lhe o número sem lhe corrigir a explicação
 seria pior do que não ter explicação.
 
@@ -263,6 +257,39 @@ Os prémios entram no overall como **ajustes**, não como parcelas: somam-se em 
 ponderada, e é por isso que a decomposição os mostra à parte. Contam pela **taxa** — craque em todas
 as rodadas vale +9, craque numa de vinte vale +0,45 — para que quem joga há mais tempo não acumule
 bónus só por ter jogado mais.
+
+## Vitórias acima do esperado
+
+A pergunta não é "ganhaste?" — é "ganhaste mais do que era suposto?".
+
+A taxa de vitórias crua não serve, e numa pelada com sorteio equilibrado é pior do que inútil: o
+motor existe para igualar as equipas, portanto se ele funcionar as taxas convergem para 50% e a
+parcela mede ruído. Verificado no próprio staging — o único jogo com escalação tem as duas equipas
+em 70,40 de média, ou seja 50/50 por construção.
+
+Mede-se por isso o **saldo**: por cada rodada, o resultado real menos o que a diferença de forças
+previa. A expectativa sai de uma logística sobre a diferença de médias de `overall_at_draw`:
+`1 / (1 + e^(-(mediaMinha − mediaDelas) / 5))`.
+
+O **5** é a única constante inventada nesta parcela. Foi calibrada para os exemplos do modelo caírem
+onde ele diz, e confirmada contra o Postgres: 93% de favoritismo exige cerca de 13 pontos de
+diferença de média e ganhar assim vale **+0,07**; 74% exige cerca de 5 pontos e ganhar assim vale
+**+0,26**. Usa-se a média e não a soma, para que equipas com número diferente de jogadores não
+pareçam mais fortes só por serem mais.
+
+Só entram rodadas com escalação **e** resultado. Quem apenas confirmou presença conta como jogo
+disputado mas não tem lado, e sem lado não há expectativa a comparar — o saldo fica a `null`, não a
+zero, porque zero diria que rendeu exactamente o esperado.
+
+A nota é `clamp(50 + (saldo / rodadas) × 100, 0, 100)`, com 50 a significar "exactamente o esperado".
+
+**O peso desliza** de 0% a 15% à medida que há rodadas medidas, chegando ao máximo às cinco. A
+alternativa — ligar a parcela de uma vez às cinco — fazia um jogador que rendeu exactamente o
+esperado perder cinco pontos de um dia para o outro, só por cruzar a fronteira. Um número que cai sem
+nada ter acontecido em campo é impossível de explicar a quem o vê.
+
+É também o que segura o caso extremo: num jogo 50/50 quem ganha fica com nota 100 e quem perde com 0,
+mas a uma rodada o peso é 0,03 e não 0,15.
 
 ## Notificações
 

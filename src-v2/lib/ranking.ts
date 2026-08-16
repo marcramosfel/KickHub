@@ -28,6 +28,9 @@ export type RankingRow = {
   /** Quantas vezes levou cada prémio. Zero é um facto, não uma ausência. */
   craques: number
   bagres: number
+  /** Saldo acumulado acima do esperado. `null` = nenhuma rodada medida. */
+  waeSaldo: number | null
+  waeMatches: number
 }
 
 export type PeladaTotals = {
@@ -68,6 +71,8 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     postRatingCount: toNumber(row.post_rating_count),
     craques: toNumber(row.craques),
     bagres: toNumber(row.bagres),
+    waeSaldo: toOptionalNumber(row.wae_saldo),
+    waeMatches: toNumber(row.wae_matches),
   }
 }
 
