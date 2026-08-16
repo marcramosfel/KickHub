@@ -41,7 +41,18 @@ function makeGame(overrides: Partial<Game> = {}): Game {
   }
 }
 
-function attendanceRows(count: number) {
+type AttendanceRow = {
+  membership_id: string
+  display_name: string
+  status: string
+  overall: number | null
+  player_type: string | null
+  primary_position: string | null
+  secondary_position: string | null
+  accepts_other_positions: boolean
+}
+
+function attendanceRows(count: number): AttendanceRow[] {
   return Array.from({ length: count }, (_, index) => ({
     membership_id: `m${index}`,
     display_name: `Jogador ${index}`,
@@ -54,11 +65,14 @@ function attendanceRows(count: number) {
   }))
 }
 
-function respondWith({ attendance = attendanceRows(10), lineup = [] as unknown[], failing = '' } = {}) {
+function respondWith({ attendance = attendanceRows(10), lineup = [] as unknown[], failing = '', goalkeeperMode = 'rotating' }: { attendance?: AttendanceRow[]; lineup?: unknown[]; failing?: string; goalkeeperMode?: string } = {}) {
   drawMocks.rpc.mockImplementation(async (fn: string) => {
     if (fn === failing) return { data: null, error: { message: 'denied' } }
     if (fn === 'list_game_attendance') return { data: attendance, error: null }
     if (fn === 'get_game_lineup') return { data: lineup, error: null }
+    if (fn === 'get_pelada_settings') {
+      return { data: [{ default_format: '5x5', default_team_size: 5, goalkeeper_mode: goalkeeperMode, ratings_enabled: true, awards_enabled: true }], error: null }
+    }
     return { data: [], error: null }
   })
 }
@@ -122,6 +136,23 @@ describe('GameDraw', () => {
     expect(payload).toHaveLength(10)
     expect(payload.every((entry) => typeof entry.overall_at_draw === 'number')).toBe(true)
     expect(new Set(payload.map((entry) => entry.team))).toEqual(new Set(['A', 'B']))
+  })
+
+  it('separa os guarda-redes quando a pelada joga com eles fixos', async () => {
+    const comGuardaRedes = [
+      { ...attendanceRows(1)[0], membership_id: 'gk1', display_name: 'Guarda-redes 1', player_type: 'GOALKEEPER' },
+      { ...attendanceRows(1)[0], membership_id: 'gk2', display_name: 'Guarda-redes 2', player_type: 'GOALKEEPER' },
+      ...attendanceRows(8).map((row, index) => ({ ...row, membership_id: `f${index}`, display_name: `Campo ${index}` })),
+    ]
+    respondWith({ attendance: comGuardaRedes, goalkeeperMode: 'fixed' })
+    renderDraw()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Sortear equipas/ }))
+    await screen.findByText('Equipa A')
+
+    const equipas = document.querySelectorAll('.draw-team')
+    const comGk = [...equipas].filter((equipa) => equipa.textContent?.includes('GR'))
+    expect(comGk).toHaveLength(2)
   })
 
   it('permite descartar o sorteio sem gravar', async () => {

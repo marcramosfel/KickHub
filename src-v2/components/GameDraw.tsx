@@ -6,6 +6,7 @@ import { useCurrentPelada } from '../lib/current-pelada'
 import type { Game } from '../lib/games'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { listConfirmedPlayers, useGameLineup, useLineupMutations, type LineupEntry } from '../lib/lineups'
+import { getPeladaSettings } from '../lib/pelada-settings'
 
 const balanceKey = (level: string) => `games.balance${level.charAt(0).toUpperCase()}${level.slice(1)}` as TranslationKey
 
@@ -32,12 +33,19 @@ export function GameDraw({ game }: { game: Game }) {
   const draw = async () => {
     setBusy(true); setError(''); setNotice('')
     try {
-      const players = await listConfirmedPlayers(game.id)
+      // As definições são lidas no momento do sorteio, e não de uma consulta em
+      // segundo plano: se ainda não tivessem chegado, o sorteio caía no modo por
+      // omissão e podia juntar os dois guarda-redes numa pelada que os separa.
+      const [players, settings] = await Promise.all([
+        listConfirmedPlayers(game.id),
+        pelada ? getPeladaSettings(pelada.id) : Promise.resolve(null),
+      ])
       // A semente inclui a hora para que voltar a sortear dê equipas novas; a
       // semente usada fica gravada, portanto o resultado continua reproduzível.
       const result = generateBalancedTeams({
         players,
         teamSize,
+        goalkeeperMode: settings?.goalkeeperMode ?? 'rotating',
         seed: `${game.id}:${Date.now()}`,
       })
       setPreview(result)
