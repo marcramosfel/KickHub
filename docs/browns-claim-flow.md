@@ -138,12 +138,11 @@ No KickHub: a tabela `legacy_claims` (só o SHA-256, nunca o código), `issue_le
 organiza, `claim_legacy_profile` para quem reclama, e o ecrã em `/reclamar`. Ambas as RPCs escrevem
 no registo de auditoria.
 
-Uma decisão que a implementação obrigou a tomar: `pelada_memberships.legacy_player_id` tinha chave
-estrangeira para `public.players`, a tabela do legado dentro da base do KickHub. Como os dados vêm
-**directamente** da Browns para as entidades novas, essa tabela não é povoada — e a chave tornava
-isso impossível sem inventar uma linha com `pin_hash`, ou seja, fabricar algo com forma de credencial
-só para satisfazer uma restrição. A chave saiu; a coluna fica, como o vínculo auditável que o ADR
-exige.
+`pelada_memberships.legacy_player_id` mantém a chave estrangeira para `public.players`. Chegou a ser
+removida, com um fundamento errado da minha parte — eu julgara que o schema do legado no KickHub
+divergira do da Browns. Comparadas as duas bases com uma impressão MD5 das colunas e tipos, as oito
+tabelas são idênticas, e a chave foi devolvida. É ela que garante que nenhum membro aponta para um
+jogador que não existe.
 
 ## O que isto não resolve
 

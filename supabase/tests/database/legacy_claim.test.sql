@@ -26,16 +26,17 @@ select alike(
   'e o hash é SHA-256'
 );
 
--- A ligação ao registo antigo ficou sem chave estrangeira de propósito: as
--- tabelas do legado não são povoadas nesta base.
+-- A ligação ao registo antigo tem chave estrangeira: é ela que garante que
+-- nenhum membro aponta para um jogador que não existe. As linhas da Browns são
+-- restauradas para `public.players` antes do backfill.
 select is(
   (select count(*)::int from pg_constraint
    where conrelid = 'public.pelada_memberships'::regclass and contype = 'f'
      and pg_get_constraintdef(oid) like '%players%'),
-  0,
-  'legacy_player_id não exige uma linha na tabela do legado'
+  1,
+  'legacy_player_id aponta para uma linha real da tabela do legado'
 );
-select has_column('public', 'pelada_memberships', 'legacy_player_id', 'mas a coluna fica, como vínculo auditável');
+select has_column('public', 'pelada_memberships', 'legacy_player_id', 'e a coluna é o vínculo auditável do ADR 0001');
 
 -- ------------------------------------------------------------- dados de apoio
 
@@ -56,6 +57,9 @@ from public.profiles p where p.auth_user_id = 'b1000000-0000-4000-8000-000000000
 -- O jogador legado: profile sem conta, à espera de dono.
 insert into public.profiles (id, auth_user_id, display_name, username)
 values ('00000000-0000-4000-8000-0000000de001', null, 'Jogador Legado', 'legado-um');
+-- Com a chave de volta, o vínculo exige um jogador real no legado.
+insert into public.players (id, name, pin_hash)
+values ('00000000-0000-4000-8000-0000000df001', 'Jogador Legado', 'nao-e-um-pin');
 insert into public.pelada_memberships (id, pelada_id, profile_id, role, status, legacy_player_id)
 values ('00000000-0000-4000-8000-0000000dd002', '00000000-0000-4000-8000-0000000dc001',
         '00000000-0000-4000-8000-0000000de001', 'player', 'active',
