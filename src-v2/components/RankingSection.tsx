@@ -89,7 +89,7 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
             <tr key={row.membershipId}>
               <td>{formatNumber(index + 1)}</td>
               <th scope="row">
-                <strong>{row.displayName}</strong>
+                <strong>{row.displayName}{row.isFormer ? <span className="ranking-former">{t('ranking.former')}</span> : null}</strong>
                 <small>{rate === null
                   ? t('ranking.noDecided')
                   : t('ranking.winRate', { value: formatNumber(rate, { style: 'percent' }) })}</small>

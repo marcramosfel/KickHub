@@ -12,6 +12,8 @@ export type RankingRow = {
   wins: number
   draws: number
   losses: number
+  /** Já não pertence à pelada, mas o que fez em campo continua a contar. */
+  isFormer: boolean
 }
 
 export type PeladaTotals = {
@@ -37,6 +39,7 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     wins: toNumber(row.wins),
     draws: toNumber(row.draws),
     losses: toNumber(row.losses),
+    isFormer: row.is_former === true,
   }
 }
 

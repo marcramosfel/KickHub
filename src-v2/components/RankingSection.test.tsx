@@ -136,4 +136,21 @@ describe('RankingSection', () => {
     expect(await screen.findByText('S-U-N')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Rangliste' })).toBeInTheDocument()
   })
+
+  /**
+   * Quem sai da pelada continua no ranking: os golos que marcou aconteceram.
+   * Esconde-los fazia com que as linhas deixassem de somar o total mostrado
+   * no mesmo ecrã.
+   */
+  it('mantém quem saiu, marcado como antigo membro', async () => {
+    respondWith({ ranking: [
+      makeRow(),
+      makeRow({ membership_id: 'm2', display_name: 'Nuno', goals: 3, is_former: true }),
+    ] })
+    renderRanking()
+
+    expect(await screen.findByText('Nuno')).toBeInTheDocument()
+    expect(screen.getByText('ex-membro')).toBeInTheDocument()
+    expect(screen.queryAllByText('ex-membro')).toHaveLength(1)
+  })
 })

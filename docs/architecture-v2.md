@@ -213,6 +213,16 @@ espera, pela ordem em que respondeu — o mesmo critério de `set_game_attendanc
 Sair por iniciativa própria não existe: nenhuma das funções deixa alguém remover-se a si mesmo.
 Abandonar a pelada é um gesto do jogador, não uma ação de administração, e fica por fazer.
 
+`20260816060000` fecha o buraco que a remoção abriu. `get_pelada_ranking` filtrava por inscrição
+activa, portanto quem saía levava consigo os golos, as assistências e as vitórias da tabela por
+jogador — verificado com dados reais em staging, onde um jogador com 3 golos desapareceu do ranking
+no instante em que foi removido. As linhas continuavam nas tabelas; o que as escondia era o modelo de
+leitura. Pior do que a ausência era a incoerência: `get_pelada_totals` soma `game_player_stats` pela
+pelada e não pelo membro, logo o total continuava a contar esses golos e o mesmo ecrã mostrava um
+total que as suas próprias linhas já não somavam. Quem saiu passa a aparecer marcado como antigo
+membro, desde que tenha história — quem foi removido sem nunca ter jogado fica de fora, porque o
+ranking é sobre o que aconteceu em campo.
+
 Gravar as definições são duas RPCs em série, uma por tabela. Se a segunda falhar, a identidade fica
 gravada e as regras não; a interface diz que falhou e recarrega do servidor, portanto o que o
 organizador vê a seguir é o estado real e não o que escreveu.

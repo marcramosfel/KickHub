@@ -1,6 +1,6 @@
 begin;
 
-select plan(13);
+select plan(18);
 
 select has_function('public', 'get_pelada_ranking', array['uuid'], 'ranking da pelada existe');
 select has_function('public', 'get_pelada_totals', array['uuid'], 'totais da pelada existem');
@@ -103,6 +103,49 @@ select is(
   (select games_played from public.get_pelada_totals('00000000-0000-4000-8000-0000000000c9')),
   1,
   'os totais da comunidade contam o jogo terminado'
+);
+
+-- ------------------------------------------ quem sai não apaga o que fez
+
+-- A remoção existe desde `20260816050000` e o ranking filtrava por inscrição
+-- activa: quem saía levava consigo os golos da tabela por jogador, enquanto
+-- `get_pelada_totals` continuava a contá-los. O mesmo ecrã mostrava um total que
+-- as suas linhas já não somavam.
+
+set local request.jwt.claims to '{"sub":"a1100000-0000-4000-8000-000000000001"}';
+
+select is(
+  (select is_former from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e2'),
+  false,
+  'quem continua na pelada não vem marcado como antigo'
+);
+
+select lives_ok(
+  $$select public.remove_pelada_member('00000000-0000-4000-8000-0000000000e2')$$,
+  'o dono remove o jogador que marcou'
+);
+
+select is(
+  (select goals from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e2'),
+  1,
+  'o golo de quem saiu continua no ranking'
+);
+select is(
+  (select is_former from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e2'),
+  true,
+  'e vem marcado como antigo membro'
+);
+
+-- Quem foi removido sem nunca ter jogado não tem nada para mostrar: o ranking é
+-- sobre o que aconteceu em campo, não sobre quem passou pela lista.
+select is(
+  (select count(*)::int from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e3'),
+  1,
+  'o terceiro jogador, que apenas confirmou presença, continua a contar'
 );
 
 set local request.jwt.claims to '{"sub":"a4400000-0000-4000-8000-000000000004"}';
