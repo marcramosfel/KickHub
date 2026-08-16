@@ -1,6 +1,6 @@
 begin;
 
-select plan(38);
+select plan(37);
 
 select has_table('public', 'game_award_votes', 'tabela de votos existe');
 select has_table('public', 'game_award_decisions', 'a decisão de cada prémio é um facto próprio');
@@ -18,6 +18,8 @@ select ok(not has_function_privilege('authenticated', 'public.tally_game_awards(
   'o apuramento não é chamável a partir do browser');
 select ok(not has_function_privilege('authenticated', 'public.pelada_award_winners(uuid)', 'execute'),
   'nem o apuramento da pelada inteira');
+select ok(not has_function_privilege('authenticated', 'public.game_team_outcome(uuid,text)', 'execute'),
+  'nem a leitura de que lado cada equipa ficou');
 
 -- ------------------------------------------------------------- dados de apoio
 
@@ -83,8 +85,9 @@ begin
   perform public.save_game_result(v_game, 3, 1, null, '[]'::jsonb);
 end $setup$;
 
-select is(public.game_team_outcome((select id from jogo), 'A'), 'winner', 'a equipa A ganhou');
-select is(public.game_team_outcome((select id from jogo), 'B'), 'loser', 'a equipa B perdeu');
+-- De que lado cada equipa ficou não se afirma lendo a função interna: prova-se
+-- pelo que ela faz acontecer — quem ganhou não elege bagre, e quem perdeu não
+-- elege craque, ambos verificados a seguir.
 
 -- Quem ganhou elege o craque entre os seus.
 select is(
