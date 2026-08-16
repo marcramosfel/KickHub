@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Pelada } from '../data/demo'
+import type { Game } from '../lib/games'
 import { I18nProvider } from '../lib/i18n'
 import { GameRatings } from './GameRatings'
 
@@ -19,10 +20,10 @@ const pelada: Pelada = {
   accent: '#d8ff45', visibility: 'private', description: 'Comunidade real',
 }
 
-const game = {
-  id: 'game-1', peladaId: 'pelada-1', scheduledAt: '2026-08-10T19:00:00.000Z', durationMinutes: 90,
+const game: Game = {
+  id: 'game-1', scheduledAt: '2026-08-10T19:00:00.000Z', durationMinutes: 90,
   location: 'Campo', format: '5x5', teamSize: 5, maxPlayers: 10, notes: null,
-  status: 'played' as const, confirmedCount: 10, waitlistCount: 0, myStatus: null,
+  status: 'played', confirmedCount: 10, waitlistCount: 0, declinedCount: 0, myStatus: null,
 }
 
 /** Eu na equipa A, com um companheiro; dois adversários na B. */

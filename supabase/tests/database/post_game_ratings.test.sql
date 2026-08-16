@@ -35,11 +35,13 @@ from public.profiles p where p.auth_user_id = 'f4000000-0000-4000-8000-000000000
 
 -- --------------------------------------------------------- comportamento real
 
+-- A tabela nasce antes da troca de papel: criá-la como `authenticated` exigiria
+-- privilégio de temporárias que a role não tem por garantido.
+create temporary table jogo (id uuid) on commit drop;
+grant all on jogo to authenticated;
+
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"f1000000-0000-4000-8000-000000000001"}';
-
-create temporary table jogo (id uuid) on commit drop;
-grant select on jogo to authenticated;
 
 do $setup$
 declare v_game uuid;
@@ -47,7 +49,16 @@ begin
   select (public.create_game('00000000-0000-4000-8000-0000000fa001', now() + interval '2 days', 90, 'Campo', '5x5', 5, null, null)).id into v_game;
   insert into jogo values (v_game);
 
-  -- Três em campo (dois na A, um na B) e um que ficou de fora.
+  -- A escalação só aceita quem confirmou presença, portanto os três confirmam
+  -- antes de serem escalados. O quarto fica de fora de propósito.
+  perform public.set_game_attendance(v_game, 'confirmed', null);
+  perform set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000002"}', true);
+  perform public.set_game_attendance(v_game, 'confirmed', null);
+  perform set_config('request.jwt.claims', '{"sub":"f3000000-0000-4000-8000-000000000003"}', true);
+  perform public.set_game_attendance(v_game, 'confirmed', null);
+  perform set_config('request.jwt.claims', '{"sub":"f1000000-0000-4000-8000-000000000001"}', true);
+
+  -- Dois na equipa A, um na B.
   perform public.save_game_lineup(v_game, 'semente', jsonb_build_array(
     jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000fb001', 'team', 'A', 'overall_at_draw', 70),
     jsonb_build_object('membership_id', '00000000-0000-4000-8000-0000000fb002', 'team', 'A', 'overall_at_draw', 60),
