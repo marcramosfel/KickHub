@@ -13,7 +13,7 @@ O produto inclui:
 - descoberta por nome/localização;
 - pedidos de entrada, aprovação administrativa e convites privados de uso limitado;
 - wizard acessível de criação em seis etapas, com formato e frequência persistidos;
-- perfil global do jogador;
+- perfil global autenticado com números reais por pelada e o mesmo Overall do ranking;
 - contexto `/p/:slug` com jogos, plantel, ranking, estatísticas e administração;
 - `useCurrentPelada()` como fonte única do contexto ativo e troca rápida entre comunidades;
 - calendário de jogos com convocatória, confirmação de presença e lista de espera automática;
@@ -26,7 +26,8 @@ O produto inclui:
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
-- Browns preservada como tenant #1 e segundo tenant no seed local.
+- Browns modelada como tenant #1, com backfill idempotente do legado; o cutover dos dados reais
+  continua condicionado aos gates operacionais e ao backup aprovado.
 
 O código Browns anterior permanece em `src/` como referência de domínio e rollback. O app ativo vive
 em `src-v2/`; nenhuma regra esportiva histórica foi apagada.
@@ -67,6 +68,16 @@ As migrations são append-only:
 11. `20260816020000_pelada_ranking.sql` — ranking acumulado e totais da comunidade.
 12. `20260816030000_pelada_settings_read.sql` — leitura das definições desportivas.
 13. `20260816040000_language_neutral_notifications.sql` — notificações sem texto traduzido e aviso de cancelamento.
+14. `20260816050000_pelada_administration.sql` — identidade, definições e papéis administráveis.
+15. `20260816060000_ranking_keeps_former_members.sql` — histórico de quem saiu continua no ranking.
+16. `20260816070000_ranking_exposes_base_rating.sql` — nota do grupo como parcela do Overall único.
+17. `20260816080000_post_game_ratings.sql` — estrelas privadas entre companheiros.
+18. `20260816090000_game_awards.sql` — craque e bagre com votação e decisão congelada.
+19. `20260816100000_expected_win_balance.sql` — vitórias acima do esperado.
+20. `20260816110000_win_streak.sql` — sequência atual de vitórias.
+21. `20260816120000_goalkeeper_scale.sql` — métricas próprias de guarda-redes.
+22. `20260816130000_legacy_claim.sql` + `20260816140000_restore_legacy_player_fk.sql` — claim Browns e vínculo auditável ao legado.
+23. `20260817000000_browns_history_backfill.sql` — projeção reconciliada do histórico Browns e perfil real do jogador.
 
 Com Docker disponível:
 
@@ -77,7 +88,7 @@ npm run db:test
 ```
 
 Não aplique migrations diretamente no SQL Editor remoto. O cutover do legado continua exigindo
-staging e os gates de `docs/foundation-gates.md`.
+os gates de `docs/foundation-gates.md` e o procedimento de `docs/browns-data-migration.md`.
 
 ## Estrutura
 

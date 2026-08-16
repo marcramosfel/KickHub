@@ -38,7 +38,8 @@ export function getAuthDisplayName(user: User | null, profile: GlobalProfile | n
   return profile?.display_name || metadataName || user?.email?.split('@')[0] || fallback
 }
 
-export function getAuthAvatarUrl(user: User | null) {
+export function getAuthAvatarUrl(user: User | null, profile?: GlobalProfile | null) {
+  if (profile?.avatar_path) return profile.avatar_path
   const value = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
   return typeof value === 'string' ? value : undefined
 }

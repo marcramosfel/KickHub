@@ -421,13 +421,31 @@ Gravar as definições são duas RPCs em série, uma por tabela. Se a segunda fa
 gravada e as regras não; a interface diz que falhou e recarrega do servidor, portanto o que o
 organizador vê a seguir é o estado real e não o que escreveu.
 
+## Backfill Browns
+
+`20260817000000_browns_history_backfill.sql` fecha a ponte estrutural. Depois de as 22 tabelas
+legadas serem restauradas pelo procedimento operacional, `backfill_browns_history()` cria profiles e
+memberships determinísticos e projeta jogos, presenças, escalações, resultados, estatísticas,
+avaliações e prémios nas entidades multi-tenant. Os UUIDs dos jogos e o `legacy_player_id` são
+preservados; as tabelas de origem não são apagadas.
+
+A função é idempotente, exclusiva de `service_role` e termina comparando contagens e somas de gols,
+assistências, avaliações e votos. Divergência aborta a transação. Ela não transporta nem usa PIN,
+senha administrativa ou token de dispositivo.
+
+O read model `get_my_player_profile()` deriva a identidade de `auth.uid()` e devolve a linha do
+próprio jogador em cada pelada, incluindo os insumos necessários para o mesmo Overall do ranking.
+Uma conta Browns reclamada passa, assim, a ver os números importados sem um fallback demonstrativo.
+
 ## Próximas migrations
 
-1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
+1. ~~backfill Browns e memberships por jogador~~ — implementado em `20260817000000`; execução real
+   aguarda o cutover documentado;
 2. ~~constraints compostas para impedir FKs cross-tenant~~ — feito em `20260815000000`;
-3. claim legado e revogação progressiva de PIN/token;
+3. ~~claim legado~~ — feito em `20260816130000`; falta a emissão no app Browns e o sunset do PIN;
 4. DTOs público/membro/admin e Storage com paths por tenant;
-5. preferências de notificação por utilizador e canais além do in-app.
+5. preferências de notificação por utilizador e canais além do in-app;
+6. histórico paginado no perfil global e edição dos seus dados públicos.
 
 O plano original adiava as entidades de jogo para depois do carimbo do legado, para evitar um fork
 entre o histórico Browns e as peladas novas. A ordem foi invertida deliberadamente: sem o ciclo de

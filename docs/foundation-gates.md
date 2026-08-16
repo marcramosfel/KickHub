@@ -7,11 +7,14 @@ Git.
 ## 1. Backup e staging
 
 1. Criar backup atual de Postgres e Storage pelo processo operacional aprovado.
-2. Restaurar o backup em um projeto de staging isolado.
+2. Criar, fora da nuvem, uma cópia sanitizada que preserve relações e agregados, mas remova dados
+   pessoais e credenciais; somente essa cópia pode ser restaurada em staging.
 3. Congelar escritas durante cada par de snapshots para evitar paginação sobre dados mutáveis.
 4. Registrar data, responsável, project ref e hashes dos artefatos no ticket de mudança.
 
-Não usar produção como destino de `db reset`, seed ou testes pgTAP.
+O backup real permanece no cofre de recuperação e só é restaurado no destino de produção durante o
+cutover aprovado. Nunca copiar utilizadores, fotos, PINs, senha administrativa, tokens ou dados reais
+da produção para staging. Não usar produção como destino de `db reset`, seed ou testes pgTAP.
 
 ## 2. Comparar schema real e migrations
 
@@ -42,7 +45,7 @@ Antes da migration de backfill:
 npm run data:snapshot -- --output artifacts/data/before.json --label staging-before
 ```
 
-Depois do backfill, ainda durante o write freeze:
+Depois de `select public.backfill_browns_history()` no destino, ainda durante o write freeze:
 
 ```bash
 npm run data:snapshot -- --output artifacts/data/after.json --label staging-after
@@ -64,3 +67,5 @@ caso contrário, o resultado não constitui evidência de preservação.
 - aprovar [ADR 0001](adr/0001-legacy-identity-claim.md);
 - executar pgTAP e smoke tests em staging;
 - anexar dump, diff, snapshots e hashes ao registro da mudança.
+- seguir `docs/browns-data-migration.md`, inclusive a sanitização de credenciais e a reconciliação
+  transacional antes de abrir o KickHub aos jogadores Browns.

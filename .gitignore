@@ -7,6 +7,10 @@ dist
 .env
 .DS_Store
 
+# credenciais OAuth baixadas do Google Console
+client_secret_*.apps.googleusercontent.com.json
+*.apps.googleusercontent.com.json
+
 # Cada ambiente recebe URL e chave publishable próprias. Não versionar `.env`
 # evita que Preview/Test use acidentalmente o Supabase de produção.
 # NUNCA commitar chaves sb_secret_... nem a connection string do Postgres.

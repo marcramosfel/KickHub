@@ -14,7 +14,7 @@ export function AppShell() {
   const displayName = getAuthDisplayName(user, profile, t('common.player'))
   const username = profile?.username ? `@${profile.username}` : user?.email ?? '@marcos'
   const profileSlug = profile?.username ?? 'marcos'
-  const avatarUrl = getAuthAvatarUrl(user)
+  const avatarUrl = getAuthAvatarUrl(user, profile)
   const links = [
     { to: '/app', label: t('common.home'), icon: House },
     { to: '/descobrir', label: t('common.discover'), icon: Compass },

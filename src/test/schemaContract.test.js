@@ -67,7 +67,7 @@ const internalFunctions = permissionList('internas')
 const browserFunctions = permissionList('publicas')
 const explicitBrowserGrants = uniqueMatches(
   allMigrations,
-  /grant\s+execute\s+on\s+function\s+(?:public\.)?([a-z_][a-z0-9_]*)\s*\([\s\S]*?\)\s+to\s+(?:anon\s*,\s*)?authenticated\s*;/gi,
+  /grant\s+execute\s+on\s+function\s+(?:public\.)?([a-z_][a-z0-9_]*)\s*\([^;]*?\)\s+to\s+(?:anon\s*,\s*)?authenticated\s*;/gi,
 )
 const exposedFunctions = [...new Set([...browserFunctions, ...explicitBrowserGrants])].sort()
 const isSecureRpc = (name) =>
@@ -84,6 +84,9 @@ const hardenedPrivateFunctions = [
   'handle_new_auth_user',
   'generate_profile_username',
   'upsert_profile_for_auth_user',
+  'browns_profile_id',
+  'browns_membership_id',
+  'backfill_browns_history',
   // Contam os votos de toda a gente para apurar craque e bagre. Ao alcance do
   // cliente devolveriam contagens erradas em silêncio, porque a RLS só lhe
   // mostra os votos próprios; só são alcançáveis de dentro de `get_game_awards`
