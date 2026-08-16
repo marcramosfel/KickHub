@@ -33,6 +33,12 @@ export type RankingRow = {
   waeMatches: number
   /** Vitórias seguidas até agora. Zero é um facto. */
   currentWinStreak: number
+  /** O que fez nas rodadas em que foi escalado como guarda-redes. */
+  gkMatches: number
+  gkSaves: number
+  gkConceded: number
+  gkCleanSheets: number
+  gkWinPoints: number
 }
 
 export type PeladaTotals = {
@@ -76,6 +82,11 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     waeSaldo: toOptionalNumber(row.wae_saldo),
     waeMatches: toNumber(row.wae_matches),
     currentWinStreak: toNumber(row.current_win_streak),
+    gkMatches: toNumber(row.gk_matches),
+    gkSaves: toNumber(row.gk_saves),
+    gkConceded: toNumber(row.gk_conceded),
+    gkCleanSheets: toNumber(row.gk_clean_sheets),
+    gkWinPoints: toNumber(row.gk_win_points),
   }
 }
 

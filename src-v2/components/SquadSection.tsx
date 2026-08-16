@@ -119,6 +119,10 @@ function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => s
     performance: 'squad.partPerformance',
     postRating: 'ratings.partPostRating',
     wae: 'ratings.partWae',
+    gkSaves: 'ratings.partGkSaves',
+    gkConceded: 'ratings.partGkConceded',
+    gkCleanSheets: 'ratings.partGkCleanSheets',
+    gkWins: 'ratings.partGkWins',
   }
   const premio: Record<OverallBreakdown['adjustments'][number]['key'], TranslationKey> = {
     craque: 'ratings.partCraque',

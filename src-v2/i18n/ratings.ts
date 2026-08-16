@@ -15,6 +15,10 @@ const pt = {
   'ratings.partBagre': 'Bagre da rodada',
   'ratings.partWae': 'Vitórias acima do esperado',
   'ratings.partTitles': 'Títulos',
+  'ratings.partGkSaves': 'Defesas',
+  'ratings.partGkConceded': 'Golos sofridos',
+  'ratings.partGkCleanSheets': 'Jogos sem sofrer',
+  'ratings.partGkWins': 'Vitórias na baliza',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -34,6 +38,10 @@ const en: Record<Key, TranslationValue> = {
   'ratings.partBagre': 'Flop of the round',
   'ratings.partWae': 'Wins above expectation',
   'ratings.partTitles': 'Titles',
+  'ratings.partGkSaves': 'Saves',
+  'ratings.partGkConceded': 'Goals conceded',
+  'ratings.partGkCleanSheets': 'Clean sheets',
+  'ratings.partGkWins': 'Wins in goal',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -51,6 +59,10 @@ const es: Record<Key, TranslationValue> = {
   'ratings.partBagre': 'Peor de la jornada',
   'ratings.partWae': 'Victorias por encima de lo esperado',
   'ratings.partTitles': 'Títulos',
+  'ratings.partGkSaves': 'Paradas',
+  'ratings.partGkConceded': 'Goles encajados',
+  'ratings.partGkCleanSheets': 'Porterías a cero',
+  'ratings.partGkWins': 'Victorias en portería',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -68,6 +80,10 @@ const fr: Record<Key, TranslationValue> = {
   'ratings.partBagre': 'Flop de la journée',
   'ratings.partWae': 'Victoires au-dessus des attentes',
   'ratings.partTitles': 'Titres',
+  'ratings.partGkSaves': 'Arrêts',
+  'ratings.partGkConceded': 'Buts encaissés',
+  'ratings.partGkCleanSheets': 'Clean sheets',
+  'ratings.partGkWins': 'Victoires dans les buts',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -85,6 +101,10 @@ const de: Record<Key, TranslationValue> = {
   'ratings.partBagre': 'Flop des Spieltags',
   'ratings.partWae': 'Siege über der Erwartung',
   'ratings.partTitles': 'Titel',
+  'ratings.partGkSaves': 'Paraden',
+  'ratings.partGkConceded': 'Gegentore',
+  'ratings.partGkCleanSheets': 'Zu-null-Spiele',
+  'ratings.partGkWins': 'Siege im Tor',
 }
 
 export const ratingsCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

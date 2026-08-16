@@ -50,6 +50,18 @@ export type OverallInput = {
    * jogador: vêm de `computeTitles`, que compara o plantel inteiro.
    */
   titles?: TitleKey[]
+  /** Rodadas em que foi escalado como guarda-redes, e o que fez nelas. */
+  gkMatches?: number
+  gkSaves?: number
+  gkConceded?: number
+  gkCleanSheets?: number
+  /** Pontos de vitória na baliza: 1 por vitória, 0,5 por empate. */
+  gkWinPoints?: number
+  /**
+   * Golos sofridos por jogo, na média da pelada. Como os títulos, vem de olhar
+   * para o plantel inteiro — não do próprio jogador.
+   */
+  gkLeagueConcededPerGame?: number | null
 }
 
 export const NEUTRAL_OVERALL = 50
@@ -116,10 +128,32 @@ const TITLE_BONUS = 1
 /** Vitórias seguidas a partir das quais a marca se ganha. */
 const WIN_STREAK_TITLE = 3
 
+/**
+ * Escala do guarda-redes.
+ *
+ * As defesas pesam mais porque são a parte quase inteiramente dele. Golos
+ * sofridos, jogos sem sofrer e vitórias dependem também da linha à frente, e
+ * por isso valem menos.
+ */
+const GK_SAVE_WEIGHT = 0.6
+const GK_CONCEDED_WEIGHT = 0.2
+const GK_CLEAN_SHEET_WEIGHT = 0.1
+const GK_WIN_WEIGHT = 0.1
+
+/**
+ * Quanto vale cada golo por jogo abaixo da média da pelada. Sofrer um golo a
+ * menos do que a média vale 15 pontos de nota.
+ */
+const GK_CONCEDED_SCALE = 15
+
+/** Rodadas na baliza a partir das quais o número deixa de ser puxado ao neutro. */
+const GK_FULL_MATCHES = 5
+
 const clamp = (value: number) => Math.min(Math.max(Math.round(value), MIN_OVERALL), MAX_OVERALL)
 
 export type OverallPart = {
   key: 'opinion' | 'performance' | 'postRating' | 'wae'
+    | 'gkSaves' | 'gkConceded' | 'gkCleanSheets' | 'gkWins'
   /** Valor da parcela na escala 0–100. */
   value: number
   /** Peso já renormalizado. Os pesos efetivos somam 1. */
@@ -271,11 +305,85 @@ export function explainSquadOverall<T extends OverallInput & TitleInput>(
   rows: readonly T[],
 ): Map<string, OverallBreakdown> {
   const titles = computeTitles(rows)
+  const gkLeagueConcededPerGame = leagueConcededPerGame(rows)
   return new Map(
     rows
-      .map((row) => [row.membershipId, explainOverall({ ...row, titles: titles.get(row.membershipId) })] as const)
+      .map((row) => [row.membershipId, explainOverall({
+        ...row,
+        titles: titles.get(row.membershipId),
+        gkLeagueConcededPerGame,
+      })] as const)
       .filter((entry): entry is [string, OverallBreakdown] => entry[1] !== null),
   )
+}
+
+/**
+ * Golos sofridos por jogo, na média de todas as rodadas guardadas da pelada.
+ *
+ * É contra isto que os golos sofridos de cada guarda-redes se comparam, e não
+ * contra um número absoluto: uma pelada onde se marca muito não deve castigar
+ * quem lá guarda a baliza. Sem rodadas guardadas não há média — devolve `null`,
+ * e a parcela sai da conta.
+ */
+export function leagueConcededPerGame(rows: readonly OverallInput[]) {
+  const matches = rows.reduce((sum, row) => sum + (row.gkMatches ?? 0), 0)
+  if (matches <= 0) return null
+  return rows.reduce((sum, row) => sum + (row.gkConceded ?? 0), 0) / matches
+}
+
+/** Quantas rodadas na baliza justificam julgar alguém como guarda-redes. */
+function keepsGoal(input: OverallInput) {
+  const gkMatches = input.gkMatches ?? 0
+  // Metade ou mais das rodadas na baliza. Um híbrido que lá esteve uma jornada
+  // em dez não é um guarda-redes por causa dessa uma.
+  return gkMatches > 0 && gkMatches * 2 >= input.gamesPlayed
+}
+
+/**
+ * As parcelas de quem guarda a baliza, já encolhidas pela confiança.
+ *
+ * Encolher parcela a parcela é aritmeticamente igual a encolher o total — a
+ * média ponderada é linear — e tem a vantagem de a decomposição continuar a
+ * somar ao número mostrado. Um guarda-redes precisa da explicação dele: mostrar
+ * o painel da fórmula de campo seria pior do que não ter painel.
+ */
+function goalkeeperParts(input: OverallInput): OverallPart[] {
+  const matches = input.gkMatches ?? 0
+  const saves = input.gkSaves ?? 0
+  const conceded = input.gkConceded ?? 0
+  const confidence = Math.min(matches / GK_FULL_MATCHES, 1)
+  const shrink = (value: number) => NEUTRAL_OVERALL + (value - NEUTRAL_OVERALL) * confidence
+
+  const parts: OverallPart[] = []
+
+  // Sem uma bola a caminho da baliza não há defesas a avaliar: a parcela sai da
+  // conta em vez de valer zero.
+  const attempts = saves + conceded
+  if (attempts > 0) {
+    parts.push({ key: 'gkSaves', value: shrink((saves / attempts) * 100), weight: GK_SAVE_WEIGHT })
+  }
+
+  // Comparam-se com a média da pelada, e não com um número absoluto: é o que
+  // torna o valor justo para quem joga atrás de uma defesa que sofre muito.
+  const league = input.gkLeagueConcededPerGame
+  if (league !== null && league !== undefined && Number.isFinite(league)) {
+    const perGame = conceded / matches
+    const raw = Math.min(Math.max(NEUTRAL_OVERALL + GK_CONCEDED_SCALE * (league - perGame), 0), 100)
+    parts.push({ key: 'gkConceded', value: shrink(raw), weight: GK_CONCEDED_WEIGHT })
+  }
+
+  parts.push({
+    key: 'gkCleanSheets',
+    value: shrink(((input.gkCleanSheets ?? 0) / matches) * 100),
+    weight: GK_CLEAN_SHEET_WEIGHT,
+  })
+  parts.push({
+    key: 'gkWins',
+    value: shrink(((input.gkWinPoints ?? 0) / matches) * 100),
+    weight: GK_WIN_WEIGHT,
+  })
+
+  return parts
 }
 
 /**
@@ -284,7 +392,10 @@ export function explainSquadOverall<T extends OverallInput & TitleInput>(
  * Os prémios somam-se depois, em pontos.
  */
 export function explainOverall(input: OverallInput): OverallBreakdown | null {
-  const present = [opinionPart(input), performancePart(input), postRatingPart(input), waePart(input)].filter((part): part is OverallPart => part !== null)
+  const present = keepsGoal(input)
+    ? goalkeeperParts(input)
+    : [opinionPart(input), performancePart(input), postRatingPart(input), waePart(input)]
+      .filter((part): part is OverallPart => part !== null)
   if (present.length === 0) return null
 
   const total = present.reduce((sum, part) => sum + part.weight, 0)

@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
   computePlayerOverall, computeTitles, contributionPerGame, explainOverall,
-  explainSquadOverall, isProvisional, MAX_OVERALL, MIN_OVERALL,
+  explainSquadOverall, isProvisional, leagueConcededPerGame, MAX_OVERALL, MIN_OVERALL,
   type OverallInput, type TitleInput,
 } from './player-overall'
 
 const player = (overrides: Partial<OverallInput> = {}): OverallInput => ({
   gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null,
-  craques: 0, bagres: 0, waeSaldo: null, waeMatches: 0, titles: [], ...overrides,
+  craques: 0, bagres: 0, waeSaldo: null, waeMatches: 0, titles: [],
+  gkMatches: 0, gkSaves: 0, gkConceded: 0, gkCleanSheets: 0, gkWinPoints: 0,
+  gkLeagueConcededPerGame: null, ...overrides,
+})
+
+const keeper = (overrides: Partial<OverallInput> = {}): OverallInput => player({
+  gamesPlayed: 10, gkMatches: 10, gkSaves: 30, gkConceded: 10, gkCleanSheets: 3,
+  gkWinPoints: 5, gkLeagueConcededPerGame: 2, baseRating: 90, ...overrides,
 })
 
 describe('contributo por jogo', () => {
@@ -331,6 +338,93 @@ describe('o plantel em duas passagens', () => {
       { ...player({ gamesPlayed: 0, baseRating: null }), membershipId: 'sem-nada', wins: 0 },
     ])
     expect(porMembro.has('sem-nada')).toBe(false)
+  })
+})
+
+describe('escala do guarda-redes', () => {
+  /**
+   * Um guarda-redes não cabe na fórmula de campo: não marca, não assiste, e a
+   * opinião do grupo sozinha castiga quem passa a rodada a apanhar bolas.
+   */
+  it('julga quem guarda a baliza pela escala dele', () => {
+    const partes = explainOverall(keeper())!.parts.map((part) => part.key)
+    expect(partes).toEqual(['gkSaves', 'gkConceded', 'gkCleanSheets', 'gkWins'])
+    expect(partes).not.toContain('opinion')
+    expect(partes).not.toContain('performance')
+  })
+
+  it('não aplica a escala a quem passou pela baliza uma vez em dez', () => {
+    const hibrido = explainOverall(keeper({ gamesPlayed: 10, gkMatches: 1 }))!
+    expect(hibrido.parts.map((part) => part.key)).toContain('opinion')
+    expect(hibrido.parts.map((part) => part.key)).not.toContain('gkSaves')
+  })
+
+  /**
+   * As defesas pesam mais porque são a parte quase inteiramente dele: golos
+   * sofridos, jogos sem sofrer e vitórias dependem também da linha à frente.
+   */
+  it('dá às defesas mais peso do que a tudo o resto junto', () => {
+    const parts = explainOverall(keeper())!.parts
+    const defesas = parts.find((part) => part.key === 'gkSaves')!.weight
+    const resto = parts.filter((part) => part.key !== 'gkSaves').reduce((sum, part) => sum + part.weight, 0)
+    expect(defesas).toBeGreaterThan(resto)
+    expect(defesas).toBeCloseTo(0.6, 10)
+  })
+
+  /**
+   * Comparam-se com a média da pelada, não com um número absoluto: é o que
+   * torna o valor justo para quem joga atrás de uma defesa que sofre muito.
+   */
+  it('compara os golos sofridos com a média da pelada', () => {
+    const naMedia = explainOverall(keeper({ gkConceded: 20, gkLeagueConcededPerGame: 2 }))!
+    expect(naMedia.parts.find((part) => part.key === 'gkConceded')!.value).toBe(50)
+
+    // Um golo por jogo abaixo da média vale 15 pontos.
+    const melhor = explainOverall(keeper({ gkConceded: 10, gkLeagueConcededPerGame: 2 }))!
+    expect(melhor.parts.find((part) => part.key === 'gkConceded')!.value).toBe(65)
+
+    // A mesma prestação numa pelada onde se sofre mais vale mais.
+    const peladaGoleadora = explainOverall(keeper({ gkConceded: 10, gkLeagueConcededPerGame: 4 }))!
+    expect(peladaGoleadora.parts.find((part) => part.key === 'gkConceded')!.value).toBe(95)
+  })
+
+  it('deixa cair as defesas quando nem uma bola foi à baliza', () => {
+    const semRemates = explainOverall(keeper({ gkSaves: 0, gkConceded: 0 }))!
+    expect(semRemates.parts.map((part) => part.key)).not.toContain('gkSaves')
+    expect(semRemates.parts.reduce((sum, part) => sum + part.weight, 0)).toBeCloseTo(1, 10)
+  })
+
+  /**
+   * A confiança impede que uma rodada de sorte, ou de azar, mande alguém para o
+   * topo ou para o fundo.
+   */
+  it('puxa o número ao neutro enquanto há poucas rodadas na baliza', () => {
+    const umaRodada = explainOverall(keeper({ gamesPlayed: 1, gkMatches: 1, gkSaves: 10, gkConceded: 0, gkCleanSheets: 1, gkWinPoints: 1 }))!
+    const cincoRodadas = explainOverall(keeper({ gamesPlayed: 5, gkMatches: 5, gkSaves: 50, gkConceded: 0, gkCleanSheets: 5, gkWinPoints: 5 }))!
+
+    // A mesma prestação perfeita, amostras diferentes.
+    expect(umaRodada.overall).toBeLessThan(cincoRodadas.overall)
+
+    // 0,6×100 + 0,2×80 + 0,1×100 + 0,1×100 = 96, e não 99: sofrer zero contra
+    // uma média de dois vale 80, porque a parcela é relativa à pelada. Só
+    // ficaria em 100 quem sofresse 3,3 golos por jogo abaixo da média.
+    expect(cincoRodadas.overall).toBe(96)
+  })
+
+  /** Se as parcelas não somam ao total, o painel dele está errado. */
+  it('a decomposição do guarda-redes soma ao número mostrado', () => {
+    const breakdown = explainOverall(keeper({ titles: ['mostGames'] }))!
+    const soma = breakdown.parts.reduce((sum, part) => sum + part.value * part.weight, 0)
+      + breakdown.adjustments.reduce((sum, item) => sum + item.points, 0)
+    expect(Math.round(soma)).toBe(breakdown.overall)
+  })
+
+  it('tira a média da pelada de todas as rodadas guardadas, e não de uma', () => {
+    expect(leagueConcededPerGame([
+      keeper({ gkMatches: 4, gkConceded: 4 }),
+      keeper({ gkMatches: 6, gkConceded: 16 }),
+    ])).toBe(2)
+    expect(leagueConcededPerGame([player({ gkMatches: 0 })])).toBeNull()
   })
 })
 

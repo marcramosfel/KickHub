@@ -197,8 +197,8 @@ que ganhar sendo favorito a 74% — e ainda não está implementado.
 A sugestão que o plantel oferece a quem organiza é calculada **sem** a nota do grupo. Se partisse da
 própria nota, o número passaria a alimentar-se a si mesmo e deixaria de haver forma de o explicar.
 
-Por implementar: a escala própria de guarda-redes — um guarda-redes não cabe na fórmula de campo, e
-corrigir-lhe o número sem lhe corrigir a explicação seria pior do que não ter explicação.
+O modelo está completo. Ver [Escala do guarda-redes](#escala-do-guarda-redes) para quem guarda a
+baliza, que não usa nenhuma destas parcelas.
 
 ## Estrelas pós-jogo
 
@@ -325,6 +325,48 @@ corta tal como uma derrota, porque o que se celebra são vitórias seguidas e n�
 
 Enquanto o ranking não chega, o plantel mostra reticências em vez de "por avaliar": não saber ainda e
 não ter nota são estados diferentes, e confundi-los diria a quem tem nota que não tem.
+
+## Escala do guarda-redes
+
+Um guarda-redes não cabe na fórmula de campo: não marca, não assiste, e a opinião do grupo sozinha
+castiga quem passa a rodada a apanhar bolas. Tem escala própria:
+
+```
+defesas          × 60%   — a percentagem de remates defendidos
+golos sofridos   × 20%   — comparados com a média da pelada
+jogos sem sofrer × 10%
+vitórias na baliza × 10%
+```
+
+**As defesas pesam mais** porque são a parte quase inteiramente dele. Golos sofridos, jogos sem
+sofrer e vitórias dependem também da linha à frente, e por isso valem menos.
+
+**Os golos sofridos comparam-se com a média da pelada**, e não com um número absoluto:
+`clamp(50 + 15 × (médiaDaPelada − sofridosPorJogo), 0, 100)`. É o que torna o valor justo para quem
+joga atrás de uma defesa que sofre muito. Verificado contra o Postgres: numa pelada com média de 3,5
+golos sofridos por jogo, quem sofreu 3 fica em 57,5 e quem sofreu 4 fica em 42,5. Consequência a ter
+em conta: sofrer zero não dá 100 — dá `50 + 15 × média`. Só chega ao topo quem estiver 3,3 golos por
+jogo abaixo da média do grupo.
+
+A média é mais uma quantidade que exige o plantel inteiro, e por isso é calculada na mesma passagem
+dos títulos, em `leagueConcededPerGame`.
+
+**A confiança** cresce até às cinco rodadas na baliza e puxa o número ao neutro abaixo disso, para
+que uma rodada de sorte — ou de azar — não mande ninguém para o topo nem para o fundo. É aplicada
+parcela a parcela, o que é aritmeticamente igual a aplicá-la ao total, com a vantagem de a
+decomposição continuar a somar ao número mostrado. **Um guarda-redes precisa da explicação dele**:
+mostrar-lhe o painel da fórmula de campo seria pior do que não ter painel.
+
+### Quando a escala se aplica
+
+Quando **metade ou mais** das rodadas do jogador foram na baliza. A escala segue onde ele jogou e não
+o rótulo que tem: um híbrido que guardou a baliza uma jornada em dez não é julgado por essa uma, e um
+jogador rotulado como guarda-redes que nunca lá esteve não tem nada que a escala meça.
+
+Uma consequência que só aparece com dados reais: numa pelada com `goalkeeper_mode = 'rotating'`
+ninguém é marcado como guarda-redes na escalação, portanto **ninguém é julgado por esta escala** —
+o que está certo, porque se a baliza roda durante o jogo ninguém a guardou naquela rodada. A escala
+vale para peladas que jogam com guarda-redes fixos ou mistos.
 
 ## Notificações
 
