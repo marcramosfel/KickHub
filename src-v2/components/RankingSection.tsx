@@ -1,5 +1,6 @@
 import { ShieldCheck, Trophy } from 'lucide-react'
 import { Badge, Card, EmptyState } from '../components/ui'
+import { computePlayerOverall, isProvisional } from '../domain/player-overall'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n } from '../lib/i18n'
 import { contribution, usePeladaRanking, usePeladaTotals, winRate, type RankingRow } from '../lib/ranking'
@@ -76,11 +77,14 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
           <th scope="col" title={t('ranking.assists')}>{t('ranking.assistsShort')}</th>
           <th scope="col" title={t('ranking.saves')}>{t('ranking.savesShort')}</th>
           <th scope="col">{t('ranking.record')}</th>
+          <th scope="col" title={t('ranking.overall')}>{t('ranking.overallShort')}</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((row, index) => {
           const rate = winRate(row)
+          const overall = computePlayerOverall(row)
+          const provisional = isProvisional(row)
           return (
             <tr key={row.membershipId}>
               <td>{formatNumber(index + 1)}</td>
@@ -96,6 +100,13 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
               <td>{formatNumber(row.saves)}</td>
               <td className="ranking-record">
                 {formatNumber(row.wins)}-{formatNumber(row.draws)}-{formatNumber(row.losses)}
+              </td>
+              <td className="ranking-overall">
+                {overall === null ? t('ranking.noneYet') : (
+                  <span title={provisional ? t('ranking.provisionalHint') : undefined}>
+                    {formatNumber(overall)}{provisional ? '*' : ''}
+                  </span>
+                )}
               </td>
             </tr>
           )

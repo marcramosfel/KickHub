@@ -160,13 +160,27 @@ Uma pelada que registe o placar sem sortear equipas continua a ver golos e assis
 aparece é o saldo de vitórias, porque ninguém sabe quem estava em que equipa. A interface diz "sem
 jogos decididos" em vez de mostrar 0%, que se leria como ter perdido sempre.
 
+## Overall calculado
+
+`src-v2/domain/player-overall.ts` deriva o overall do que aconteceu em campo, por pelada. É uma
+função pura, testada isoladamente.
+
+O problema difícil não é a fórmula, é a confiança. Quem marcou dois golos no primeiro jogo não é um
+jogador de 90; quem passou em branco uma vez não é de 20. O valor sofre encolhimento bayesiano
+contra cinco jogos-fantasma no neutro, e só ganha peso à medida que a amostra cresce. A interface
+marca com asterisco enquanto o número for provisório.
+
+O cálculo **não substitui automaticamente** o valor manual: aparece como sugestão no plantel, e quem
+organiza decide aplicá-la. Uma pelada pode discordar do número, e sobrepor-se a ela sem aviso seria
+retirar-lhe uma decisão que é sua. Continua a não existir overall global entre peladas.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
 2. ~~constraints compostas para impedir FKs cross-tenant~~ — feito em `20260815000000`;
 3. claim legado e revogação progressiva de PIN/token;
 4. DTOs público/membro/admin e Storage com paths por tenant;
-5. overall calculado a partir de `game_player_stats`, substituindo o valor manual.
+5. notificações de atividade e preferências por utilizador.
 
 O plano original adiava as entidades de jogo para depois do carimbo do legado, para evitar um fork
 entre o histórico Browns e as peladas novas. A ordem foi invertida deliberadamente: sem o ciclo de

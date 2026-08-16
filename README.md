@@ -21,6 +21,7 @@ O produto inclui:
 - sorteio equilibrado reproduzível, com escalação persistida e overall congelado;
 - resultado do jogo com placar, golos, assistências e defesas por jogador;
 - ranking e estatísticas por pelada, agregados no banco;
+- overall calculado a partir das estatísticas, sugerido a quem organiza;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;

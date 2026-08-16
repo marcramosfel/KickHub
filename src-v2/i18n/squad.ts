@@ -35,6 +35,10 @@ const pt = {
   'squad.posDEF': 'Defesa',
   'squad.posMID': 'Médio',
   'squad.posATT': 'Avançado',
+  'squad.suggestedOverall': 'Sugerido pelas estatísticas: {value}',
+  'squad.applySuggestion': 'Usar {value}',
+  'squad.suggestionProvisional': 'Ainda provisório: poucos jogos.',
+  'squad.noSuggestion': 'Sem jogos suficientes para sugerir.',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -74,6 +78,10 @@ const en: Record<Key, TranslationValue> = {
   'squad.posDEF': 'Defender',
   'squad.posMID': 'Midfielder',
   'squad.posATT': 'Forward',
+  'squad.suggestedOverall': 'Suggested by the stats: {value}',
+  'squad.applySuggestion': 'Use {value}',
+  'squad.suggestionProvisional': 'Still provisional: few matches.',
+  'squad.noSuggestion': 'Not enough matches to suggest one.',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -111,6 +119,10 @@ const es: Record<Key, TranslationValue> = {
   'squad.posDEF': 'Defensa',
   'squad.posMID': 'Centrocampista',
   'squad.posATT': 'Delantero',
+  'squad.suggestedOverall': 'Sugerido por las estadísticas: {value}',
+  'squad.applySuggestion': 'Usar {value}',
+  'squad.suggestionProvisional': 'Todavía provisional: pocos partidos.',
+  'squad.noSuggestion': 'Sin partidos suficientes para sugerir.',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -148,6 +160,10 @@ const fr: Record<Key, TranslationValue> = {
   'squad.posDEF': 'Défenseur',
   'squad.posMID': 'Milieu',
   'squad.posATT': 'Attaquant',
+  'squad.suggestedOverall': 'Suggéré par les statistiques : {value}',
+  'squad.applySuggestion': 'Utiliser {value}',
+  'squad.suggestionProvisional': 'Encore provisoire : peu de matchs.',
+  'squad.noSuggestion': 'Pas assez de matchs pour proposer une valeur.',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -185,6 +201,10 @@ const de: Record<Key, TranslationValue> = {
   'squad.posDEF': 'Abwehr',
   'squad.posMID': 'Mittelfeld',
   'squad.posATT': 'Angriff',
+  'squad.suggestedOverall': 'Aus den Statistiken vorgeschlagen: {value}',
+  'squad.applySuggestion': '{value} übernehmen',
+  'squad.suggestionProvisional': 'Noch vorläufig: wenige Spiele.',
+  'squad.noSuggestion': 'Nicht genug Spiele für einen Vorschlag.',
 }
 
 export const squadCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

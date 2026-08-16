@@ -1,8 +1,10 @@
 import { Check, Pencil, ShieldCheck, UsersRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Avatar, Badge, Button, Card, EmptyState } from '../components/ui'
+import { computePlayerOverall, isProvisional } from '../domain/player-overall'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
+import { usePeladaRanking, type RankingRow } from '../lib/ranking'
 import { roleLabel } from '../lib/role-label'
 import {
   canEditMember, canEditOverall, playerTypes, positions, usePeladaSquad, useSquadMutations,
@@ -137,9 +139,13 @@ function MemberForm({ member, canAdmin, onClose, onSaved }: {
   onClose: () => void
   onSaved: (name: string) => void
 }) {
-  const { t } = useI18n()
+  const { t, formatNumber } = useI18n()
   const { pelada } = useCurrentPelada()
   const save = useSquadMutations(pelada?.id)
+  // A sugestão vem das estatísticas acumuladas; só quem administra a pode aplicar.
+  const ranking = usePeladaRanking(pelada?.id, canAdmin)
+  const stats: RankingRow | undefined = (ranking.data ?? []).find((row) => row.membershipId === member.membershipId)
+  const suggestion = stats ? computePlayerOverall(stats) : null
   const [playerType, setPlayerType] = useState<PlayerType | ''>(member.playerType ?? '')
   const [primary, setPrimary] = useState<Position | ''>(member.primaryPosition ?? '')
   const [secondary, setSecondary] = useState<Position | ''>(member.secondaryPosition ?? '')
@@ -209,6 +215,21 @@ function MemberForm({ member, canAdmin, onClose, onSaved }: {
             <small id={`overall-hint-${member.membershipId}`}>
               {editableOverall ? t('squad.overallHint') : t('squad.overallLocked')}
             </small>
+            {editableOverall ? (
+              <div className="squad-suggestion">
+                {suggestion === null ? (
+                  <small>{t('squad.noSuggestion')}</small>
+                ) : (
+                  <>
+                    <small>{t('squad.suggestedOverall', { value: formatNumber(suggestion) })}</small>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setOverall(String(suggestion))}>
+                      {t('squad.applySuggestion', { value: formatNumber(suggestion) })}
+                    </Button>
+                    {stats && isProvisional(stats) ? <small>{t('squad.suggestionProvisional')}</small> : null}
+                  </>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
         <label className="squad-accepts" htmlFor={`accepts-${member.membershipId}`}>

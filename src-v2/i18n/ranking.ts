@@ -32,6 +32,9 @@ const pt = {
   'ranking.topScorer': 'Artilheiro',
   'ranking.topAssists': 'Mais assistências',
   'ranking.noneYet': '—',
+  'ranking.overall': 'Overall',
+  'ranking.overallShort': 'OVR',
+  'ranking.provisionalHint': 'Provisório: poucos jogos ainda.',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -68,6 +71,9 @@ const en: Record<Key, TranslationValue> = {
   'ranking.topScorer': 'Top scorer',
   'ranking.topAssists': 'Most assists',
   'ranking.noneYet': '—',
+  'ranking.overall': 'Overall',
+  'ranking.overallShort': 'OVR',
+  'ranking.provisionalHint': 'Provisional: still few matches.',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -102,6 +108,9 @@ const es: Record<Key, TranslationValue> = {
   'ranking.topScorer': 'Máximo goleador',
   'ranking.topAssists': 'Más asistencias',
   'ranking.noneYet': '—',
+  'ranking.overall': 'Overall',
+  'ranking.overallShort': 'OVR',
+  'ranking.provisionalHint': 'Provisional: todavía pocos partidos.',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -136,6 +145,9 @@ const fr: Record<Key, TranslationValue> = {
   'ranking.topScorer': 'Meilleur buteur',
   'ranking.topAssists': 'Meilleur passeur',
   'ranking.noneYet': '—',
+  'ranking.overall': 'Overall',
+  'ranking.overallShort': 'OVR',
+  'ranking.provisionalHint': 'Provisoire : encore peu de matchs.',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -170,6 +182,9 @@ const de: Record<Key, TranslationValue> = {
   'ranking.topScorer': 'Torschützenkönig',
   'ranking.topAssists': 'Meiste Vorlagen',
   'ranking.noneYet': '—',
+  'ranking.overall': 'Overall',
+  'ranking.overallShort': 'OVR',
+  'ranking.provisionalHint': 'Vorläufig: noch wenige Spiele.',
 }
 
 export const rankingCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }
