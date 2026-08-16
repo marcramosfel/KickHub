@@ -1,5 +1,6 @@
 import { CalendarDays, Check, Clock3, MapPin, Plus, ShieldCheck, UsersRound, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { GameDraw } from '../components/GameDraw'
 import { Badge, Button, Card, EmptyState } from '../components/ui'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { remainingSeats, useGameMutations, usePeladaGames, type Game } from '../lib/games'
@@ -135,6 +136,8 @@ function GameCard({ game }: { game: Game }) {
       {game.myStatus === 'confirmed' ? <p className="game-status confirmed"><Check/> {t('games.confirmed')}</p> : null}
       {game.myStatus === 'declined' ? <p className="game-status declined"><X/> {t('games.declined')}</p> : null}
       {error ? <p className="form-error" role="alert">{error}</p> : null}
+
+      <GameDraw game={game}/>
 
       {open ? (
         <div className="game-actions">

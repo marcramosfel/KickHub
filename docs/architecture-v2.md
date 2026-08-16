@@ -117,13 +117,27 @@ com `OVERALL_REQUIRES_ADMIN`.
 As posições são genéricas — `GK`, `DEF`, `MID`, `ATT` — e não os slots lateralizados do legado, que
 assumiam 7x7. O sorteio tem de servir de 5x5 a 11x11.
 
+## Sorteio equilibrado
+
+`src-v2/domain/team-draw.ts` é uma função pura: recebe jogadores e regras, devolve duas equipas. Não
+conhece Supabase nem React, por isso testa-se isoladamente. O formato é um parâmetro — o motor legado
+assumia 7x7 com dois guarda-redes fixos.
+
+A semente torna o sorteio reproduzível: `games.draw_seed` guarda-a, e `game_lineups.overall_at_draw`
+congela a força de cada jogador no instante do sorteio. Sem esse congelamento, reabrir um jogo antigo
+mostraria equipas "desequilibradas" que estavam equilibradas no dia.
+
+O cliente calcula e o servidor valida: `save_game_lineup` recusa escalar quem não pertence à pelada
+ou não confirmou presença. Confiar na escalação recebida deixaria um administrador escalar alguém de
+outra comunidade através da RPC.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
 2. ~~constraints compostas para impedir FKs cross-tenant~~ — feito em `20260815000000`;
 3. claim legado e revogação progressiva de PIN/token;
 4. DTOs público/membro/admin e Storage com paths por tenant;
-5. sorteio, resultados e estatísticas sobre as entidades de jogo.
+5. resultados, estatísticas e ranking sobre as entidades de jogo.
 
 O plano original adiava as entidades de jogo para depois do carimbo do legado, para evitar um fork
 entre o histórico Browns e as peladas novas. A ordem foi invertida deliberadamente: sem o ciclo de
