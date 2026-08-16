@@ -20,6 +20,7 @@ O produto inclui:
 - plantel com posições, tipo de jogador e overall por pelada;
 - sorteio equilibrado reproduzível, com escalação persistida e overall congelado;
 - resultado do jogo com placar, golos, assistências e defesas por jogador;
+- ranking e estatísticas por pelada, agregados no banco;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
@@ -61,6 +62,7 @@ As migrations são append-only:
 8. `20260815020000_squad_attributes.sql` — atributos desportivos do plantel e overall por pelada.
 9. `20260816000000_game_lineups.sql` — escalação sorteada, semente reproduzível e validação server-side.
 10. `20260816010000_game_results.sql` — placar e estatísticas por jogador.
+11. `20260816020000_pelada_ranking.sql` — ranking acumulado e totais da comunidade.
 
 Com Docker disponível:
 

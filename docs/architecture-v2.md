@@ -144,13 +144,29 @@ esta tabela que o ranking e o overall calculado vão assentar.
 de as somar outra vez. Só entram jogadores com presença confirmada ou escalação sorteada, portanto a
 RPC não aceita creditar golos a quem faltou nem a alguém de outra pelada.
 
+## Ranking e estatísticas
+
+A agregação acontece no banco. Trazer todos os jogos para o browser e somá-los deixaria de funcionar
+à segunda época e obrigaria a expor linha a linha o que sai daqui já consolidado.
+
+Participação e resultado são contados de fontes diferentes de propósito:
+
+```text
+jogos disputados  ← escalação sorteada OU presença confirmada
+vitórias/derrotas ← apenas escalação, porque só ela diz de que lado se jogou
+```
+
+Uma pelada que registe o placar sem sortear equipas continua a ver golos e assistências; o que não
+aparece é o saldo de vitórias, porque ninguém sabe quem estava em que equipa. A interface diz "sem
+jogos decididos" em vez de mostrar 0%, que se leria como ter perdido sempre.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
 2. ~~constraints compostas para impedir FKs cross-tenant~~ — feito em `20260815000000`;
 3. claim legado e revogação progressiva de PIN/token;
 4. DTOs público/membro/admin e Storage com paths por tenant;
-5. ranking e overall calculado sobre `game_player_stats`.
+5. overall calculado a partir de `game_player_stats`, substituindo o valor manual.
 
 O plano original adiava as entidades de jogo para depois do carimbo do legado, para evitar um fork
 entre o histórico Browns e as peladas novas. A ordem foi invertida deliberadamente: sem o ciclo de
