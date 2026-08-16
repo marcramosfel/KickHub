@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { getAuthAvatarUrl, getAuthDisplayName, useAuth } from '../lib/auth'
 import { LocaleSelect, useI18n } from '../lib/i18n'
 import { Brand } from './Brand'
+import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 import { Avatar } from './ui'
 
@@ -52,6 +53,7 @@ export function AppShell() {
         <header className="app-topbar">
           <Brand ariaLabel={t('common.brandHome')} />
           <div className="topbar-actions">
+            <NotificationBell />
             <LocaleSelect compact />
             <ThemeToggle />
             <Avatar name={displayName} size="sm" src={avatarUrl}/>

@@ -174,13 +174,26 @@ O cálculo **não substitui automaticamente** o valor manual: aparece como suges
 organiza decide aplicá-la. Uma pelada pode discordar do número, e sobrepor-se a ela sem aviso seria
 retirar-lhe uma decisão que é sua. Continua a não existir overall global entre peladas.
 
+## Notificações
+
+Uma notificação guarda `kind` e `payload`, nunca a frase escrita. O título é o nome da pelada, que
+não se traduz. A frase é montada na apresentação, no idioma de quem lê.
+
+A revisão de pedidos gravava `Pedido aprovado` e `Já podes entrar na pelada.` diretamente na linha:
+quem tivesse a conta noutro idioma recebia português, e mudar de idioma depois não reescrevia nada —
+a linha ficava congelada na língua de quem aprovou. Corrigido em `20260816040000`.
+
+O cliente conhece um conjunto fechado de tipos e recorre ao texto guardado para os que ainda não
+conhece, de modo a que uma notificação nova do servidor apareça com algum conteúdo em vez de uma
+linha em branco.
+
 ## Próximas migrations
 
 1. backfill de `pelada_id` nas entidades Browns e memberships por jogador;
 2. ~~constraints compostas para impedir FKs cross-tenant~~ — feito em `20260815000000`;
 3. claim legado e revogação progressiva de PIN/token;
 4. DTOs público/membro/admin e Storage com paths por tenant;
-5. notificações de atividade e preferências por utilizador.
+5. preferências de notificação por utilizador e canais além do in-app.
 
 O plano original adiava as entidades de jogo para depois do carimbo do legado, para evitar um fork
 entre o histórico Browns e as peladas novas. A ordem foi invertida deliberadamente: sem o ciclo de

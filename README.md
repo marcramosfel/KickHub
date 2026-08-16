@@ -22,6 +22,7 @@ O produto inclui:
 - resultado do jogo com placar, golos, assistências e defesas por jogador;
 - ranking e estatísticas por pelada, agregados no banco;
 - overall calculado a partir das estatísticas, sugerido a quem organiza;
+- notificações in-app de convocatória, cancelamento e resposta a pedidos;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
@@ -64,6 +65,8 @@ As migrations são append-only:
 9. `20260816000000_game_lineups.sql` — escalação sorteada, semente reproduzível e validação server-side.
 10. `20260816010000_game_results.sql` — placar e estatísticas por jogador.
 11. `20260816020000_pelada_ranking.sql` — ranking acumulado e totais da comunidade.
+12. `20260816030000_pelada_settings_read.sql` — leitura das definições desportivas.
+13. `20260816040000_language_neutral_notifications.sql` — notificações sem texto traduzido e aviso de cancelamento.
 
 Com Docker disponível:
 
