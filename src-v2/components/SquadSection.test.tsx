@@ -74,7 +74,15 @@ describe('SquadSection', () => {
   })
 
   it('apresenta posição, papel e overall de cada jogador', async () => {
-    respondWith({ members: [makeRow(), makeRow({ membership_id: 'm2', display_name: 'Malik Diallo', username: 'malik', role: 'owner', primary_position: 'GK', player_type: 'GOALKEEPER', overall: null })] })
+    respondWith({
+      members: [makeRow(), makeRow({ membership_id: 'm2', display_name: 'Malik Diallo', username: 'malik', role: 'owner', primary_position: 'GK', player_type: 'GOALKEEPER', overall: null })],
+      // O ranking traz uma linha por membro activo, sempre. Sem elas o cartão
+      // não teria de onde tirar a nota do grupo.
+      ranking: [
+        { membership_id: 'membership-1', display_name: 'Joana Silva', games_played: 0, goals: 0, assists: 0, own_goals: 0, saves: 0, wins: 0, draws: 0, losses: 0, is_former: false, base_rating: 72, post_rating_avg: null, post_rating_count: 0, craques: 0, bagres: 0, wae_saldo: null, wae_matches: 0, current_win_streak: 0 },
+        { membership_id: 'm2', display_name: 'Malik Diallo', games_played: 0, goals: 0, assists: 0, own_goals: 0, saves: 0, wins: 0, draws: 0, losses: 0, is_former: false, base_rating: null, post_rating_avg: null, post_rating_count: 0, craques: 0, bagres: 0, wae_saldo: null, wae_matches: 0, current_win_streak: 0 },
+      ],
+    })
     renderSquad()
     expect(await screen.findByText('Joana Silva')).toBeInTheDocument()
     expect(screen.getByText('Médio')).toBeInTheDocument()
@@ -102,8 +110,9 @@ describe('SquadSection', () => {
 
     await screen.findByText('Joana Silva')
     // Desempenho nulo em 20 jogos, encolhido para o neutro: 50 + 0,8 × (0 − 50) = 10.
-    // Sem estrelas os pesos renormalizam para 2/3 e 1/3: 2/3 × 90 + 1/3 × 10 = 63.
-    expect(await screen.findByText('63')).toBeInTheDocument()
+    // Sem estrelas os pesos renormalizam para 2/3 e 1/3: 2/3 × 90 + 1/3 × 10 = 63,
+    // mais um ponto de título — é a única no ranking, logo lidera presenças.
+    expect(await screen.findByText('64')).toBeInTheDocument()
     expect(screen.queryByText('90')).not.toBeInTheDocument()
   })
 

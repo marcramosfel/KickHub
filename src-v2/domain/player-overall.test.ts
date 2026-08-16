@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  computePlayerOverall, contributionPerGame, explainOverall, isProvisional,
-  MAX_OVERALL, MIN_OVERALL, type OverallInput,
+  computePlayerOverall, computeTitles, contributionPerGame, explainOverall,
+  explainSquadOverall, isProvisional, MAX_OVERALL, MIN_OVERALL,
+  type OverallInput, type TitleInput,
 } from './player-overall'
 
 const player = (overrides: Partial<OverallInput> = {}): OverallInput => ({
   gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null,
-  craques: 0, bagres: 0, waeSaldo: null, waeMatches: 0, ...overrides,
+  craques: 0, bagres: 0, waeSaldo: null, waeMatches: 0, titles: [], ...overrides,
 })
 
 describe('contributo por jogo', () => {
@@ -228,6 +229,108 @@ describe('vitórias acima do esperado', () => {
   it('trata saldo nulo como ausência, e não como zero', () => {
     expect(explainOverall(player({ gamesPlayed: 10, baseRating: 60, waeSaldo: null, waeMatches: 3 }))!
       .parts.map((part) => part.key)).not.toContain('wae')
+  })
+})
+
+const squadRow = (overrides: Partial<TitleInput> = {}): TitleInput => ({
+  membershipId: 'm1', gamesPlayed: 0, goals: 0, assists: 0, wins: 0, craques: 0,
+  currentWinStreak: 0, ...overrides,
+})
+
+describe('títulos', () => {
+  it('dá o título a quem lidera cada métrica', () => {
+    const titles = computeTitles([
+      squadRow({ membershipId: 'a', gamesPlayed: 5, goals: 9, assists: 1, wins: 4, craques: 2 }),
+      squadRow({ membershipId: 'b', gamesPlayed: 9, goals: 2, assists: 7, wins: 1, craques: 0 }),
+    ])
+    expect(titles.get('a')).toEqual(['topScorer', 'mostWins', 'mostCraques'])
+    expect(titles.get('b')).toEqual(['topAssists', 'mostGames'])
+  })
+
+  /** Empate premeia todos os empatados. */
+  it('premeia todos os empatados', () => {
+    const titles = computeTitles([
+      squadRow({ membershipId: 'a', goals: 5 }),
+      squadRow({ membershipId: 'b', goals: 5 }),
+      squadRow({ membershipId: 'c', goals: 2 }),
+    ])
+    expect(titles.get('a')).toContain('topScorer')
+    expect(titles.get('b')).toContain('topScorer')
+    expect(titles.get('c')).not.toContain('topScorer')
+  })
+
+  /** Não há artilheiro numa pelada sem golos. */
+  it('não inventa um título quando ninguém marcou', () => {
+    const titles = computeTitles([squadRow({ membershipId: 'a' }), squadRow({ membershipId: 'b' })])
+    expect(titles.get('a')).toEqual([])
+    expect(titles.get('b')).toEqual([])
+  })
+
+  /**
+   * A sequência não é um lugar único: é uma marca. Quem chegar a três leva, e
+   * podem ser vários ao mesmo tempo.
+   */
+  it('dá a marca de sequência a todos os que chegam a três', () => {
+    const titles = computeTitles([
+      squadRow({ membershipId: 'a', currentWinStreak: 3 }),
+      squadRow({ membershipId: 'b', currentWinStreak: 7 }),
+      squadRow({ membershipId: 'c', currentWinStreak: 2 }),
+    ])
+    expect(titles.get('a')).toEqual(['winStreak'])
+    expect(titles.get('b')).toEqual(['winStreak'])
+    expect(titles.get('c')).toEqual([])
+  })
+
+  it('soma um ponto por título, e nada a quem não tem nenhum', () => {
+    const sem = explainOverall(player({ gamesPlayed: 10, baseRating: 50 }))!
+    const comDois = explainOverall(player({
+      gamesPlayed: 10, baseRating: 50, titles: ['topScorer', 'mostGames'],
+    }))!
+    expect(comDois.overall - sem.overall).toBe(2)
+    expect(comDois.adjustments.find((item) => item.key === 'titles')!.points).toBe(2)
+    expect(sem.adjustments).toEqual([])
+  })
+
+  /**
+   * Nenhum título mede o overall. Se medisse, o número passaria a alimentar-se
+   * a si mesmo e o resultado dependeria da ordem por que fossem calculados.
+   */
+  it('não olha para o overall ao decidir quem lidera', () => {
+    const rows = [
+      squadRow({ membershipId: 'fraco', gamesPlayed: 3, goals: 9 }),
+      squadRow({ membershipId: 'forte', gamesPlayed: 3, goals: 1 }),
+    ]
+    expect(computeTitles(rows).get('fraco')).toContain('topScorer')
+  })
+})
+
+describe('o plantel em duas passagens', () => {
+  /**
+   * Os títulos dependem de comparar todos, portanto o overall de alguém não se
+   * pode calcular isoladamente. Esta é a razão arquitetural das duas passagens.
+   */
+  it('atribui o bónus de título a partir da comparação, não da linha', () => {
+    // O primeiro lidera golos e presenças; o segundo não lidera nada.
+    const rows = [
+      { ...player({ gamesPlayed: 4, goals: 8, baseRating: 50 }), membershipId: 'artilheiro', wins: 0 },
+      { ...player({ gamesPlayed: 2, goals: 1, baseRating: 50 }), membershipId: 'outro', wins: 0 },
+    ]
+    const porMembro = explainSquadOverall(rows)
+
+    const artilheiro = porMembro.get('artilheiro')!
+    expect(artilheiro.adjustments.find((item) => item.key === 'titles')!.points).toBe(2)
+    expect(porMembro.get('outro')!.adjustments).toEqual([])
+
+    // Calculado sozinho, o mesmo jogador não teria o título — porque não há com
+    // quem o comparar.
+    expect(explainOverall(rows[0])!.adjustments).toEqual([])
+  })
+
+  it('deixa de fora quem não tem número nenhum a mostrar', () => {
+    const porMembro = explainSquadOverall([
+      { ...player({ gamesPlayed: 0, baseRating: null }), membershipId: 'sem-nada', wins: 0 },
+    ])
+    expect(porMembro.has('sem-nada')).toBe(false)
   })
 })
 

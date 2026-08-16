@@ -1,6 +1,6 @@
 import { ShieldCheck, Trophy } from 'lucide-react'
 import { Badge, Card, EmptyState } from '../components/ui'
-import { computePlayerOverall, isProvisional } from '../domain/player-overall'
+import { explainSquadOverall } from '../domain/player-overall'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n } from '../lib/i18n'
 import { contribution, usePeladaRanking, usePeladaTotals, winRate, type RankingRow } from '../lib/ranking'
@@ -72,6 +72,9 @@ function Heading({ variant }: { variant: 'ranking' | 'stats' }) {
 
 function RankingTable({ rows }: { rows: RankingRow[] }) {
   const { t, formatNumber } = useI18n()
+  // Duas passagens: os títulos dependem de comparar o plantel inteiro, portanto
+  // o overall de uma linha não se calcula a partir dessa linha sozinha.
+  const overallByMember = explainSquadOverall(rows)
   return (
     <table className="ranking-table">
       <thead>
@@ -89,8 +92,9 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
       <tbody>
         {rows.map((row, index) => {
           const rate = winRate(row)
-          const overall = computePlayerOverall(row)
-          const provisional = isProvisional(row)
+          const breakdown = overallByMember.get(row.membershipId)
+          const overall = breakdown?.overall ?? null
+          const provisional = breakdown?.provisional ?? false
           return (
             <tr key={row.membershipId}>
               <td>{formatNumber(index + 1)}</td>

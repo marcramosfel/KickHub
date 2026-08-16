@@ -1,6 +1,6 @@
 begin;
 
-select plan(26);
+select plan(29);
 
 select has_function('public', 'get_pelada_ranking', array['uuid'], 'ranking da pelada existe');
 select has_function('public', 'get_pelada_totals', array['uuid'], 'totais da pelada existem');
@@ -205,6 +205,27 @@ select is(
    where membership_id = '00000000-0000-4000-8000-0000000000e3'),
   null::numeric,
   'e o saldo vem a nulo, não a zero — zero seria dizer que rendeu o esperado'
+);
+
+-- A sequência de vitórias é o único dado dos títulos que nenhuma soma guarda:
+-- precisa da ordem dos jogos. Conta-se do mais recente para trás.
+select is(
+  (select current_win_streak from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e1'),
+  1,
+  'quem ganhou o jogo mais recente está em sequência de um'
+);
+select is(
+  (select current_win_streak from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e2'),
+  0,
+  'quem o perdeu não tem sequência nenhuma'
+);
+select is(
+  (select current_win_streak from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e3'),
+  0,
+  'e quem nunca foi escalado também não'
 );
 
 set local request.jwt.claims to '{"sub":"a4400000-0000-4000-8000-000000000004"}';

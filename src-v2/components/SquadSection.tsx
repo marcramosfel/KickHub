@@ -1,7 +1,7 @@
 import { Check, Pencil, ShieldCheck, UserMinus, UsersRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Avatar, Badge, Button, Card, EmptyState } from '../components/ui'
-import { computePlayerOverall, explainOverall, isProvisional, type OverallBreakdown } from '../domain/player-overall'
+import { computePlayerOverall, explainSquadOverall, isProvisional, type OverallBreakdown } from '../domain/player-overall'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useRemoveMember, useSetMemberRole } from '../lib/pelada-admin'
@@ -22,7 +22,10 @@ export function SquadSection() {
   // Sobe para aqui porque o cartão de cada membro passou a mostrar o overall
   // calculado, e não apenas o formulário de quem administra.
   const ranking = usePeladaRanking(pelada?.id, !isDemo)
-  const statsByMember = new Map((ranking.data ?? []).map((row) => [row.membershipId, row]))
+  // Duas passagens, e não por comodidade: os títulos dependem de comparar o
+  // plantel inteiro, portanto não existe forma correcta de calcular o overall de
+  // alguém isoladamente.
+  const overallByMember = explainSquadOverall(ranking.data ?? [])
   const [editing, setEditing] = useState('')
   const [notice, setNotice] = useState('')
 
@@ -61,7 +64,8 @@ export function SquadSection() {
               member={member}
               canAdmin={canAdmin}
               editing={editing === member.membershipId}
-              stats={statsByMember.get(member.membershipId)}
+              breakdown={overallByMember.get(member.membershipId)}
+              overallPending={ranking.isPending}
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
@@ -78,7 +82,8 @@ export function SquadSection() {
               member={member}
               canAdmin={canAdmin}
               editing={editing === member.membershipId}
-              stats={statsByMember.get(member.membershipId)}
+              breakdown={overallByMember.get(member.membershipId)}
+              overallPending={ranking.isPending}
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
@@ -118,6 +123,7 @@ function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => s
   const premio: Record<OverallBreakdown['adjustments'][number]['key'], TranslationKey> = {
     craque: 'ratings.partCraque',
     bagre: 'ratings.partBagre',
+    titles: 'ratings.partTitles',
   }
   return [
     ...breakdown.parts.map((part) =>
@@ -128,11 +134,12 @@ function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => s
   ].join(' · ')
 }
 
-function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved, onDone }: {
+function MemberCard({ member, canAdmin, editing, breakdown, overallPending, onEdit, onClose, onSaved, onDone }: {
   member: SquadMember
   canAdmin: boolean
   editing: boolean
-  stats: RankingRow | undefined
+  breakdown: OverallBreakdown | undefined
+  overallPending: boolean
   onEdit: () => void
   onClose: () => void
   onSaved: (name: string) => void
@@ -143,21 +150,6 @@ function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved
   if (editing) {
     return <MemberForm member={member} canAdmin={canAdmin} onClose={onClose} onSaved={onSaved}/>
   }
-
-  // O overall nasce num sítio só. Aqui mostra-se o mesmo número que o ranking
-  // publica e que o sorteio usa — antes este cartão mostrava a nota escrita à
-  // mão, e a mesma jogadora aparecia com 82 aqui e 53 no ranking.
-  const breakdown = explainOverall({
-    gamesPlayed: stats?.gamesPlayed ?? 0,
-    goals: stats?.goals ?? 0,
-    assists: stats?.assists ?? 0,
-    baseRating: member.overall,
-    postRatingAvg: stats?.postRatingAvg ?? null,
-    craques: stats?.craques ?? 0,
-    bagres: stats?.bagres ?? 0,
-    waeSaldo: stats?.waeSaldo ?? null,
-    waeMatches: stats?.waeMatches ?? 0,
-  })
 
   return (
     <Card className="squad-card">
@@ -173,7 +165,9 @@ function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved
         {member.secondaryPosition ? <Badge tone="neutral">{t(positionKey(member.secondaryPosition))}</Badge> : null}
       </div>
       <div className="squad-overall">
-        {breakdown === null
+        {overallPending
+          ? <small aria-hidden="true">…</small>
+          : !breakdown
           ? <small>{t('squad.noOverall')}</small>
           : <>
               <strong title={explainTitle(breakdown, t)}>{formatNumber(breakdown.overall)}</strong>

@@ -1,7 +1,7 @@
 import { Check, Shuffle } from 'lucide-react'
 import { useState } from 'react'
 import { Badge, Button, Card } from '../components/ui'
-import { computePlayerOverall } from '../domain/player-overall'
+import { explainSquadOverall } from '../domain/player-overall'
 import { DrawError, generateBalancedTeams, type DrawResult } from '../domain/team-draw'
 import { useCurrentPelada } from '../lib/current-pelada'
 import type { Game } from '../lib/games'
@@ -47,23 +47,14 @@ export function GameDraw({ game }: { game: Game }) {
         pelada ? getPeladaSettings(pelada.id) : Promise.resolve(null),
         pelada ? getPeladaRanking(pelada.id) : Promise.resolve([]),
       ])
-      const statsByMember = new Map(ranking.map((row) => [row.membershipId, row]))
+      // Duas passagens, como no plantel: os títulos dependem do plantel inteiro.
+      const overallByMember = explainSquadOverall(ranking)
       // A semente inclui a hora para que voltar a sortear dê equipas novas; a
       // semente usada fica gravada, portanto o resultado continua reproduzível.
       const result = generateBalancedTeams({
         players: players.map((player) => ({
           ...player,
-          overall: computePlayerOverall({
-            gamesPlayed: statsByMember.get(player.id)?.gamesPlayed ?? 0,
-            goals: statsByMember.get(player.id)?.goals ?? 0,
-            assists: statsByMember.get(player.id)?.assists ?? 0,
-            baseRating: player.overall,
-            postRatingAvg: statsByMember.get(player.id)?.postRatingAvg ?? null,
-            craques: statsByMember.get(player.id)?.craques ?? 0,
-            bagres: statsByMember.get(player.id)?.bagres ?? 0,
-            waeSaldo: statsByMember.get(player.id)?.waeSaldo ?? null,
-            waeMatches: statsByMember.get(player.id)?.waeMatches ?? 0,
-          }),
+          overall: overallByMember.get(player.id)?.overall ?? null,
         })),
         teamSize,
         goalkeeperMode: settings?.goalkeeperMode ?? 'rotating',

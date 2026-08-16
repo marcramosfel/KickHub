@@ -31,6 +31,8 @@ export type RankingRow = {
   /** Saldo acumulado acima do esperado. `null` = nenhuma rodada medida. */
   waeSaldo: number | null
   waeMatches: number
+  /** Vitórias seguidas até agora. Zero é um facto. */
+  currentWinStreak: number
 }
 
 export type PeladaTotals = {
@@ -73,6 +75,7 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     bagres: toNumber(row.bagres),
     waeSaldo: toOptionalNumber(row.wae_saldo),
     waeMatches: toNumber(row.wae_matches),
+    currentWinStreak: toNumber(row.current_win_streak),
   }
 }
 

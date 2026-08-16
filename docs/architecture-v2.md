@@ -197,9 +197,8 @@ que ganhar sendo favorito a 74% — e ainda não está implementado.
 A sugestão que o plantel oferece a quem organiza é calculada **sem** a nota do grupo. Se partisse da
 própria nota, o número passaria a alimentar-se a si mesmo e deixaria de haver forma de o explicar.
 
-Por implementar, e por esta ordem: títulos, e escala própria de guarda-redes — um
-guarda-redes não cabe na fórmula de campo, e corrigir-lhe o número sem lhe corrigir a explicação
-seria pior do que não ter explicação.
+Por implementar: a escala própria de guarda-redes — um guarda-redes não cabe na fórmula de campo, e
+corrigir-lhe o número sem lhe corrigir a explicação seria pior do que não ter explicação.
 
 ## Estrelas pós-jogo
 
@@ -290,6 +289,42 @@ nada ter acontecido em campo é impossível de explicar a quem o vê.
 
 É também o que segura o caso extremo: num jogo 50/50 quem ganha fica com nota 100 e quem perde com 0,
 mas a uma rodada o peso é 0,03 e não 0,15.
+
+## Títulos
+
+Seis títulos, cada um a valer **+1** somado no fim: artilheiro, rei das assistências, mais vitórias,
+mais craques, mais jogos, e sequência de três ou mais vitórias seguidas.
+
+Três regras governam quem os leva:
+
+- **empate premeia todos** os empatados;
+- um título **só existe se o líder tiver mais do que zero** — não há artilheiro numa pelada sem golos;
+- a sequência **não é um lugar único**: é uma marca, e quem chegar a três leva, vários ao mesmo tempo.
+
+O bónus é fixo e pequeno de propósito. Os golos já contam no desempenho; o título é uma medalha, não
+uma segunda dose da mesma coisa. Proporcional aos golos seria contar os golos duas vezes.
+
+**Nenhum título mede o overall.** Se medisse — "maior overall do plantel" — o número passaria a
+alimentar-se a si mesmo, e o resultado dependeria da ordem por que fossem calculados.
+
+### A consequência arquitetural
+
+Os títulos dependem de comparar o plantel inteiro, portanto **não existe forma correcta de calcular o
+overall de um jogador isoladamente**. São duas passagens: primeiro as estatísticas de todos, depois
+os títulos, depois o overall.
+
+Isso está expresso na API do domínio e não apenas na documentação. `explainSquadOverall(rows)` recebe
+o plantel e devolve um `Map` de decomposições — é a função que o plantel, o ranking e o sorteio usam.
+`explainOverall` continua a existir para quem já sabe que títulos aquele jogador tem, e é o que os
+testes usam para isolar as parcelas.
+
+A sequência de vitórias é o único dos seis que nenhuma soma guarda: precisa da **ordem** dos jogos, e
+por isso vem do servidor em `current_win_streak`. Conta-se do jogo mais recente para trás e pára na
+primeira não-vitória — a marca é de estar em sequência agora, não de ter estado em Março. Um empate
+corta tal como uma derrota, porque o que se celebra são vitórias seguidas e não invencibilidade.
+
+Enquanto o ranking não chega, o plantel mostra reticências em vez de "por avaliar": não saber ainda e
+não ter nota são estados diferentes, e confundi-los diria a quem tem nota que não tem.
 
 ## Notificações
 

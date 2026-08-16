@@ -15,9 +15,9 @@
  *     parcela com os pesos efetivos, e as parcelas somam ao total — se um dia
  *     deixarem de somar, o painel está errado ou a conta está.
  *
- * O que ainda não existe: títulos e escala própria de guarda-redes. As parcelas
- * em falta não entram a zero — não são produzidas, e o peso reparte-se pelas
- * que existem.
+ * O que ainda não existe: a escala própria de guarda-redes. As parcelas em
+ * falta não entram a zero — não são produzidas, e o peso reparte-se pelas que
+ * existem.
  */
 
 export type OverallInput = {
@@ -43,6 +43,13 @@ export type OverallInput = {
    */
   waeSaldo?: number | null
   waeMatches?: number
+  /** Vitórias seguidas até agora. Alimenta o título de sequência. */
+  currentWinStreak?: number
+  /**
+   * Títulos que este jogador lidera hoje. Não se calculam a partir do próprio
+   * jogador: vêm de `computeTitles`, que compara o plantel inteiro.
+   */
+  titles?: TitleKey[]
 }
 
 export const NEUTRAL_OVERALL = 50
@@ -99,6 +106,16 @@ const MAX_STARS = 5
 const CRAQUE_BONUS = 9
 const BAGRE_PENALTY = 4
 
+/**
+ * Cada título vale um ponto. Fixo e pequeno de propósito: os golos já contam no
+ * desempenho, e o título é uma medalha, não uma segunda dose da mesma coisa.
+ * Proporcional aos golos seria contar os golos duas vezes.
+ */
+const TITLE_BONUS = 1
+
+/** Vitórias seguidas a partir das quais a marca se ganha. */
+const WIN_STREAK_TITLE = 3
+
 const clamp = (value: number) => Math.min(Math.max(Math.round(value), MIN_OVERALL), MAX_OVERALL)
 
 export type OverallPart = {
@@ -114,8 +131,30 @@ export type OverallPart = {
  * pontos, e é por isso que a decomposição os mostra à parte.
  */
 export type OverallAdjustment = {
-  key: 'craque' | 'bagre'
+  key: 'craque' | 'bagre' | 'titles'
   points: number
+}
+
+export type TitleKey =
+  | 'topScorer' | 'topAssists' | 'mostWins' | 'mostCraques' | 'mostGames' | 'winStreak'
+
+/** O que cada título mede. Nunca o overall — ver `computeTitles`. */
+const TITLE_METRICS: ReadonlyArray<{ key: TitleKey; of: (row: TitleInput) => number }> = [
+  { key: 'topScorer', of: (row) => row.goals },
+  { key: 'topAssists', of: (row) => row.assists },
+  { key: 'mostWins', of: (row) => row.wins },
+  { key: 'mostCraques', of: (row) => row.craques ?? 0 },
+  { key: 'mostGames', of: (row) => row.gamesPlayed },
+]
+
+export type TitleInput = {
+  membershipId: string
+  gamesPlayed: number
+  goals: number
+  assists: number
+  wins: number
+  craques?: number
+  currentWinStreak?: number
 }
 
 export type OverallBreakdown = {
@@ -181,10 +220,62 @@ function awardRate(times: number | undefined, gamesPlayed: number) {
 function adjustmentsOf(input: OverallInput): OverallAdjustment[] {
   const craque = awardRate(input.craques, input.gamesPlayed) * CRAQUE_BONUS
   const bagre = awardRate(input.bagres, input.gamesPlayed) * BAGRE_PENALTY
+  const titles = (input.titles?.length ?? 0) * TITLE_BONUS
   return [
     ...(craque > 0 ? [{ key: 'craque' as const, points: craque }] : []),
     ...(bagre > 0 ? [{ key: 'bagre' as const, points: -bagre }] : []),
+    ...(titles > 0 ? [{ key: 'titles' as const, points: titles }] : []),
   ]
+}
+
+/**
+ * Quem lidera cada título, comparando o plantel inteiro.
+ *
+ * Três regras:
+ *
+ *  - **empate premeia todos** os empatados;
+ *  - um título **só existe se o líder tiver mais do que zero** — não há
+ *    artilheiro numa pelada sem golos;
+ *  - a sequência **não é um lugar único**: é uma marca. Quem chegar a três
+ *    leva, e podem ser vários ao mesmo tempo.
+ *
+ * Nenhum título mede o overall. Se medisse, o número passaria a alimentar-se a
+ * si mesmo e o resultado dependeria da ordem por que fossem calculados.
+ */
+export function computeTitles(rows: readonly TitleInput[]): Map<string, TitleKey[]> {
+  const titles = new Map<string, TitleKey[]>(rows.map((row) => [row.membershipId, []]))
+  const add = (membershipId: string, key: TitleKey) => titles.get(membershipId)?.push(key)
+
+  for (const metric of TITLE_METRICS) {
+    const best = rows.reduce((max, row) => Math.max(max, metric.of(row)), 0)
+    if (best <= 0) continue
+    for (const row of rows) if (metric.of(row) === best) add(row.membershipId, metric.key)
+  }
+
+  for (const row of rows) {
+    if ((row.currentWinStreak ?? 0) >= WIN_STREAK_TITLE) add(row.membershipId, 'winStreak')
+  }
+
+  return titles
+}
+
+/**
+ * O overall de um plantel inteiro, em duas passagens.
+ *
+ * Não é uma conveniência: os títulos dependem de comparar todos os jogadores,
+ * portanto **não existe** forma correcta de calcular o overall de alguém
+ * isoladamente. Esta é a função que a interface usa; `explainOverall` continua
+ * a existir para quem já sabe que títulos aquele jogador tem.
+ */
+export function explainSquadOverall<T extends OverallInput & TitleInput>(
+  rows: readonly T[],
+): Map<string, OverallBreakdown> {
+  const titles = computeTitles(rows)
+  return new Map(
+    rows
+      .map((row) => [row.membershipId, explainOverall({ ...row, titles: titles.get(row.membershipId) })] as const)
+      .filter((entry): entry is [string, OverallBreakdown] => entry[1] !== null),
+  )
 }
 
 /**
