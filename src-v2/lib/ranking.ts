@@ -25,6 +25,9 @@ export type RankingRow = {
    */
   postRatingAvg: number | null
   postRatingCount: number
+  /** Quantas vezes levou cada prémio. Zero é um facto, não uma ausência. */
+  craques: number
+  bagres: number
 }
 
 export type PeladaTotals = {
@@ -63,6 +66,8 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     baseRating: toOptionalNumber(row.base_rating),
     postRatingAvg: toOptionalNumber(row.post_rating_avg),
     postRatingCount: toNumber(row.post_rating_count),
+    craques: toNumber(row.craques),
+    bagres: toNumber(row.bagres),
   }
 }
 

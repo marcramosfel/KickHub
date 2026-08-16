@@ -114,9 +114,17 @@ function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => s
     performance: 'squad.partPerformance',
     postRating: 'ratings.partPostRating',
   }
-  return breakdown.parts
-    .map((part) => `${t(rotulo[part.key])}: ${Math.round(part.value)} × ${Math.round(part.weight * 100)}%`)
-    .join(' · ')
+  const premio: Record<OverallBreakdown['adjustments'][number]['key'], TranslationKey> = {
+    craque: 'ratings.partCraque',
+    bagre: 'ratings.partBagre',
+  }
+  return [
+    ...breakdown.parts.map((part) =>
+      `${t(rotulo[part.key])}: ${Math.round(part.value)} × ${Math.round(part.weight * 100)}%`),
+    // Os prémios não têm peso: somam-se em pontos, e é assim que aparecem.
+    ...breakdown.adjustments.map((item) =>
+      `${t(premio[item.key])}: ${item.points > 0 ? '+' : ''}${Math.round(item.points)}`),
+  ].join(' · ')
 }
 
 function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved, onDone }: {
@@ -144,6 +152,8 @@ function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved
     assists: stats?.assists ?? 0,
     baseRating: member.overall,
     postRatingAvg: stats?.postRatingAvg ?? null,
+    craques: stats?.craques ?? 0,
+    bagres: stats?.bagres ?? 0,
   })
 
   return (

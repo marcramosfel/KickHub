@@ -11,6 +11,8 @@ const pt = {
   'ratings.saveError': 'Não foi possível guardar as avaliações. Tenta novamente.',
   'ratings.nothingChosen': 'Escolhe pelo menos uma nota antes de guardar.',
   'ratings.partPostRating': 'Avaliação dos companheiros',
+  'ratings.partCraque': 'Craque da rodada',
+  'ratings.partBagre': 'Bagre da rodada',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -26,6 +28,8 @@ const en: Record<Key, TranslationValue> = {
   'ratings.saveError': 'We could not save the ratings. Try again.',
   'ratings.nothingChosen': 'Pick at least one rating before saving.',
   'ratings.partPostRating': 'Teammate ratings',
+  'ratings.partCraque': 'Player of the round',
+  'ratings.partBagre': 'Flop of the round',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -39,6 +43,8 @@ const es: Record<Key, TranslationValue> = {
   'ratings.saveError': 'No pudimos guardar las valoraciones. Inténtalo de nuevo.',
   'ratings.nothingChosen': 'Elige al menos una nota antes de guardar.',
   'ratings.partPostRating': 'Valoración de los compañeros',
+  'ratings.partCraque': 'Crack de la jornada',
+  'ratings.partBagre': 'Peor de la jornada',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -52,6 +58,8 @@ const fr: Record<Key, TranslationValue> = {
   'ratings.saveError': 'Impossible d’enregistrer les notes. Réessaie.',
   'ratings.nothingChosen': 'Choisis au moins une note avant d’enregistrer.',
   'ratings.partPostRating': 'Notes des coéquipiers',
+  'ratings.partCraque': 'Joueur de la journée',
+  'ratings.partBagre': 'Flop de la journée',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -65,6 +73,8 @@ const de: Record<Key, TranslationValue> = {
   'ratings.saveError': 'Die Bewertungen konnten nicht gespeichert werden. Versuch es erneut.',
   'ratings.nothingChosen': 'Wähle mindestens eine Note, bevor du speicherst.',
   'ratings.partPostRating': 'Bewertung der Mitspieler',
+  'ratings.partCraque': 'Spieler des Spieltags',
+  'ratings.partBagre': 'Flop des Spieltags',
 }
 
 export const ratingsCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

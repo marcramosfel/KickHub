@@ -35,6 +35,9 @@ export type OverallInput = {
    * jogos, de 1 a 5. `null` = nunca foi avaliado assim.
    */
   postRatingAvg?: number | null
+  /** Quantas vezes foi eleito craque e bagre da rodada. Zero é um facto. */
+  craques?: number
+  bagres?: number
 }
 
 export const NEUTRAL_OVERALL = 50
@@ -75,6 +78,19 @@ const POST_RATING_WEIGHT = 0.25
 /** As estrelas vão de 1 a 5; a parcela vive na escala de 0 a 100 como as outras. */
 const MAX_STARS = 5
 
+/**
+ * Prémio de craque e castigo de bagre, em pontos somados depois da média.
+ *
+ * São deliberadamente assimétricos — premiar mais do que castigar é a regra
+ * que governa o resto da conta.
+ *
+ * E contam pela **taxa**, não pelo total: craque em todas as rodadas vale o
+ * máximo, craque numa de vinte vale quase nada. Assim quem joga há mais tempo
+ * não acumula bónus só por ter jogado mais.
+ */
+const CRAQUE_BONUS = 9
+const BAGRE_PENALTY = 4
+
 const clamp = (value: number) => Math.min(Math.max(Math.round(value), MIN_OVERALL), MAX_OVERALL)
 
 export type OverallPart = {
@@ -85,9 +101,19 @@ export type OverallPart = {
   weight: number
 }
 
+/**
+ * Não são parcelas: não têm peso nem entram na média. Somam-se depois, em
+ * pontos, e é por isso que a decomposição os mostra à parte.
+ */
+export type OverallAdjustment = {
+  key: 'craque' | 'bagre'
+  points: number
+}
+
 export type OverallBreakdown = {
   overall: number
   parts: OverallPart[]
+  adjustments: OverallAdjustment[]
   provisional: boolean
 }
 
@@ -121,9 +147,25 @@ function opinionPart(input: OverallInput): OverallPart | null {
   return { key: 'opinion', value: rating, weight: OPINION_WEIGHT }
 }
 
+/** A taxa de um prémio por jogo disputado, travada em 1. */
+function awardRate(times: number | undefined, gamesPlayed: number) {
+  if (!times || times <= 0 || gamesPlayed <= 0) return 0
+  return Math.min(times / gamesPlayed, 1)
+}
+
+function adjustmentsOf(input: OverallInput): OverallAdjustment[] {
+  const craque = awardRate(input.craques, input.gamesPlayed) * CRAQUE_BONUS
+  const bagre = awardRate(input.bagres, input.gamesPlayed) * BAGRE_PENALTY
+  return [
+    ...(craque > 0 ? [{ key: 'craque' as const, points: craque }] : []),
+    ...(bagre > 0 ? [{ key: 'bagre' as const, points: -bagre }] : []),
+  ]
+}
+
 /**
  * As parcelas que existem, com os pesos renormalizados para somarem 1. Uma
  * parcela em falta não entra a zero: desaparece, e o que resta redistribui-se.
+ * Os prémios somam-se depois, em pontos.
  */
 export function explainOverall(input: OverallInput): OverallBreakdown | null {
   const present = [opinionPart(input), performancePart(input), postRatingPart(input)].filter((part): part is OverallPart => part !== null)
@@ -132,8 +174,10 @@ export function explainOverall(input: OverallInput): OverallBreakdown | null {
   const total = present.reduce((sum, part) => sum + part.weight, 0)
   const parts = present.map((part) => ({ ...part, weight: part.weight / total }))
   const base = parts.reduce((sum, part) => sum + part.value * part.weight, 0)
+  const adjustments = adjustmentsOf(input)
+  const points = adjustments.reduce((sum, item) => sum + item.points, 0)
 
-  return { overall: clamp(base), parts, provisional: isProvisional(input) }
+  return { overall: clamp(base + points), parts, adjustments, provisional: isProvisional(input) }
 }
 
 export function computePlayerOverall(input: OverallInput) {

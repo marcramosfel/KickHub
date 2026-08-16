@@ -201,9 +201,9 @@ que ganhar sendo favorito a 74% — e ainda não está implementado.
 A sugestão que o plantel oferece a quem organiza é calculada **sem** a nota do grupo. Se partisse da
 própria nota, o número passaria a alimentar-se a si mesmo e deixaria de haver forma de o explicar.
 
-Por implementar, e por esta ordem: votação de craque e bagre, saldo acima do esperado — que tem os
-dados de que precisa, porque `overall_at_draw` já fica congelado por jogo —, títulos, e escala
-própria de guarda-redes — um
+Por implementar, e por esta ordem: saldo de vitórias acima do esperado — que tem os dados de que
+precisa, porque `overall_at_draw` já fica congelado por jogo —, títulos, e escala própria de
+guarda-redes — um
 guarda-redes não cabe na fórmula de campo, e corrigir-lhe o número sem lhe corrigir a explicação
 seria pior do que não ter explicação.
 
@@ -231,6 +231,38 @@ que foi mexido nesta sessão. Copiar obrigava a um efeito que apagava as escolha
 a consulta revalidasse.
 
 A média entra no overall como a parcela de 25%. Ver [Overall calculado](#overall-calculado).
+
+## Craque e bagre da rodada
+
+Cada equipa vota no seu. Quem ganhou elege o craque entre os seus; quem perdeu elege o bagre entre os
+seus; num empate no placar não há lados e vota-se nos dois. O adversário nunca aparece — deixar votar
+em quem se defronta transforma o prémio em ajuste de contas — e `vote_game_awards` recusa-o na mesma.
+
+Os votos são privados, como as estrelas. O **resultado** é da pelada inteira: é o que se celebra.
+
+**Empates são deliberadamente assimétricos.** Craque empatado premeia todos os empatados; bagre
+empatado não castiga ninguém. É a mesma regra que governa o resto da conta — premiar mais do que
+castigar — e um empate no bagre é justamente o caso em que o grupo não chegou a acordo sobre a culpa.
+
+**Quem levou o prémio** resolve-se por esta ordem: override do admin → vencedor congelado no fecho →
+contagem de votos. Uma rodada fechada não se recalcula a cada leitura: um voto atrasado mudaria
+retroativamente quem foi craque há três meses, e o overall de duas pessoas com ele.
+
+Isso obrigou a separar dois factos que pareciam um só. **Que o prémio está decidido** vive em
+`game_award_decisions`; **quem o levou** vive em `game_awards`. Guardá-los juntos custou um defeito
+apanhado contra o Postgres real: quando o admin decidia que ninguém tinha sido bagre, a lista de
+vencedores ficava vazia — indistinguível de "ainda não decidido" — e a contagem ao vivo ressuscitava
+o bagre que ele acabara de retirar.
+
+`tally_game_awards`, `pelada_award_winners` e `game_team_outcome` são **privadas**. Contam os votos de
+toda a gente, e sob a RLS de quem chama devolveriam contagens erradas em silêncio, porque a política
+só mostra os votos próprios. Só são alcançáveis de dentro de `get_game_awards` e `get_pelada_ranking`,
+que verificam pertença.
+
+Os prémios entram no overall como **ajustes**, não como parcelas: somam-se em pontos depois da média
+ponderada, e é por isso que a decomposição os mostra à parte. Contam pela **taxa** — craque em todas
+as rodadas vale +9, craque numa de vinte vale +0,45 — para que quem joga há mais tempo não acumule
+bónus só por ter jogado mais.
 
 ## Notificações
 

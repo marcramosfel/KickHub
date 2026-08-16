@@ -1,6 +1,6 @@
 # Como cada jogador da Browns recupera o seu histórico no KickHub
 
-Estado: **desenho para aprovação**. Nada disto está implementado.
+Estado: **aprovado** pelo owner em 16 de agosto de 2026. Ainda não implementado.
 Data: 16 de agosto de 2026
 
 Este documento detalha o que o [ADR 0001](adr/0001-legacy-identity-claim.md) decide em princípio:
@@ -116,12 +116,15 @@ KickHub é o único caminho. **A data é uma decisão de produto, não minha.**
 
 ## O que falta decidir
 
-1. **A janela de transição.** Quanto tempo a Browns continua a aceitar PIN.
+O mecanismo está aprovado: o canal de entrega, os 30 minutos, as cinco tentativas, e a recuperação
+por um *owner* que **emite** uma claim nova mas não a consome por outra pessoa.
+
+Continuam em aberto duas coisas que não bloqueiam a implementação:
+
+1. **A janela de transição.** Quanto tempo a Browns continua a aceitar PIN. É uma data de produto.
 2. **Onde vive o ecrã do passo 1.** A faixa e o botão vivem na aplicação Browns, cujo repositório é o
-   remoto legado — que eu não posso tocar. Ou o código é gerado por outra via, ou alguém com acesso
-   faz essa alteração.
-3. **Se o *owner* pode reclamar por outra pessoa.** O desenho acima diz que emite a *claim* mas não a
-   consome. Convém confirmar que é isso que se quer.
+   remoto legado — que está fora deste trabalho. Ou o código é gerado por outra via, ou alguém com
+   acesso faz essa alteração.
 
 ## O que isto não resolve
 

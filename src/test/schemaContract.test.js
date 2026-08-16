@@ -84,6 +84,13 @@ const hardenedPrivateFunctions = [
   'handle_new_auth_user',
   'generate_profile_username',
   'upsert_profile_for_auth_user',
+  // Contam os votos de toda a gente para apurar craque e bagre. Ao alcance do
+  // cliente devolveriam contagens erradas em silêncio, porque a RLS só lhe
+  // mostra os votos próprios; só são alcançáveis de dentro de `get_game_awards`
+  // e `get_pelada_ranking`, que verificam pertença.
+  'game_team_outcome',
+  'tally_game_awards',
+  'pelada_award_winners',
 ]
 
 describe('contrato frontend ↔ Supabase', () => {

@@ -1,6 +1,7 @@
 import { CalendarDays, Check, Clock3, MapPin, Plus, ShieldCheck, UsersRound, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { GameDraw } from '../components/GameDraw'
+import { GameAwards } from '../components/GameAwards'
 import { GameRatings } from '../components/GameRatings'
 import { GameResult } from '../components/GameResult'
 import { Badge, Button, Card, EmptyState } from '../components/ui'
@@ -142,6 +143,7 @@ function GameCard({ game }: { game: Game }) {
       <GameDraw game={game}/>
       <GameResult game={game}/>
       <GameRatings game={game}/>
+      <GameAwards game={game}/>
 
       {open ? (
         <div className="game-actions">

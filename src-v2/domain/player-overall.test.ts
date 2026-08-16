@@ -5,7 +5,8 @@ import {
 } from './player-overall'
 
 const player = (overrides: Partial<OverallInput> = {}): OverallInput => ({
-  gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null, ...overrides,
+  gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null,
+  craques: 0, bagres: 0, ...overrides,
 })
 
 describe('contributo por jogo', () => {
@@ -53,11 +54,15 @@ describe('parcelas', () => {
     }
   })
 
-  /** Se as parcelas não somam ao total, o painel está errado — ou a conta está. */
-  it('as parcelas somam ao número que é mostrado', () => {
-    const breakdown = explainOverall(player({ gamesPlayed: 8, goals: 12, assists: 4, baseRating: 74 }))!
+  /** Se a decomposição não soma ao total, o painel está errado — ou a conta está. */
+  it('as parcelas e os prémios somam ao número que é mostrado', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 8, goals: 12, assists: 4, baseRating: 74, postRatingAvg: 4, craques: 2, bagres: 1,
+    }))!
     const soma = breakdown.parts.reduce((sum, part) => sum + part.value * part.weight, 0)
+      + breakdown.adjustments.reduce((sum, item) => sum + item.points, 0)
     expect(Math.round(soma)).toBe(breakdown.overall)
+    expect(breakdown.adjustments.map((item) => item.key)).toEqual(['craque', 'bagre'])
   })
 })
 
@@ -121,6 +126,43 @@ describe('estrelas pós-jogo', () => {
   it('deixa de marcar como provisório quem já foi avaliado pelos companheiros', () => {
     expect(isProvisional(player({ gamesPlayed: 1 }))).toBe(true)
     expect(isProvisional(player({ gamesPlayed: 1, postRatingAvg: 4 }))).toBe(false)
+  })
+})
+
+describe('craque e bagre', () => {
+  /**
+   * Premiar mais do que castigar: o craque vale +9 e o bagre −4. A assimetria
+   * é deliberada e é a mesma regra que governa o resto da conta.
+   */
+  it('premia mais do que castiga', () => {
+    const base = explainOverall(player({ gamesPlayed: 10, baseRating: 50 }))!.overall
+    const craque = explainOverall(player({ gamesPlayed: 10, baseRating: 50, craques: 10 }))!.overall
+    const bagre = explainOverall(player({ gamesPlayed: 10, baseRating: 50, bagres: 10 }))!.overall
+
+    expect(craque - base).toBe(9)
+    expect(base - bagre).toBe(4)
+  })
+
+  /**
+   * Contam pela taxa, não pelo total: senão quem joga há mais tempo acumulava
+   * bónus só por ter jogado mais.
+   */
+  it('conta pela taxa e não pelo total', () => {
+    const dezEmDez = explainOverall(player({ gamesPlayed: 10, baseRating: 50, craques: 10 }))!
+    const umEmVinte = explainOverall(player({ gamesPlayed: 20, baseRating: 50, craques: 1 }))!
+
+    expect(dezEmDez.adjustments[0].points).toBe(9)
+    expect(umEmVinte.adjustments[0].points).toBeCloseTo(0.45, 6)
+  })
+
+  it('não deixa a taxa passar de um, nem sem jogos rebentar', () => {
+    // Mais prémios do que jogos não deve existir, mas se existir não infla.
+    expect(explainOverall(player({ gamesPlayed: 2, baseRating: 50, craques: 5 }))!.adjustments[0].points).toBe(9)
+    expect(explainOverall(player({ gamesPlayed: 0, baseRating: 50, craques: 3 }))!.adjustments).toEqual([])
+  })
+
+  it('não inventa um ajuste para quem nunca levou prémio', () => {
+    expect(explainOverall(player({ gamesPlayed: 10, baseRating: 50 }))!.adjustments).toEqual([])
   })
 })
 

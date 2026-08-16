@@ -1,6 +1,6 @@
 # ADR 0001 — Claim de identidade legado Browns
 
-Status: proposto — requer aprovação antes do PR5  
+Status: **aceito** — aprovado pelo owner em 16 de agosto de 2026  
 Data: 12 de agosto de 2026
 
 ## Contexto
@@ -54,11 +54,21 @@ legadas continuam sendo a fonte compatível até a validação completa. Antes d
 pode desfazer apenas o vínculo Auth com registro de auditoria e nova claim. Claims consumidas jamais
 são reativadas.
 
-## Aprovação necessária
+## Aprovação
 
-Antes de mudar este ADR para `aceito`, owner/produto deve confirmar:
+Aprovado pelo owner em 16 de agosto de 2026, com o desenho detalhado em
+[browns-claim-flow.md](../browns-claim-flow.md) à frente.
 
-- canal usado para entregar a claim ao jogador Browns;
-- prazo de 30 minutos e limite de cinco tentativas;
-- duração da convivência com PIN legado;
-- processo e responsáveis pela recuperação/merge manual.
+Confirmado na aprovação:
+
+- **canal de entrega da claim**: a sessão já autenticada da própria Browns, onde o jogador entra com
+  o PIN que já tem. O PIN é usado uma última vez para provar identidade, e nunca é transportado;
+- **prazo de 30 minutos e limite de cinco tentativas**;
+- **recuperação manual**: um owner emite uma claim nova, com motivo escrito e registo de auditoria,
+  para quem perdeu o acesso à Browns. Emite — não consome por outra pessoa.
+
+Continua **por decidir**, e não bloqueia a implementação do mecanismo:
+
+- a duração da convivência com o PIN legado, que é uma data de produto;
+- quem altera a aplicação Browns para lá colocar o ecrã que gera o código, já que esse repositório é
+  o remoto legado e está fora deste trabalho.
