@@ -6,11 +6,10 @@ select has_function('public', 'mark_notifications_read', array[]::text[], 'marca
 select ok(has_function_privilege('authenticated', 'public.mark_notifications_read()', 'execute'), 'authenticated marca as suas como lidas');
 select ok(not has_function_privilege('anon', 'public.mark_notifications_read()', 'execute'), 'anon não marca notificações');
 select ok(has_table_privilege('authenticated', 'public.notifications', 'select'), 'a leitura é feita pela tabela, com RLS');
-select ok(not has_table_privilege('authenticated', 'public.notifications', 'insert'), 'ninguém escreve notificações a partir do browser');
 
 -- A frase não pode ficar guardada na língua de quem age: quem lê pode ter a
 -- conta noutro idioma, e mudar de idioma depois não reescreveria a linha.
-select unlike(
+select unalike(
   pg_get_functiondef('public.review_pelada_join_request(uuid,text)'::regprocedure),
   '%Já podes entrar na pelada%',
   'a revisão de pedido não guarda texto traduzido'
@@ -69,6 +68,17 @@ select is(
   public.mark_notifications_read(),
   2,
   'marcar como lidas devolve quantas foram afetadas'
+);
+
+-- O grant de INSERT continua largo por omissão do Supabase; quem recusa a
+-- escrita é a ausência de política de INSERT. Testa-se o efeito, não o grant.
+select throws_ok(
+  $$insert into public.notifications (profile_id, pelada_id, kind, title)
+    select p.id, null, 'forjada', 'Forjada' from public.profiles p
+    where p.auth_user_id = 'd2000000-0000-4000-8000-000000000002'$$,
+  '42501',
+  null,
+  'a RLS recusa uma notificação escrita a partir do browser'
 );
 
 reset role;
