@@ -152,6 +152,11 @@ revoke all on function public.rate_game_players(uuid, jsonb) from public, anon;
 revoke all on function public.get_my_game_ratings(uuid) from public, anon;
 
 grant execute on function public.rate_game_players(uuid, jsonb) to authenticated;
+
+-- A política de leitura só filtra linhas; sem este grant, `authenticated` não
+-- chega sequer à tabela e a política era código morto. É o mesmo padrão de
+-- `game_lineups` e `game_results`: leitura direta permitida, escrita só por RPC.
+grant select on public.game_ratings to authenticated;
 grant execute on function public.get_my_game_ratings(uuid) to authenticated;
 
 -- A média das estrelas entra no ranking, para o overall continuar a nascer num

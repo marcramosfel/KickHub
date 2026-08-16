@@ -1,12 +1,17 @@
 begin;
 
-select plan(20);
+select plan(22);
 
 select has_table('public', 'game_ratings', 'tabela de estrelas pós-jogo existe');
 select has_function('public', 'rate_game_players', array['uuid','jsonb'], 'gravação das estrelas existe');
 select has_function('public', 'get_my_game_ratings', array['uuid'], 'leitura das próprias estrelas existe');
 select ok(not has_table_privilege('anon', 'public.game_ratings', 'select'), 'anon não lê estrelas');
 select ok(not has_function_privilege('anon', 'public.rate_game_players(uuid,jsonb)', 'execute'), 'anon não avalia');
+-- A política de leitura só filtra linhas. Sem este grant, `authenticated` nem
+-- chega à tabela — foi o que o CI apanhou e a staging escondeu, por ter
+-- privilégios por omissão mais largos.
+select ok(has_table_privilege('authenticated', 'public.game_ratings', 'select'), 'authenticated lê a tabela, com RLS');
+select ok(not has_table_privilege('authenticated', 'public.game_ratings', 'insert'), 'a escrita direta não é concedida');
 
 -- ------------------------------------------------------------- dados de apoio
 
