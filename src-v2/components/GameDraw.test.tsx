@@ -163,8 +163,9 @@ describe('GameDraw', () => {
     const payload = (call[1] as { p_lineup: Array<Record<string, unknown>> }).p_lineup
     const primeiro = payload.find((entry) => entry.membership_id === 'm0')!
 
-    // 0,7 × 90 + 0,3 × 10 (desempenho nulo em 20 jogos, encolhido) = 66.
-    expect(primeiro.overall_at_draw).toBe(66)
+    // Sem estrelas, os pesos 0,4 e 0,2 renormalizam para 2/3 e 1/3.
+    // 2/3 × 90 + 1/3 × 10 (desempenho nulo em 20 jogos, encolhido) = 63.
+    expect(primeiro.overall_at_draw).toBe(63)
   })
 
   it('separa os guarda-redes quando a pelada joga com eles fixos', async () => {

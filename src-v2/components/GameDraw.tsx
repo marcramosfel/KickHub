@@ -58,6 +58,7 @@ export function GameDraw({ game }: { game: Game }) {
             goals: statsByMember.get(player.id)?.goals ?? 0,
             assists: statsByMember.get(player.id)?.assists ?? 0,
             baseRating: player.overall,
+            postRatingAvg: statsByMember.get(player.id)?.postRatingAvg ?? null,
           }),
         })),
         teamSize,

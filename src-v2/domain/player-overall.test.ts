@@ -5,7 +5,7 @@ import {
 } from './player-overall'
 
 const player = (overrides: Partial<OverallInput> = {}): OverallInput => ({
-  gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, ...overrides,
+  gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null, ...overrides,
 })
 
 describe('contributo por jogo', () => {
@@ -35,8 +35,8 @@ describe('parcelas', () => {
     expect(semNota.parts[0].weight).toBe(1)
 
     // Três golos por jogo é o desempenho máximo, encolhido pela amostra: 83.
-    // Se a ausência de nota valesse zero, ficaria em 0,7×0 + 0,3×83 = 25 — um
-    // castigo por algo que não aconteceu.
+    // Se a ausência de nota valesse zero, ficaria em 2/3 × 0 + 1/3 × 83 = 28 —
+    // um castigo por algo que não aconteceu.
     expect(semNota.overall).toBe(83)
   })
 
@@ -83,6 +83,47 @@ describe('confiança', () => {
   })
 })
 
+describe('estrelas pós-jogo', () => {
+  it('traduz as estrelas para a escala das outras parcelas', () => {
+    const cinco = explainOverall(player({ gamesPlayed: 0, baseRating: null, postRatingAvg: 5 }))!
+    expect(cinco.parts.map((part) => part.key)).toEqual(['postRating'])
+    expect(cinco.overall).toBe(99)
+
+    const tres = explainOverall(player({ gamesPlayed: 0, postRatingAvg: 3 }))!
+    expect(tres.overall).toBe(60)
+  })
+
+  it('deixa cair as estrelas em falta em vez de as contar como zero', () => {
+    const sem = explainOverall(player({ gamesPlayed: 10, baseRating: 80 }))!
+    expect(sem.parts.map((part) => part.key)).toEqual(['opinion', 'performance'])
+
+    // Se a ausência valesse zero, esta parcela arrastaria 25% do total para
+    // baixo e um jogador por avaliar ficaria abaixo de quem tem duas estrelas.
+    const comDuas = explainOverall(player({ gamesPlayed: 10, baseRating: 80, postRatingAvg: 2 }))!
+    expect(sem.overall).toBeGreaterThan(comDuas.overall)
+  })
+
+  /**
+   * Quatro parcelas nominais, três produzidas: o saldo de vitórias acima do
+   * esperado ainda não existe e o seu peso reparte-se, em vez de entrar a zero.
+   */
+  it('reparte o peso da parcela que ainda não é calculada', () => {
+    const completo = explainOverall(player({ gamesPlayed: 10, goals: 10, baseRating: 80, postRatingAvg: 4 }))!
+    const pesos = Object.fromEntries(completo.parts.map((part) => [part.key, part.weight]))
+
+    // 0,4 / 0,2 / 0,25 renormalizados sobre 0,85.
+    expect(pesos.opinion).toBeCloseTo(0.4 / 0.85, 6)
+    expect(pesos.performance).toBeCloseTo(0.2 / 0.85, 6)
+    expect(pesos.postRating).toBeCloseTo(0.25 / 0.85, 6)
+    expect(completo.parts.reduce((sum, part) => sum + part.weight, 0)).toBeCloseTo(1, 10)
+  })
+
+  it('deixa de marcar como provisório quem já foi avaliado pelos companheiros', () => {
+    expect(isProvisional(player({ gamesPlayed: 1 }))).toBe(true)
+    expect(isProvisional(player({ gamesPlayed: 1, postRatingAvg: 4 }))).toBe(false)
+  })
+})
+
 describe('limites', () => {
   it('nunca sai de 1 a 99', () => {
     const extremo = computePlayerOverall(player({ gamesPlayed: 40, goals: 400, baseRating: 99 }))!
@@ -91,7 +132,7 @@ describe('limites', () => {
   })
 
   it('não deixa a opinião do grupo ser o número inteiro quando há jogos', () => {
-    // 70/30: uma nota alta com desempenho fraco desce, mas não desaba.
+    // 2/3 e 1/3: uma nota alta com desempenho fraco desce, mas não desaba.
     const overall = computePlayerOverall(player({ gamesPlayed: 20, goals: 0, baseRating: 90 }))!
     expect(overall).toBeLessThan(90)
     expect(overall).toBeGreaterThan(60)

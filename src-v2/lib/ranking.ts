@@ -19,6 +19,12 @@ export type RankingRow = {
    * zero — a parcela sai da conta em vez de o castigar.
    */
   baseRating: number | null
+  /**
+   * Média das estrelas que os companheiros lhe deram, de 1 a 5. `null` = nunca
+   * foi avaliado. A contagem, essa, é mesmo zero quando não há avaliações.
+   */
+  postRatingAvg: number | null
+  postRatingCount: number
 }
 
 export type PeladaTotals = {
@@ -55,6 +61,8 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     // Deliberadamente fora do `toNumber`: aqui `null` tem de sobreviver como
     // `null`. `Number(null) || 0` transformaria "não avaliado" em "zero".
     baseRating: toOptionalNumber(row.base_rating),
+    postRatingAvg: toOptionalNumber(row.post_rating_avg),
+    postRatingCount: toNumber(row.post_rating_count),
   }
 }
 

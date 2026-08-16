@@ -183,9 +183,15 @@ Três regras governam a conta:
    — os já renormalizados — e elas somam ao total. Mostrar os pesos nominais daria uma conta que não
    fecha.
 
-As parcelas de hoje são duas: nota do grupo a 70% e desempenho a 30%. Só o desempenho sofre
-encolhimento bayesiano contra cinco jogos-fantasma no neutro, porque só ele é uma amostra pequena —
-a nota do grupo é um juízo, e vale desde o primeiro dia.
+Os pesos nominais são quatro: nota do grupo 40%, saldo de vitórias acima do esperado 15%,
+desempenho 20% e estrelas dos companheiros 25%. **Três são produzidos**; o saldo ainda não é
+calculado, e o seu peso reparte-se em vez de entrar a zero. Só o desempenho sofre encolhimento
+bayesiano contra cinco jogos-fantasma no neutro, porque só ele é uma amostra pequena — a nota do
+grupo e as estrelas são juízos, e valem desde o primeiro dia.
+
+Quem ainda não tem estrelas fica com 67/33 entre nota e desempenho, onde antes das estrelas
+existirem era 70/30. O número mexe-se por isso em `0,033 × (opinião − desempenho)`: até cerca de três
+pontos para quem tem as parcelas muito afastadas, e nada para quem as tem próximas.
 
 A taxa de vitórias crua **saiu** da conta. Numa pelada com sorteio equilibrado ela luta contra o
 próprio motor: se o sorteio funcionar, as taxas convergem para 50% e a parcela mede ruído. O que a
@@ -195,10 +201,36 @@ que ganhar sendo favorito a 74% — e ainda não está implementado.
 A sugestão que o plantel oferece a quem organiza é calculada **sem** a nota do grupo. Se partisse da
 própria nota, o número passaria a alimentar-se a si mesmo e deixaria de haver forma de o explicar.
 
-Por implementar, e por esta ordem: estrelas pós-jogo (que destrancam a versão de quatro parcelas),
-votação de craque e bagre, saldo acima do esperado, títulos, e escala própria de guarda-redes — um
+Por implementar, e por esta ordem: votação de craque e bagre, saldo acima do esperado — que tem os
+dados de que precisa, porque `overall_at_draw` já fica congelado por jogo —, títulos, e escala
+própria de guarda-redes — um
 guarda-redes não cabe na fórmula de campo, e corrigir-lhe o número sem lhe corrigir a explicação
 seria pior do que não ter explicação.
+
+## Estrelas pós-jogo
+
+Depois de um jogo ficar registado, quem esteve em campo avalia os **companheiros da sua equipa**, de
+1 a 5. O adversário não aparece: ninguém viu jogar quem tinha pelas costas, e deixar avaliar quem se
+defronta transforma a nota numa arma. A interface não o oferece e `rate_game_players` recusa-o na
+mesma — a interface evita pedir o que vai ser recusado, não é ela que decide.
+
+**As estrelas são privadas por desenho.** A política de leitura de `game_ratings` devolve a cada um
+apenas as linhas que ele escreveu; nem sequer o avaliado vê quem lhe deu o quê. O que a pelada vê é
+a média, e é `get_pelada_ranking` — `security definer`, portanto acima da RLS — que a agrega. É essa
+assimetria que permite publicar a média sem publicar os votos, e é por isso que a verificação de
+pertença dentro dessa função não é decorativa.
+
+A tabela não tem política de escrita nenhuma. Tudo passa pela RPC, que valida o que o cliente não
+pode garantir: o jogo já foi disputado, quem avalia esteve escalado, quem é avaliado esteve na mesma
+equipa, ninguém se avalia a si próprio, e a nota está entre 1 e 5. Uma proposta em que **parte** dos
+nomes não é companheiro de equipa é recusada por inteiro: gravar a parte aceitável deixaria o cliente
+a pedir o que não devia e a receber metade, em silêncio.
+
+O formulário não copia para estado local o que já foi dado — deriva-o da consulta e guarda apenas o
+que foi mexido nesta sessão. Copiar obrigava a um efeito que apagava as escolhas em curso sempre que
+a consulta revalidasse.
+
+A média entra no overall como a parcela de 25%. Ver [Overall calculado](#overall-calculado).
 
 ## Notificações
 

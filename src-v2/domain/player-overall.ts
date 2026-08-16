@@ -15,10 +15,10 @@
  *     parcela com os pesos efetivos, e as parcelas somam ao total — se um dia
  *     deixarem de somar, o painel está errado ou a conta está.
  *
- * O que ainda não existe: votação de craque e bagre, estrelas pós-jogo, saldo
- * de vitórias acima do esperado, títulos e escala própria de guarda-redes.
- * Nenhum desses dados é recolhido hoje, por isso a conta vive na versão de
- * duas parcelas — opinião do grupo e desempenho.
+ * O que ainda não existe: votação de craque e bagre, saldo de vitórias acima do
+ * esperado, títulos e escala própria de guarda-redes. Nenhum desses dados é
+ * recolhido hoje, e as parcelas em falta não entram a zero — não são produzidas,
+ * e o peso reparte-se pelas que existem.
  */
 
 export type OverallInput = {
@@ -30,6 +30,11 @@ export type OverallInput = {
    * ninguém o avaliou — nunca "zero".
    */
   baseRating?: number | null
+  /**
+   * Média das estrelas que os companheiros de equipa lhe deram depois dos
+   * jogos, de 1 a 5. `null` = nunca foi avaliado assim.
+   */
+  postRatingAvg?: number | null
 }
 
 export const NEUTRAL_OVERALL = 50
@@ -50,14 +55,30 @@ const FULL_CONTRIBUTION_PER_GAME = 3
 /** Uma assistência vale menos do que um golo, mas não muito menos. */
 const ASSIST_WEIGHT = 0.7
 
-/** Pesos nominais. Renormalizados sempre que uma parcela não existe. */
-const OPINION_WEIGHT = 0.7
-const PERFORMANCE_WEIGHT = 0.3
+/**
+ * Pesos nominais, renormalizados sempre que uma parcela não existe.
+ *
+ * Falta aqui a quarta parcela — o saldo de vitórias acima do esperado, 15% —
+ * que ainda não é calculada. Não está a zero: simplesmente não é produzida, e a
+ * renormalização reparte o peso pelas que existem. Quando chegar, entra sem
+ * mexer nestas constantes.
+ *
+ * Quem ainda não tem estrelas fica com 0,4 e 0,2 renormalizados, ou seja 67/33,
+ * onde antes das estrelas existirem era 70/30. O número mexe-se por isso em
+ * 0,033 × (opinião − desempenho): até cerca de três pontos para quem tem as
+ * duas parcelas muito afastadas, e nada para quem as tem próximas.
+ */
+const OPINION_WEIGHT = 0.4
+const PERFORMANCE_WEIGHT = 0.2
+const POST_RATING_WEIGHT = 0.25
+
+/** As estrelas vão de 1 a 5; a parcela vive na escala de 0 a 100 como as outras. */
+const MAX_STARS = 5
 
 const clamp = (value: number) => Math.min(Math.max(Math.round(value), MIN_OVERALL), MAX_OVERALL)
 
 export type OverallPart = {
-  key: 'opinion' | 'performance'
+  key: 'opinion' | 'performance' | 'postRating'
   /** Valor da parcela na escala 0–100. */
   value: number
   /** Peso já renormalizado. Os pesos efetivos somam 1. */
@@ -88,6 +109,12 @@ function performancePart(input: OverallInput): OverallPart | null {
   return { key: 'performance', value: NEUTRAL_OVERALL + confidence * (raw - NEUTRAL_OVERALL), weight: PERFORMANCE_WEIGHT }
 }
 
+function postRatingPart(input: OverallInput): OverallPart | null {
+  const stars = input.postRatingAvg
+  if (stars === null || stars === undefined || !Number.isFinite(stars)) return null
+  return { key: 'postRating', value: (stars / MAX_STARS) * 100, weight: POST_RATING_WEIGHT }
+}
+
 function opinionPart(input: OverallInput): OverallPart | null {
   const rating = input.baseRating
   if (rating === null || rating === undefined || !Number.isFinite(rating)) return null
@@ -99,7 +126,7 @@ function opinionPart(input: OverallInput): OverallPart | null {
  * parcela em falta não entra a zero: desaparece, e o que resta redistribui-se.
  */
 export function explainOverall(input: OverallInput): OverallBreakdown | null {
-  const present = [opinionPart(input), performancePart(input)].filter((part): part is OverallPart => part !== null)
+  const present = [opinionPart(input), performancePart(input), postRatingPart(input)].filter((part): part is OverallPart => part !== null)
   if (present.length === 0) return null
 
   const total = present.reduce((sum, part) => sum + part.weight, 0)
@@ -119,6 +146,6 @@ export function computePlayerOverall(input: OverallInput) {
  * é a opinião de quem o vê jogar.
  */
 export function isProvisional(input: OverallInput) {
-  const hasOpinion = opinionPart(input) !== null
-  return !hasOpinion && input.gamesPlayed > 0 && input.gamesPlayed < PRIOR_GAMES
+  const judged = opinionPart(input) !== null || postRatingPart(input) !== null
+  return !judged && input.gamesPlayed > 0 && input.gamesPlayed < PRIOR_GAMES
 }

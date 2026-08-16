@@ -102,8 +102,8 @@ describe('SquadSection', () => {
 
     await screen.findByText('Joana Silva')
     // Desempenho nulo em 20 jogos, encolhido para o neutro: 50 + 0,8 × (0 − 50) = 10.
-    // 0,7 × 90 + 0,3 × 10 = 66.
-    expect(await screen.findByText('66')).toBeInTheDocument()
+    // Sem estrelas os pesos renormalizam para 2/3 e 1/3: 2/3 × 90 + 1/3 × 10 = 63.
+    expect(await screen.findByText('63')).toBeInTheDocument()
     expect(screen.queryByText('90')).not.toBeInTheDocument()
   })
 

@@ -109,8 +109,13 @@ function SquadHeading({ count }: { count: number | null }) {
  * total; mostrar os nominais daria uma conta que não fecha.
  */
 function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => string) {
+  const rotulo: Record<OverallBreakdown['parts'][number]['key'], TranslationKey> = {
+    opinion: 'squad.partOpinion',
+    performance: 'squad.partPerformance',
+    postRating: 'ratings.partPostRating',
+  }
   return breakdown.parts
-    .map((part) => `${t(`squad.part${part.key === 'opinion' ? 'Opinion' : 'Performance'}` as TranslationKey)}: ${Math.round(part.value)} × ${Math.round(part.weight * 100)}%`)
+    .map((part) => `${t(rotulo[part.key])}: ${Math.round(part.value)} × ${Math.round(part.weight * 100)}%`)
     .join(' · ')
 }
 
@@ -138,6 +143,7 @@ function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved
     goals: stats?.goals ?? 0,
     assists: stats?.assists ?? 0,
     baseRating: member.overall,
+    postRatingAvg: stats?.postRatingAvg ?? null,
   })
 
   return (
