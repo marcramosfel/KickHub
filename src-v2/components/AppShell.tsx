@@ -39,6 +39,14 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
+        {/* Estes controlos vivem na barra superior, que está escondida em
+            desktop. Sem os repetir aqui, quem usa ecrã grande fica sem sino,
+            sem seletor de idioma e sem alternador de tema dentro da app. */}
+        <div className="sidebar-actions">
+          <NotificationBell />
+          <LocaleSelect compact />
+          <ThemeToggle />
+        </div>
         <div className="sidebar-foot">
           <Avatar name={displayName} size="sm" src={avatarUrl}/>
           <div className="account-copy"><strong>{displayName}</strong><small>{username}</small></div>
