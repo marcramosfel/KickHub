@@ -39,10 +39,11 @@ function makeRow(overrides: MemberRow = {}): MemberRow {
   }
 }
 
-function respondWith({ members = [] as MemberRow[], failing = '' } = {}) {
+function respondWith({ members = [] as MemberRow[], ranking = [] as MemberRow[], failing = '' } = {}) {
   squadMocks.rpc.mockImplementation(async (fn: string) => {
     if (fn === failing) return { data: null, error: { message: 'denied' } }
     if (fn === 'list_pelada_members') return { data: members, error: null }
+    if (fn === 'get_pelada_ranking') return { data: ranking, error: null }
     return { data: {}, error: null }
   })
 }
@@ -83,6 +84,29 @@ describe('SquadSection', () => {
     expect(screen.getByText('2 jogadores')).toBeInTheDocument()
   })
 
+  /**
+   * Havia dois números a chamar-se overall: este cartão mostrava a nota escrita
+   * à mão e o ranking mostrava o valor calculado. Em staging a mesma jogadora
+   * aparecia com 82 aqui e 53 lá. Agora o cartão mostra a conta completa.
+   */
+  it('mostra o overall calculado, não a nota que a organização escreveu', async () => {
+    respondWith({
+      members: [makeRow({ overall: 90 })],
+      ranking: [{
+        membership_id: 'membership-1', display_name: 'Joana Silva', games_played: 20,
+        goals: 0, assists: 0, own_goals: 0, saves: 0, wins: 0, draws: 0, losses: 0,
+        is_former: false, base_rating: 90,
+      }],
+    })
+    renderSquad()
+
+    await screen.findByText('Joana Silva')
+    // Desempenho nulo em 20 jogos, encolhido para o neutro: 50 + 0,8 × (0 − 50) = 10.
+    // 0,7 × 90 + 0,3 × 10 = 66.
+    expect(await screen.findByText('66')).toBeInTheDocument()
+    expect(screen.queryByText('90')).not.toBeInTheDocument()
+  })
+
   it('marca o próprio jogador na lista', async () => {
     respondWith({ members: [makeRow({ is_me: true })] })
     renderSquad()
@@ -103,7 +127,7 @@ describe('SquadSection', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Editar/ }))
     fireEvent.change(screen.getByLabelText('Posição principal'), { target: { value: 'ATT' } })
-    fireEvent.change(screen.getByLabelText('Overall'), { target: { value: '85' } })
+    fireEvent.change(screen.getByLabelText('Nota do grupo'), { target: { value: '85' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
     await waitFor(() => expect(squadMocks.rpc).toHaveBeenCalledWith('update_pelada_member', expect.objectContaining({
@@ -117,8 +141,8 @@ describe('SquadSection', () => {
     renderSquad()
 
     fireEvent.click(await screen.findByRole('button', { name: /Editar/ }))
-    expect(screen.getByLabelText('Overall')).toBeDisabled()
-    expect(screen.getByText('O teu overall é definido pela organização.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nota do grupo')).toBeDisabled()
+    expect(screen.getByText('A tua nota é definida pela organização.')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Posição principal'), { target: { value: 'DEF' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))

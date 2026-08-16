@@ -1,24 +1,35 @@
 /**
- * Overall calculado a partir do que aconteceu em campo.
+ * Overall calculado a partir do que aconteceu em campo e do que o grupo acha.
  *
  * Função de domínio pura, por pelada. Não existe overall global: o mesmo
  * jogador pode ser decisivo num grupo e mediano noutro, e juntar as duas coisas
  * num número só não significaria nada.
  *
- * O problema difícil não é a fórmula, é a confiança. Quem marcou dois golos no
- * primeiro jogo não é um jogador de 90; quem passou em branco uma vez não é de
- * 20. Por isso o valor é puxado para o neutro enquanto houver poucos jogos, e
- * só ganha peso à medida que a amostra cresce.
+ * Três regras governam quase tudo o que está aqui:
+ *
+ *  1. Premiar mais do que castigar.
+ *  2. A ausência de um dado nunca vale zero. Quem ainda não foi avaliado não
+ *     leva "zero de avaliação": a parcela sai da conta e os pesos das restantes
+ *     são renormalizados. Um zero seria um castigo por algo que não aconteceu.
+ *  3. O número tem de ser explicável. `explainOverall` decompõe-o parcela a
+ *     parcela com os pesos efetivos, e as parcelas somam ao total — se um dia
+ *     deixarem de somar, o painel está errado ou a conta está.
+ *
+ * O que ainda não existe: votação de craque e bagre, estrelas pós-jogo, saldo
+ * de vitórias acima do esperado, títulos e escala própria de guarda-redes.
+ * Nenhum desses dados é recolhido hoje, por isso a conta vive na versão de
+ * duas parcelas — opinião do grupo e desempenho.
  */
 
 export type OverallInput = {
   gamesPlayed: number
   goals: number
   assists: number
-  saves: number
-  wins: number
-  draws: number
-  losses: number
+  /**
+   * A nota que o grupo dá ao jogador, de 1 a 99. `null` quer dizer que ainda
+   * ninguém o avaliou — nunca "zero".
+   */
+  baseRating?: number | null
 }
 
 export const NEUTRAL_OVERALL = 50
@@ -26,61 +37,88 @@ export const MIN_OVERALL = 1
 export const MAX_OVERALL = 99
 
 /**
- * Jogos "fantasma" que puxam o valor para o neutro. Com cinco, um jogador
- * precisa de cerca de três jornadas para o número começar a dizer algo — que é
- * mais ou menos quando a pelada também já formou uma opinião.
+ * Jogos "fantasma" que puxam o desempenho para o neutro. Com cinco, um jogador
+ * precisa de cerca de três jornadas para essa parcela começar a dizer algo.
+ * Só o desempenho encolhe: a opinião do grupo é válida desde o primeiro dia,
+ * porque não é uma amostra pequena — é um juízo.
  */
 const PRIOR_GAMES = 5
 
+/** Participações por jogo que valem uma parcela de desempenho cheia. */
+const FULL_CONTRIBUTION_PER_GAME = 3
+
 /** Uma assistência vale menos do que um golo, mas não muito menos. */
 const ASSIST_WEIGHT = 0.7
-/** Defesas acumulam depressa; contam pouco por unidade para não inflacionar guarda-redes. */
-const SAVE_WEIGHT = 0.15
 
-/** Pontos de overall por cada golo-equivalente por jogo. */
-const CONTRIBUTION_SCALE = 14
-/** Pontos de overall entre perder sempre e ganhar sempre. */
-const WIN_SCALE = 20
+/** Pesos nominais. Renormalizados sempre que uma parcela não existe. */
+const OPINION_WEIGHT = 0.7
+const PERFORMANCE_WEIGHT = 0.3
 
 const clamp = (value: number) => Math.min(Math.max(Math.round(value), MIN_OVERALL), MAX_OVERALL)
+
+export type OverallPart = {
+  key: 'opinion' | 'performance'
+  /** Valor da parcela na escala 0–100. */
+  value: number
+  /** Peso já renormalizado. Os pesos efetivos somam 1. */
+  weight: number
+}
+
+export type OverallBreakdown = {
+  overall: number
+  parts: OverallPart[]
+  provisional: boolean
+}
 
 /** Golos-equivalentes por jogo. Sem jogos, não há contributo a medir. */
 export function contributionPerGame(input: OverallInput) {
   if (input.gamesPlayed <= 0) return 0
-  const weighted = input.goals + input.assists * ASSIST_WEIGHT + input.saves * SAVE_WEIGHT
-  return weighted / input.gamesPlayed
+  return (input.goals + input.assists * ASSIST_WEIGHT) / input.gamesPlayed
 }
 
 /**
- * Percentagem de vitórias sobre jogos decididos, ou null quando não há nenhum.
- * Quem nunca teve um jogo com resultado não é penalizado como se tivesse
- * perdido: entra como 0.5, o mesmo que um equilíbrio perfeito.
+ * Desempenho na escala 0–100, encolhido para o neutro enquanto a amostra for
+ * pequena. Sem isto, um único jogo brilhante produzia um 90 permanente — e uma
+ * jornada em branco, um 20.
  */
-export function decidedWinRate(input: OverallInput) {
-  const decided = input.wins + input.draws + input.losses
-  if (decided === 0) return null
-  return (input.wins + input.draws * 0.5) / decided
+function performancePart(input: OverallInput): OverallPart | null {
+  if (input.gamesPlayed <= 0) return null
+  const raw = Math.min(contributionPerGame(input) / FULL_CONTRIBUTION_PER_GAME, 1) * 100
+  const confidence = input.gamesPlayed / (input.gamesPlayed + PRIOR_GAMES)
+  return { key: 'performance', value: NEUTRAL_OVERALL + confidence * (raw - NEUTRAL_OVERALL), weight: PERFORMANCE_WEIGHT }
+}
+
+function opinionPart(input: OverallInput): OverallPart | null {
+  const rating = input.baseRating
+  if (rating === null || rating === undefined || !Number.isFinite(rating)) return null
+  return { key: 'opinion', value: rating, weight: OPINION_WEIGHT }
+}
+
+/**
+ * As parcelas que existem, com os pesos renormalizados para somarem 1. Uma
+ * parcela em falta não entra a zero: desaparece, e o que resta redistribui-se.
+ */
+export function explainOverall(input: OverallInput): OverallBreakdown | null {
+  const present = [opinionPart(input), performancePart(input)].filter((part): part is OverallPart => part !== null)
+  if (present.length === 0) return null
+
+  const total = present.reduce((sum, part) => sum + part.weight, 0)
+  const parts = present.map((part) => ({ ...part, weight: part.weight / total }))
+  const base = parts.reduce((sum, part) => sum + part.value * part.weight, 0)
+
+  return { overall: clamp(base), parts, provisional: isProvisional(input) }
 }
 
 export function computePlayerOverall(input: OverallInput) {
-  if (input.gamesPlayed <= 0) return null
-
-  const contribution = contributionPerGame(input) * CONTRIBUTION_SCALE
-  const rate = decidedWinRate(input)
-  const winBonus = rate === null ? 0 : (rate - 0.5) * WIN_SCALE
-
-  // Encolhimento bayesiano: o desvio face ao neutro vale tanto quanto a amostra
-  // o justifica. Sem isto, um único jogo brilhante produzia um 90 permanente.
-  const confidence = input.gamesPlayed / (input.gamesPlayed + PRIOR_GAMES)
-
-  return clamp(NEUTRAL_OVERALL + confidence * (contribution + winBonus))
+  return explainOverall(input)?.overall ?? null
 }
 
 /**
- * Quantos jogos faltam para o valor deixar de ser um palpite. Serve para a
- * interface poder dizer que o número ainda é provisório em vez de o apresentar
- * como um facto.
+ * Se o número ainda é um palpite. Vale para quem jogou pouco e não tem opinião
+ * do grupo que sustente o valor — com nota atribuída, o número não é provisório,
+ * é a opinião de quem o vê jogar.
  */
 export function isProvisional(input: OverallInput) {
-  return input.gamesPlayed > 0 && input.gamesPlayed < PRIOR_GAMES
+  const hasOpinion = opinionPart(input) !== null
+  return !hasOpinion && input.gamesPlayed > 0 && input.gamesPlayed < PRIOR_GAMES
 }

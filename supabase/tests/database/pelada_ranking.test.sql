@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(21);
 
 select has_function('public', 'get_pelada_ranking', array['uuid'], 'ranking da pelada existe');
 select has_function('public', 'get_pelada_totals', array['uuid'], 'totais da pelada existem');
@@ -146,6 +146,27 @@ select is(
    where membership_id = '00000000-0000-4000-8000-0000000000e3'),
   1,
   'o terceiro jogador, que apenas confirmou presença, continua a contar'
+);
+
+-- A nota escrita pela organização viaja com o ranking para o overall poder ser
+-- calculado num sítio só. Nulo aqui quer dizer "ainda ninguém avaliou": quem
+-- consome tem de deixar a parcela cair, não de a tratar por zero.
+select lives_ok(
+  $$select public.update_pelada_member(
+      '00000000-0000-4000-8000-0000000000e1', 'FIELD', 'MID', null, true, 77)$$,
+  'o dono escreve a nota do grupo pelo mesmo caminho que a aplicação usa'
+);
+select is(
+  (select base_rating from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e1'),
+  77,
+  'a nota do grupo sai no ranking'
+);
+select is(
+  (select base_rating from public.get_pelada_ranking('00000000-0000-4000-8000-0000000000c9')
+   where membership_id = '00000000-0000-4000-8000-0000000000e2'),
+  null::int,
+  'quem não tem nota vem a nulo, e não a zero'
 );
 
 set local request.jwt.claims to '{"sub":"a4400000-0000-4000-8000-000000000004"}';

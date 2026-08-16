@@ -1,7 +1,7 @@
 import { Check, Pencil, ShieldCheck, UserMinus, UsersRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Avatar, Badge, Button, Card, EmptyState } from '../components/ui'
-import { computePlayerOverall, isProvisional } from '../domain/player-overall'
+import { computePlayerOverall, explainOverall, isProvisional, type OverallBreakdown } from '../domain/player-overall'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useRemoveMember, useSetMemberRole } from '../lib/pelada-admin'
@@ -19,6 +19,10 @@ export function SquadSection() {
   const { t } = useI18n()
   const { pelada, isDemo, canAdmin } = useCurrentPelada()
   const squad = usePeladaSquad(pelada?.id, !isDemo)
+  // Sobe para aqui porque o cartão de cada membro passou a mostrar o overall
+  // calculado, e não apenas o formulário de quem administra.
+  const ranking = usePeladaRanking(pelada?.id, !isDemo)
+  const statsByMember = new Map((ranking.data ?? []).map((row) => [row.membershipId, row]))
   const [editing, setEditing] = useState('')
   const [notice, setNotice] = useState('')
 
@@ -57,6 +61,7 @@ export function SquadSection() {
               member={member}
               canAdmin={canAdmin}
               editing={editing === member.membershipId}
+              stats={statsByMember.get(member.membershipId)}
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
@@ -73,6 +78,7 @@ export function SquadSection() {
               member={member}
               canAdmin={canAdmin}
               editing={editing === member.membershipId}
+              stats={statsByMember.get(member.membershipId)}
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
@@ -97,10 +103,22 @@ function SquadHeading({ count }: { count: number | null }) {
   )
 }
 
-function MemberCard({ member, canAdmin, editing, onEdit, onClose, onSaved, onDone }: {
+/**
+ * A decomposição em texto, para o número não ser um oráculo. Mostra os pesos
+ * efetivos — os que já foram renormalizados — porque são esses que somam ao
+ * total; mostrar os nominais daria uma conta que não fecha.
+ */
+function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => string) {
+  return breakdown.parts
+    .map((part) => `${t(`squad.part${part.key === 'opinion' ? 'Opinion' : 'Performance'}` as TranslationKey)}: ${Math.round(part.value)} × ${Math.round(part.weight * 100)}%`)
+    .join(' · ')
+}
+
+function MemberCard({ member, canAdmin, editing, stats, onEdit, onClose, onSaved, onDone }: {
   member: SquadMember
   canAdmin: boolean
   editing: boolean
+  stats: RankingRow | undefined
   onEdit: () => void
   onClose: () => void
   onSaved: (name: string) => void
@@ -111,6 +129,16 @@ function MemberCard({ member, canAdmin, editing, onEdit, onClose, onSaved, onDon
   if (editing) {
     return <MemberForm member={member} canAdmin={canAdmin} onClose={onClose} onSaved={onSaved}/>
   }
+
+  // O overall nasce num sítio só. Aqui mostra-se o mesmo número que o ranking
+  // publica e que o sorteio usa — antes este cartão mostrava a nota escrita à
+  // mão, e a mesma jogadora aparecia com 82 aqui e 53 no ranking.
+  const breakdown = explainOverall({
+    gamesPlayed: stats?.gamesPlayed ?? 0,
+    goals: stats?.goals ?? 0,
+    assists: stats?.assists ?? 0,
+    baseRating: member.overall,
+  })
 
   return (
     <Card className="squad-card">
@@ -126,9 +154,12 @@ function MemberCard({ member, canAdmin, editing, onEdit, onClose, onSaved, onDon
         {member.secondaryPosition ? <Badge tone="neutral">{t(positionKey(member.secondaryPosition))}</Badge> : null}
       </div>
       <div className="squad-overall">
-        {member.overall === null
+        {breakdown === null
           ? <small>{t('squad.noOverall')}</small>
-          : <><strong>{formatNumber(member.overall)}</strong><small>{t('squad.overallLabel')}</small></>}
+          : <>
+              <strong title={explainTitle(breakdown, t)}>{formatNumber(breakdown.overall)}</strong>
+              <small>{t('squad.overallLabel')}</small>
+            </>}
       </div>
       <div className="squad-actions">
         {canEditMember(member, canAdmin)
@@ -237,7 +268,10 @@ function MemberForm({ member, canAdmin, onClose, onSaved }: {
   // A sugestão vem das estatísticas acumuladas; só quem administra a pode aplicar.
   const ranking = usePeladaRanking(pelada?.id, canAdmin)
   const stats: RankingRow | undefined = (ranking.data ?? []).find((row) => row.membershipId === member.membershipId)
-  const suggestion = stats ? computePlayerOverall(stats) : null
+  // Deliberadamente sem `baseRating`: a sugestão para a nota do grupo não pode
+  // partir da própria nota do grupo, senão o número passa a alimentar-se a si
+  // mesmo e deixa de haver forma de o explicar.
+  const suggestion = stats ? computePlayerOverall({ ...stats, baseRating: null }) : null
   const [playerType, setPlayerType] = useState<PlayerType | ''>(member.playerType ?? '')
   const [primary, setPrimary] = useState<Position | ''>(member.primaryPosition ?? '')
   const [secondary, setSecondary] = useState<Position | ''>(member.secondaryPosition ?? '')
@@ -292,7 +326,7 @@ function MemberForm({ member, canAdmin, onClose, onSaved }: {
           {/* A dica fica fora do label: dentro dele passaria a fazer parte do
               nome acessível do campo, em vez de ser apenas a sua descrição. */}
           <div className="squad-overall-field">
-            <label htmlFor={`overall-${member.membershipId}`}>{t('squad.overallLabel')}
+            <label htmlFor={`overall-${member.membershipId}`}>{t('squad.baseRatingLabel')}
               <input
                 id={`overall-${member.membershipId}`}
                 type="number"
@@ -305,7 +339,7 @@ function MemberForm({ member, canAdmin, onClose, onSaved }: {
               />
             </label>
             <small id={`overall-hint-${member.membershipId}`}>
-              {editableOverall ? t('squad.overallHint') : t('squad.overallLocked')}
+              {editableOverall ? t('squad.baseRatingHint') : t('squad.baseRatingLocked')}
             </small>
             {editableOverall ? (
               <div className="squad-suggestion">
@@ -317,7 +351,7 @@ function MemberForm({ member, canAdmin, onClose, onSaved }: {
                     <Button type="button" variant="ghost" size="sm" onClick={() => setOverall(String(suggestion))}>
                       {t('squad.applySuggestion', { value: formatNumber(suggestion) })}
                     </Button>
-                    {stats && isProvisional(stats) ? <small>{t('squad.suggestionProvisional')}</small> : null}
+                    {stats && isProvisional({ ...stats, baseRating: null }) ? <small>{t('squad.suggestionProvisional')}</small> : null}
                   </>
                 )}
               </div>

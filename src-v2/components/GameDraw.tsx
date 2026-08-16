@@ -1,12 +1,14 @@
 import { Check, Shuffle } from 'lucide-react'
 import { useState } from 'react'
 import { Badge, Button, Card } from '../components/ui'
+import { computePlayerOverall } from '../domain/player-overall'
 import { DrawError, generateBalancedTeams, type DrawResult } from '../domain/team-draw'
 import { useCurrentPelada } from '../lib/current-pelada'
 import type { Game } from '../lib/games'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { listConfirmedPlayers, useGameLineup, useLineupMutations, type LineupEntry } from '../lib/lineups'
 import { getPeladaSettings } from '../lib/pelada-settings'
+import { getPeladaRanking } from '../lib/ranking'
 
 const balanceKey = (level: string) => `games.balance${level.charAt(0).toUpperCase()}${level.slice(1)}` as TranslationKey
 
@@ -36,14 +38,28 @@ export function GameDraw({ game }: { game: Game }) {
       // As definições são lidas no momento do sorteio, e não de uma consulta em
       // segundo plano: se ainda não tivessem chegado, o sorteio caía no modo por
       // omissão e podia juntar os dois guarda-redes numa pelada que os separa.
-      const [players, settings] = await Promise.all([
+      // O ranking entra na mesma leitura porque o sorteio tem de equilibrar
+      // pelo mesmo overall que o ranking publica. Enquanto usou a nota escrita
+      // à mão, o número que decidia as equipas não era o número que a pelada
+      // via — a mesma jogadora valia 82 aqui e 53 na tabela.
+      const [players, settings, ranking] = await Promise.all([
         listConfirmedPlayers(game.id),
         pelada ? getPeladaSettings(pelada.id) : Promise.resolve(null),
+        pelada ? getPeladaRanking(pelada.id) : Promise.resolve([]),
       ])
+      const statsByMember = new Map(ranking.map((row) => [row.membershipId, row]))
       // A semente inclui a hora para que voltar a sortear dê equipas novas; a
       // semente usada fica gravada, portanto o resultado continua reproduzível.
       const result = generateBalancedTeams({
-        players,
+        players: players.map((player) => ({
+          ...player,
+          overall: computePlayerOverall({
+            gamesPlayed: statsByMember.get(player.id)?.gamesPlayed ?? 0,
+            goals: statsByMember.get(player.id)?.goals ?? 0,
+            assists: statsByMember.get(player.id)?.assists ?? 0,
+            baseRating: player.overall,
+          }),
+        })),
         teamSize,
         goalkeeperMode: settings?.goalkeeperMode ?? 'rotating',
         seed: `${game.id}:${Date.now()}`,

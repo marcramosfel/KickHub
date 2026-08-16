@@ -14,6 +14,11 @@ export type RankingRow = {
   losses: number
   /** Já não pertence à pelada, mas o que fez em campo continua a contar. */
   isFormer: boolean
+  /**
+   * A nota que o grupo dá ao jogador. `null` é "ainda ninguém avaliou", nunca
+   * zero — a parcela sai da conta em vez de o castigar.
+   */
+  baseRating: number | null
 }
 
 export type PeladaTotals = {
@@ -26,6 +31,13 @@ export type PeladaTotals = {
 type RankingApiRow = Record<string, unknown>
 
 const toNumber = (value: unknown) => Number(value) || 0
+
+/** Como `toNumber`, mas preserva a ausência em vez de a converter em zero. */
+const toOptionalNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export function toRankingRow(row: RankingApiRow): RankingRow {
   return {
@@ -40,6 +52,9 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     draws: toNumber(row.draws),
     losses: toNumber(row.losses),
     isFormer: row.is_former === true,
+    // Deliberadamente fora do `toNumber`: aqui `null` tem de sobreviver como
+    // `null`. `Number(null) || 0` transformaria "não avaliado" em "zero".
+    baseRating: toOptionalNumber(row.base_rating),
   }
 }
 

@@ -162,17 +162,43 @@ jogos decididos" em vez de mostrar 0%, que se leria como ter perdido sempre.
 
 ## Overall calculado
 
-`src-v2/domain/player-overall.ts` deriva o overall do que aconteceu em campo, por pelada. É uma
-função pura, testada isoladamente.
+`src-v2/domain/player-overall.ts` calcula o overall, por pelada. É uma função pura, testada
+isoladamente. Não existe overall global entre peladas: o mesmo jogador pode ser decisivo num grupo e
+mediano noutro.
 
-O problema difícil não é a fórmula, é a confiança. Quem marcou dois golos no primeiro jogo não é um
-jogador de 90; quem passou em branco uma vez não é de 20. O valor sofre encolhimento bayesiano
-contra cinco jogos-fantasma no neutro, e só ganha peso à medida que a amostra cresce. A interface
-marca com asterisco enquanto o número for provisório.
+**Há um só overall, e nasce aqui.** Até esta fatia havia dois números com o mesmo nome a discordar:
+o plantel mostrava `pelada_memberships.overall`, escrito à mão por quem organiza, e o ranking
+mostrava um valor calculado. Verificado em staging: a mesma jogadora aparecia com 82 no plantel e 53
+no ranking, no mesmo dia — e o sorteio equilibrava pelo primeiro, portanto o número que decidia as
+equipas não era o número que a pelada via. O valor escrito à mão passou a ser a **nota do grupo**,
+uma parcela da conta, e o overall passou a ser calculado em todo o lado a partir dela.
 
-O cálculo **não substitui automaticamente** o valor manual: aparece como sugestão no plantel, e quem
-organiza decide aplicá-la. Uma pelada pode discordar do número, e sobrepor-se a ela sem aviso seria
-retirar-lhe uma decisão que é sua. Continua a não existir overall global entre peladas.
+Três regras governam a conta:
+
+1. **Premiar mais do que castigar.**
+2. **A ausência de um dado nunca vale zero.** Quem ainda não tem nota do grupo não leva zero de nota:
+   a parcela sai da conta e as restantes são renormalizadas. É por isso que `base_rating` viaja como
+   `null` desde o RPC até ao domínio, sem passar pelo `Number(x) || 0` do resto do mapeamento.
+3. **O número tem de ser explicável.** `explainOverall` devolve as parcelas com os pesos **efetivos**
+   — os já renormalizados — e elas somam ao total. Mostrar os pesos nominais daria uma conta que não
+   fecha.
+
+As parcelas de hoje são duas: nota do grupo a 70% e desempenho a 30%. Só o desempenho sofre
+encolhimento bayesiano contra cinco jogos-fantasma no neutro, porque só ele é uma amostra pequena —
+a nota do grupo é um juízo, e vale desde o primeiro dia.
+
+A taxa de vitórias crua **saiu** da conta. Numa pelada com sorteio equilibrado ela luta contra o
+próprio motor: se o sorteio funcionar, as taxas convergem para 50% e a parcela mede ruído. O que a
+substituirá é o saldo de vitórias acima do esperado — ganhar sendo favorito a 93% não vale o mesmo
+que ganhar sendo favorito a 74% — e ainda não está implementado.
+
+A sugestão que o plantel oferece a quem organiza é calculada **sem** a nota do grupo. Se partisse da
+própria nota, o número passaria a alimentar-se a si mesmo e deixaria de haver forma de o explicar.
+
+Por implementar, e por esta ordem: estrelas pós-jogo (que destrancam a versão de quatro parcelas),
+votação de craque e bagre, saldo acima do esperado, títulos, e escala própria de guarda-redes — um
+guarda-redes não cabe na fórmula de campo, e corrigir-lhe o número sem lhe corrigir a explicação
+seria pior do que não ter explicação.
 
 ## Notificações
 
