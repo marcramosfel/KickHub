@@ -1,6 +1,7 @@
 # Como cada jogador da Browns recupera o seu histórico no KickHub
 
-Estado: **aprovado** pelo owner em 16 de agosto de 2026. Ainda não implementado.
+Estado: **aprovado** e **implementado do lado do KickHub** em 16 de agosto de 2026. O passo 1, que
+vive na aplicação Browns, continua por fazer — ver "O que falta decidir".
 Data: 16 de agosto de 2026
 
 Este documento detalha o que o [ADR 0001](adr/0001-legacy-identity-claim.md) decide em princípio:
@@ -37,6 +38,11 @@ transportar esse PIN. Então usa-se o PIN uma última vez, no sítio onde ele ai
 gerar um código que só serve para uma coisa: ligar aquele registo a uma conta Google.
 
 ### Passo 1 — na Browns, como sempre
+
+> **Por implementar.** Este ecrã vive na aplicação Browns, cujo repositório está fora deste
+> trabalho. Entretanto, o mesmo código pode ser emitido por um *owner* pela via auditada descrita em
+> "Quem perdeu o PIN" — que é o caminho que o KickHub já tem pronto.
+
 
 O jogador entra na Browns com o `user_id` e o PIN dele, como faz hoje. Aparece-lhe uma faixa nova:
 
@@ -125,6 +131,19 @@ Continuam em aberto duas coisas que não bloqueiam a implementação:
 2. **Onde vive o ecrã do passo 1.** A faixa e o botão vivem na aplicação Browns, cujo repositório é o
    remoto legado — que está fora deste trabalho. Ou o código é gerado por outra via, ou alguém com
    acesso faz essa alteração.
+
+## O que já está feito, e onde
+
+No KickHub: a tabela `legacy_claims` (só o SHA-256, nunca o código), `issue_legacy_claim` para quem
+organiza, `claim_legacy_profile` para quem reclama, e o ecrã em `/reclamar`. Ambas as RPCs escrevem
+no registo de auditoria.
+
+Uma decisão que a implementação obrigou a tomar: `pelada_memberships.legacy_player_id` tinha chave
+estrangeira para `public.players`, a tabela do legado dentro da base do KickHub. Como os dados vêm
+**directamente** da Browns para as entidades novas, essa tabela não é povoada — e a chave tornava
+isso impossível sem inventar uma linha com `pin_hash`, ou seja, fabricar algo com forma de credencial
+só para satisfazer uma restrição. A chave saiu; a coluna fica, como o vínculo auditável que o ADR
+exige.
 
 ## O que isto não resolve
 

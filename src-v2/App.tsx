@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { CurrentPeladaProvider } from './lib/current-pelada'
 import { AuthPage } from './pages/AuthPage'
+import { ClaimPage } from './pages/ClaimPage'
 import { CreatePeladaPage } from './pages/CreatePeladaPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiscoverPage } from './pages/DiscoverPage'
@@ -20,6 +21,7 @@ export function App() {
       <Route path="/app" element={<DashboardPage/>}/>
       <Route path="/descobrir" element={<DiscoverPage/>}/>
       <Route path="/criar" element={<CreatePeladaPage/>}/>
+      <Route path="/reclamar" element={<ClaimPage/>}/>
       <Route path="/u/:username" element={<ProfilePage/>}/>
     </Route>
     <Route path="/p/:slug/:section?" element={<CurrentPeladaProvider><PeladaPage/></CurrentPeladaProvider>}/>
