@@ -30,7 +30,7 @@ export const currentProfile = {
 export const peladas: Pelada[] = [
   {
     id: '00000000-0000-4000-8000-000000000101', slug: 'browns', name: 'Pelada Browns', city: 'Zürich', country: 'CH',
-    role: 'owner', membership: 'active', joinMode: 'invite', members: 34, nextMatch: 'Sex, 20:30', nextMatchAt: '2026-08-14T20:30:00', accent: '#d8ff45', visibility: 'private',
+    role: 'player', membership: 'active', joinMode: 'invite', members: 34, nextMatch: 'Sex, 20:30', nextMatchAt: '2026-08-14T20:30:00', accent: '#d8ff45', visibility: 'private',
     description: 'A sexta-feira mais disputada de Zürich. Futebol, resenha e história desde 2019.',
   },
   {

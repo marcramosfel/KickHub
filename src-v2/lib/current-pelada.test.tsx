@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Pelada } from '../data/demo'
-import { CurrentPeladaProvider, resolvePeladaStatus, useCurrentPelada } from './current-pelada'
+import { canAdministerPelada, CurrentPeladaProvider, resolvePeladaStatus, useCurrentPelada } from './current-pelada'
 
 const contextMocks = vi.hoisted(() => ({
   user: null as { id: string } | null,
@@ -53,6 +53,19 @@ describe('resolvePeladaStatus', () => {
   })
 })
 
+describe('canAdministerPelada', () => {
+  it('nunca concede administração a uma sessão demonstrativa', () => {
+    expect(canAdministerPelada(true, 'owner')).toBe(false)
+    expect(canAdministerPelada(true, 'admin')).toBe(false)
+  })
+
+  it('concede administração apenas a owners e admins autenticados', () => {
+    expect(canAdministerPelada(false, 'owner')).toBe(true)
+    expect(canAdministerPelada(false, 'admin')).toBe(true)
+    expect(canAdministerPelada(false, 'player')).toBe(false)
+  })
+})
+
 describe('useCurrentPelada', () => {
   beforeEach(() => {
     contextMocks.user = null
@@ -67,6 +80,14 @@ describe('useCurrentPelada', () => {
     expect(screen.getByTestId('can-admin')).toHaveTextContent('false')
     expect(screen.getByTestId('demo')).toHaveTextContent('true')
     expect(screen.getByTestId('count')).toHaveTextContent('2')
+  })
+
+  it('trata a Browns demonstrativa como jogador sem poderes administrativos', () => {
+    renderProbe('/p/browns/admin')
+    expect(screen.getByTestId('status')).toHaveTextContent('ready')
+    expect(screen.getByTestId('role')).toHaveTextContent('player')
+    expect(screen.getByTestId('can-admin')).toHaveTextContent('false')
+    expect(screen.getByTestId('demo')).toHaveTextContent('true')
   })
 
   it('deriva as permissões da membership devolvida pelo read model', () => {

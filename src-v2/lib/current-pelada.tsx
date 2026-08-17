@@ -35,6 +35,10 @@ export function resolvePeladaStatus(
   return found ? 'ready' : 'missing'
 }
 
+export function canAdministerPelada(isDemo: boolean, role: Pelada['role']) {
+  return !isDemo && (role === 'owner' || role === 'admin')
+}
+
 /**
  * Fonte única do `currentPeladaId`. As páginas do contexto `/p/:slug` derivam a pelada,
  * o papel e as permissões daqui em vez de repetirem o lookup e o prop drilling.
@@ -56,7 +60,7 @@ export function CurrentPeladaProvider({ children }: { children: ReactNode }) {
       peladas,
       pelada,
       role,
-      canAdmin: role === 'owner' || role === 'admin',
+      canAdmin: canAdministerPelada(isDemo, role),
       status: resolvePeladaStatus({ isDemo, isPending, isError, found: Boolean(pelada) }),
       retry: () => { void refetch() },
     }

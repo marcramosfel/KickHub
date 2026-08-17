@@ -31,11 +31,11 @@ describe('KickHub V2', () => {
     expect(screen.getByRole('link', { name: 'Explore demo' })).toHaveAttribute('href', '/app')
   })
 
-  it('mostra duas memberships de demonstração com papéis distintos', () => {
+  it('mostra as memberships de demonstração sem conceder papel administrativo', () => {
     renderAt('/app')
     expect(screen.getByRole('heading', { name: 'Minhas peladas' })).toBeInTheDocument()
-    expect(screen.getByText('OWNER')).toBeInTheDocument()
-    expect(screen.getByText('JOGADOR')).toBeInTheDocument()
+    expect(screen.queryByText('OWNER')).not.toBeInTheDocument()
+    expect(screen.getAllByText('JOGADOR')).toHaveLength(2)
   })
 
   it('exige um nome antes de avançar no wizard demonstrativo', () => {
@@ -55,12 +55,10 @@ describe('KickHub V2', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Pedido enviado')
   })
 
-  it('permite ao owner aprovar um pedido no centro de administração', async () => {
+  it('protege o centro de administração durante a demonstração', () => {
     renderAt('/p/browns/admin')
-    expect(screen.getByRole('heading', { name: 'Pedidos pendentes' })).toBeInTheDocument()
-    expect(screen.getByText('Joana Silva')).toBeInTheDocument()
-    fireEvent.click(screen.getAllByRole('button', { name: /Aprovar/ })[0])
-    await waitFor(() => expect(screen.queryByText('Joana Silva')).not.toBeInTheDocument())
-    expect(screen.getByRole('status')).toHaveTextContent('Jogador aprovado')
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Só para a equipa de organização.' })).toBeInTheDocument()
+    expect(screen.queryByText('Joana Silva')).not.toBeInTheDocument()
   })
 })

@@ -137,6 +137,13 @@ describe('PeladaPage localizada', () => {
     expect(peladaMocks.loadRequests).not.toHaveBeenCalled()
   })
 
+  it('protege a administração da Browns também durante a demonstração', () => {
+    renderPelada('/p/browns/admin', 'pt')
+    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Só para a equipa de organização.' })).toBeInTheDocument()
+    expect(peladaMocks.loadRequests).not.toHaveBeenCalled()
+  })
+
   it('localiza a fila de pedidos, as datas e o convite criado', async () => {
     peladaMocks.user = { id: 'user-1' }
     peladaMocks.query = { data: [ownedPelada], isPending: false, isError: false }
