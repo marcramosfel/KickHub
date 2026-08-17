@@ -30,6 +30,8 @@ from public.profiles where auth_user_id = 'c1000000-0000-4000-8000-000000000001'
 
 insert into public.profiles (id, display_name, username)
 values ('00000000-0000-4000-8000-0000000fe001', 'Historico Browns', 'historico-browns');
+insert into public.players (id, name, pin_hash)
+values ('00000000-0000-4000-8000-0000000ff001', 'Historico Browns', 'credencial-desativada');
 insert into public.pelada_memberships (id, pelada_id, profile_id, legacy_player_id, role, status)
 values (
   '00000000-0000-4000-8000-0000000fd002', '00000000-0000-4000-8000-0000000fc001',

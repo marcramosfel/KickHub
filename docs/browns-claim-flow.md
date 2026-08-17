@@ -139,9 +139,10 @@ No KickHub: a tabela `legacy_claims` (só o SHA-256, nunca o código), `issue_le
 `revoke_legacy_claim` para quem organiza, a consola admin, `claim_legacy_profile` para quem reclama,
 e o ecrã em `/reclamar`. Emissão, revogação e consumo escrevem no registo de auditoria.
 
-`pelada_memberships.legacy_player_id` mantém o UUID Browns como vínculo único e auditável, sem chave
-estrangeira para `public.players`. Isso evita restaurar ou fabricar linhas com `pin_hash`; a
-reconciliação before/after é o gate que garante a integridade do vínculo importado.
+`pelada_memberships.legacy_player_id` mantém a chave estrangeira para `public.players`. As linhas
+esportivas do legado são restauradas para o cutover, com as credenciais removidas ou substituídas
+por marcadores desativados. A chave impede que um membro aponte para um jogador inexistente; a
+reconciliação before/after valida o conteúdo importado.
 
 ## O que isto não resolve
 

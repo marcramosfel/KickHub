@@ -4,6 +4,31 @@
 -- profile criado no primeiro login e o profile legado, acrescenta uma consola
 -- segura de claims e cria o read model do feed/mídia sem expor data URLs.
 
+-- O hardening original aplicava a validação mesmo quando a foto opcional era
+-- NULL. Isso contradizia o schema e impedia restaurar jogadores Browns sem
+-- avatar. Mantém os mesmos limites quando uma imagem realmente existe.
+create or replace function public.validar_imagem_guardada()
+returns trigger
+language plpgsql security definer
+set search_path = public, extensions
+as $$
+begin
+  if tg_table_name = 'players' and new.photo_url is not null then
+    perform public.validar_imagem_data_url(new.photo_url, 1500000);
+  elsif tg_table_name = 'match_media' then
+    perform public.validar_imagem_data_url(new.data_url, 3000000);
+  elsif tg_table_name = 'matches' then
+    if new.winner_photo is not null then
+      perform public.validar_imagem_data_url(new.winner_photo, 3000000);
+    end if;
+    if new.location_photo is not null then
+      perform public.validar_imagem_data_url(new.location_photo, 3000000);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
 -- ---------------------------------------------------------------- claims
 
 alter table public.legacy_claims
