@@ -2,7 +2,6 @@ import { Award, CalendarDays, MapPin, Medal, Share2, Shield, ShieldCheck, Trophy
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Avatar, Badge, Button, Card } from '../components/ui'
-import { currentProfile, peladas as demoPeladas } from '../data/demo'
 import { getAuthAvatarUrl, useAuth } from '../lib/auth'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useMyPlayerProfile, type MyPlayerProfile, type PlayerProfileCommunity } from '../lib/player-profile'
@@ -14,7 +13,7 @@ export function ProfilePage() {
   const { user, profile: authProfile } = useAuth()
   const playerProfile = useMyPlayerProfile(user?.id)
 
-  if (!user) return <DemoProfile/>
+  if (!user) return <ProfileState/>
 
   if (playerProfile.isPending) {
     return <div className="page profile-page" aria-busy="true" aria-label={t('profile.loading')}>
@@ -118,12 +117,4 @@ function ProfileState({ retry, privateProfile = false }: { retry?: () => void; p
     <div><h1>{t(privateProfile ? 'profile.privateTitle' : 'profile.errorTitle')}</h1><p>{t(privateProfile ? 'profile.privateBody' : 'profile.errorBody')}</p></div>
     {retry ? <Button variant="outline" onClick={retry}>{t('dashboard.retry')}</Button> : null}
   </Card></div>
-}
-
-function DemoProfile() {
-  const { t, formatNumber } = useI18n()
-  return <div className="page profile-page">
-    <Card className="profile-hero"><div className="profile-cover"><span>{t('profile.coverLabel')}</span></div><div className="profile-main"><Avatar name={currentProfile.name} size="lg"/><div><div className="profile-name"><h1>{currentProfile.name}</h1><Badge tone="lime">{t('profile.verified')}</Badge></div><p>@{currentProfile.username} · <MapPin/> {currentProfile.city}, {currentProfile.country}</p><span className="position-pill">{t('profile.positions')}</span></div></div><p className="profile-bio">{t('profile.bio')}</p></Card>
-    <div className="profile-stat-grid"><Card><strong>{formatNumber(currentProfile.matches)}</strong><span>{t('profile.matches')}</span></Card><Card><strong>{formatNumber(currentProfile.goals)}</strong><span>{t('profile.goals')}</span></Card><Card><strong>{formatNumber(currentProfile.assists)}</strong><span>{t('profile.assists')}</span></Card><Card><strong>{formatNumber(demoPeladas.length)}</strong><span>{t('profile.peladasCount')}</span></Card></div>
-  </div>
 }

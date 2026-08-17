@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
-import { peladas as demoPeladas, type Pelada } from '../data/demo'
+import type { Pelada } from './pelada-types'
 import { useAuth } from './auth'
 import { useMyPeladas } from './peladas'
 
@@ -14,7 +14,6 @@ export type CurrentPeladaStatus = 'loading' | 'error' | 'missing' | 'ready'
 
 export type CurrentPeladaValue = {
   slug: string
-  isDemo: boolean
   status: CurrentPeladaStatus
   pelada: Pelada | null
   peladas: Pelada[]
@@ -28,15 +27,15 @@ const noPeladas: Pelada[] = []
 const CurrentPeladaContext = createContext<CurrentPeladaValue | null>(null)
 
 export function resolvePeladaStatus(
-  { isDemo, isPending, isError, found }: { isDemo: boolean; isPending: boolean; isError: boolean; found: boolean },
+  { isPending, isError, found }: { isPending: boolean; isError: boolean; found: boolean },
 ): CurrentPeladaStatus {
-  if (!isDemo && isPending) return 'loading'
-  if (!isDemo && isError) return 'error'
+  if (isPending) return 'loading'
+  if (isError) return 'error'
   return found ? 'ready' : 'missing'
 }
 
-export function canAdministerPelada(isDemo: boolean, role: Pelada['role']) {
-  return !isDemo && (role === 'owner' || role === 'admin')
+export function canAdministerPelada(role: Pelada['role']) {
+  return role === 'owner' || role === 'admin'
 }
 
 /**
@@ -47,8 +46,7 @@ export function CurrentPeladaProvider({ children }: { children: ReactNode }) {
   const { slug = '' } = useParams()
   const { user } = useAuth()
   const myPeladas = useMyPeladas(user?.id)
-  const isDemo = !user
-  const peladas = isDemo ? demoPeladas : (myPeladas.data ?? noPeladas)
+  const peladas = myPeladas.data ?? noPeladas
   const { isPending, isError, refetch } = myPeladas
 
   const value = useMemo<CurrentPeladaValue>(() => {
@@ -56,15 +54,14 @@ export function CurrentPeladaProvider({ children }: { children: ReactNode }) {
     const role = pelada?.role
     return {
       slug,
-      isDemo,
       peladas,
       pelada,
       role,
-      canAdmin: canAdministerPelada(isDemo, role),
-      status: resolvePeladaStatus({ isDemo, isPending, isError, found: Boolean(pelada) }),
+      canAdmin: canAdministerPelada(role),
+      status: resolvePeladaStatus({ isPending, isError, found: Boolean(pelada) }),
       retry: () => { void refetch() },
     }
-  }, [isDemo, isError, isPending, peladas, refetch, slug])
+  }, [isError, isPending, peladas, refetch, slug])
 
   return <CurrentPeladaContext.Provider value={value}>{children}</CurrentPeladaContext.Provider>
 }

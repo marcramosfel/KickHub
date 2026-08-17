@@ -8,7 +8,7 @@ histórias de várias comunidades na mesma conta.
 A V2 é o ponto de entrada ativo e foi reconstruída com arquitetura multi-pelada desde a Foundation.
 O produto inclui:
 
-- landing, cadastro/login por Google, magic link e demonstração navegável;
+- landing e autenticação única por Google ou magic link, obrigatória em todas as áreas privadas;
 - dashboard global “Minhas Peladas” alimentado pelas memberships ativas do utilizador;
 - descoberta por nome/localização;
 - pedidos de entrada, aprovação administrativa e convites privados de uso limitado;
@@ -41,8 +41,9 @@ npm install
 npm run dev
 ```
 
-Sem sessão Supabase, a interface abre com dados de demonstração. Para autenticação real, copie
-`.env.example` para `.env` e informe somente a URL e a chave publishable do projeto.
+Sem sessão Supabase, qualquer rota privada redireciona para `/entrar`. O ambiente precisa de uma
+configuração Supabase válida: copie `.env.example` para `.env` e informe somente a URL e a chave
+publishable do projeto. Não existe fallback local com dados fictícios.
 
 ```bash
 npm run typecheck
@@ -95,8 +96,7 @@ os gates de `docs/foundation-gates.md` e o procedimento de `docs/browns-data-mig
 ```text
 src-v2/
   components/       UI, marca e shell responsivo
-  data/             fixtures demonstrativas não autoritativas
-  lib/              i18n, Supabase e utilitários
+  lib/              i18n, Supabase, tipos e utilitários
   pages/            rotas globais e contexto da pelada
 
 src/                 produto Browns legado e regras esportivas preservadas

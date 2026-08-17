@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Pelada } from '../data/demo'
+import type { Pelada } from '../lib/pelada-types'
 import { I18nProvider } from '../lib/i18n'
 import { contribution, toRankingRow, winRate } from '../lib/ranking'
 import { RankingSection } from './RankingSection'
@@ -73,11 +73,10 @@ describe('RankingSection', () => {
     respondWith()
   })
 
-  it('não consulta o servidor na demonstração', async () => {
-    rankMocks.context = { ...rankMocks.context, isDemo: true }
+  it('consulta sempre o ranking real', async () => {
     renderRanking()
-    expect(await screen.findByRole('status')).toHaveTextContent('Inicia sessão para ver o ranking real')
-    expect(rankMocks.rpc).not.toHaveBeenCalled()
+    expect(await screen.findByRole('heading', { name: 'Ainda não há jogos terminados.' })).toBeInTheDocument()
+    expect(rankMocks.rpc).toHaveBeenCalledWith('get_pelada_ranking', expect.objectContaining({ p_pelada_id: 'pelada-1' }))
   })
 
   it('mostra o estado vazio enquanto nenhum jogo terminou', async () => {

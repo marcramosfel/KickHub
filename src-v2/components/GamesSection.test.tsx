@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Pelada } from '../data/demo'
+import type { Pelada } from '../lib/pelada-types'
 import { I18nProvider } from '../lib/i18n'
 import { GamesSection } from './GamesSection'
 
@@ -73,11 +73,10 @@ describe('GamesSection', () => {
     respondWith()
   })
 
-  it('não consulta o servidor na demonstração e explica porquê', async () => {
-    gameMocks.context = { ...gameMocks.context, isDemo: true, canAdmin: false }
+  it('consulta sempre o calendário real', async () => {
     renderGames()
-    expect(await screen.findByRole('status')).toHaveTextContent('Inicia sessão para marcar jogos a sério')
-    expect(gameMocks.rpc).not.toHaveBeenCalled()
+    expect(await screen.findByRole('heading', { name: 'Ainda não há jogos marcados.' })).toBeInTheDocument()
+    expect(gameMocks.rpc).toHaveBeenCalledWith('list_pelada_games', expect.objectContaining({ p_pelada_id: 'pelada-1' }))
   })
 
   it('mostra o estado vazio com a ação de marcar para quem administra', async () => {

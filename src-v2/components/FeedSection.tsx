@@ -24,9 +24,8 @@ function payloadSummary(event: FeedEvent, t: Translate) {
 
 export function FeedSection() {
   const { t, formatDate } = useI18n()
-  const { pelada, isDemo } = useCurrentPelada()
-  const feed = usePeladaFeed(pelada?.id, !isDemo)
-  if (isDemo) return <EmptyState icon={<Image/>} title={t('feed.demoTitle')} body={t('feed.demoBody')}/>
+  const { pelada } = useCurrentPelada()
+  const feed = usePeladaFeed(pelada?.id, true)
   if (feed.isPending) return <div className="feed-state" role="status"><LoaderCircle className="spin"/><p>{t('feed.loading')}</p></div>
   if (feed.isError) return <div className="feed-state" role="alert"><CircleX/><h2>{t('feed.errorTitle')}</h2><p>{t('feed.errorBody')}</p><Button variant="outline" onClick={() => void feed.refetch()}>{t('dashboard.retry')}</Button></div>
   if (!feed.data?.length) return <EmptyState icon={<Image/>} title={t('feed.emptyTitle')} body={t('feed.emptyBody')}/>

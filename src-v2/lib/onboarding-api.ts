@@ -1,4 +1,4 @@
-import type { Pelada } from '../data/demo'
+import type { Pelada } from './pelada-types'
 import { isSupabaseConfigured, supabase } from './supabase'
 
 export type JoinRequestRecord = {
@@ -13,20 +13,31 @@ export type JoinRequestRecord = {
   status: 'pending' | 'approved' | 'rejected'
 }
 
+export type PeladaInvitePreview = {
+  slug: string
+  name: string
+  description: string
+  city: string
+  countryCode: string
+  memberCount: number
+  nextMatchAt: string | null
+  expiresAt: string | null
+}
+
 export async function hasSupabaseSession() {
   const { data } = await supabase.auth.getSession()
   return Boolean(data.session)
 }
 
-export async function discoverPublicPeladas(query: string): Promise<Pelada[] | null> {
-  if (!isSupabaseConfigured) return null
+export async function discoverPublicPeladas(query: string): Promise<Pelada[]> {
+  if (!isSupabaseConfigured) throw new Error('SUPABASE_NOT_CONFIGURED')
   const { data, error } = await supabase.rpc('discover_public_peladas', {
     p_query: query || null,
     p_city: null,
     p_limit: 24,
     p_offset: 0,
   })
-  if (error) return null
+  if (error) throw error
   return (data ?? []).map((row: Record<string, string | null>) => ({
     id: row.id ?? '',
     slug: row.slug ?? '',
@@ -41,6 +52,24 @@ export async function discoverPublicPeladas(query: string): Promise<Pelada[] | n
     accent: '#d8ff45',
     visibility: 'public' as const,
   }))
+}
+
+export async function getPeladaInvite(token: string): Promise<PeladaInvitePreview> {
+  if (!isSupabaseConfigured) throw new Error('SUPABASE_NOT_CONFIGURED')
+  const { data, error } = await supabase.rpc('get_pelada_invite', { p_token: token })
+  if (error) throw error
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('INVALID_INVITE_RESPONSE')
+  const row = data as Record<string, unknown>
+  return {
+    slug: String(row.slug ?? ''),
+    name: String(row.name ?? ''),
+    description: String(row.description ?? ''),
+    city: String(row.city ?? ''),
+    countryCode: String(row.country_code ?? ''),
+    memberCount: Number(row.member_count ?? 0),
+    nextMatchAt: typeof row.next_match_at === 'string' ? row.next_match_at : null,
+    expiresAt: typeof row.expires_at === 'string' ? row.expires_at : null,
+  }
 }
 
 export async function requestPeladaMembership(peladaId: string, message: string) {

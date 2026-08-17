@@ -16,7 +16,7 @@ type AuthContextValue = {
   user: User | null
   profile: GlobalProfile | null
   loading: boolean
-  signInWithGoogle: () => Promise<boolean>
+  signInWithGoogle: (redirectPath?: string) => Promise<boolean>
   signOut: () => Promise<void>
 }
 
@@ -109,9 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { active = false }
   }, [authUserId])
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (redirectPath?: string) => {
     try {
-      await startGoogleSignIn()
+      await startGoogleSignIn(redirectPath)
       return true
     } catch {
       return false

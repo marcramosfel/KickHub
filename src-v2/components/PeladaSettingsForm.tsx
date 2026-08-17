@@ -21,10 +21,8 @@ const goalkeeperKey = (value: string) => `peladaAdmin.goalkeeper${capitalise(val
  */
 export function PeladaSettingsForm() {
   const { t } = useI18n()
-  const { pelada, isDemo } = useCurrentPelada()
-  const query = usePeladaAdminSettings(pelada?.id, !isDemo)
-
-  if (isDemo) return null
+  const { pelada } = useCurrentPelada()
+  const query = usePeladaAdminSettings(pelada?.id, true)
 
   // O erro é testado antes do estado vazio: numa leitura falhada não há dados,
   // e a ordem inversa deixava o cartão preso em "a carregar" sem nunca oferecer

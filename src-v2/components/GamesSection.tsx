@@ -11,19 +11,10 @@ import { useI18n } from '../lib/i18n'
 
 export function GamesSection() {
   const { t } = useI18n()
-  const { pelada, isDemo, canAdmin } = useCurrentPelada()
-  const games = usePeladaGames(pelada?.id, !isDemo)
+  const { pelada, canAdmin } = useCurrentPelada()
+  const games = usePeladaGames(pelada?.id, true)
   const [composing, setComposing] = useState(false)
   const [notice, setNotice] = useState('')
-
-  if (isDemo) {
-    return (
-      <div className="games-section">
-        <GamesHeading canAdmin={false} onCompose={() => {}}/>
-        <p className="inline-notice" role="status"><ShieldCheck/> {t('games.demoNotice')}</p>
-      </div>
-    )
-  }
 
   return (
     <div className="games-section">

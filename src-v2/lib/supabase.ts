@@ -13,11 +13,12 @@ export const supabase = createClient(url ?? 'https://example.invalid', key ?? 'm
   },
 })
 
-export function getAuthRedirectUrl() {
-  return new URL('/app', window.location.origin).toString()
+export function getAuthRedirectUrl(redirectPath = '/app') {
+  const safePath = redirectPath.startsWith('/') && !redirectPath.startsWith('//') ? redirectPath : '/app'
+  return new URL(safePath, window.location.origin).toString()
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(redirectPath?: string) {
   if (!isSupabaseConfigured) {
     throw new Error('A autenticação ainda não está configurada neste ambiente.')
   }
@@ -25,7 +26,7 @@ export async function signInWithGoogle() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: getAuthRedirectUrl(),
+      redirectTo: getAuthRedirectUrl(redirectPath),
       queryParams: { prompt: 'select_account' },
     },
   })
@@ -33,10 +34,11 @@ export async function signInWithGoogle() {
   return data
 }
 
-export async function sendMagicLink(email: string) {
-  if (!isSupabaseConfigured) return { demo: true }
-  const redirectTo = getAuthRedirectUrl()
+export async function sendMagicLink(email: string, redirectPath?: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error('A autenticação ainda não está configurada neste ambiente.')
+  }
+  const redirectTo = getAuthRedirectUrl(redirectPath)
   const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } })
   if (error) throw error
-  return { demo: false }
 }

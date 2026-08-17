@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Pelada } from '../data/demo'
+import type { Pelada } from '../lib/pelada-types'
 import { I18nProvider } from '../lib/i18n'
 import { PeladaSettingsForm } from './PeladaSettingsForm'
 
@@ -63,11 +63,10 @@ describe('PeladaSettingsForm', () => {
     respondWith()
   })
 
-  it('não consulta o servidor na demonstração', () => {
-    settingsMocks.context = { ...settingsMocks.context, isDemo: true }
-    const { container } = renderForm()
-    expect(container).toBeEmptyDOMElement()
-    expect(settingsMocks.rpc).not.toHaveBeenCalled()
+  it('carrega sempre as definições reais', async () => {
+    renderForm()
+    expect(await screen.findByLabelText('Nome da pelada')).toHaveValue('Quinta Brava')
+    expect(settingsMocks.rpc).toHaveBeenCalledWith('get_pelada_admin_settings', { p_pelada_id: 'pelada-1' })
   })
 
   it('preenche o formulário com o que está gravado', async () => {

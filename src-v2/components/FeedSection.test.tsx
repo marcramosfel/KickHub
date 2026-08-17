@@ -16,11 +16,11 @@ describe('FeedSection', () => {
     mocks.feed.mockReturnValue({ data: [], isPending: false, isError: false, refetch: vi.fn() })
   })
 
-  it('não habilita dados reais na demonstração', () => {
-    mocks.context = { pelada: { id: 'demo' }, isDemo: true }
+  it('consulta sempre a atividade real da pelada', () => {
+    mocks.context = { pelada: { id: 'pelada-1' } }
     render(<I18nProvider><FeedSection/></I18nProvider>)
-    expect(mocks.feed).toHaveBeenCalledWith('demo', false)
-    expect(screen.getByRole('heading', { name: 'A atividade real é privada.' })).toBeInTheDocument()
+    expect(mocks.feed).toHaveBeenCalledWith('pelada-1', true)
+    expect(screen.getByRole('heading', { name: 'A história começa no próximo jogo.' })).toBeInTheDocument()
   })
 
   it('mostra resultado histórico e foto assinada', () => {

@@ -1,8 +1,8 @@
 import { ArrowRight, Check, Clock3, Map, MapPin, Search, Send, SlidersHorizontal, UsersRound, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Button, Card, EmptyState } from '../components/ui'
-import { discoverPeladas, type Pelada } from '../data/demo'
+import type { Pelada } from '../lib/pelada-types'
 import { useI18n } from '../lib/i18n'
 import { useOnboarding } from '../lib/onboarding'
 import { discoverPublicPeladas } from '../lib/onboarding-api'
@@ -18,18 +18,24 @@ export function DiscoverPage() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
-  const [remoteResults, setRemoteResults] = useState<Pelada[] | null>(null)
+  const [results, setResults] = useState<Pelada[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const { joinStates, requestJoin } = useOnboarding()
-  const demoResults = useMemo(() => discoverPeladas.filter((pelada) => `${pelada.name} ${pelada.city}`.toLowerCase().includes(query.toLowerCase())), [query])
-  const results = remoteResults ?? demoResults
 
   useEffect(() => {
     let active = true
     const timeout = window.setTimeout(async () => {
       setLoading(true)
-      const result = await discoverPublicPeladas(query.trim())
-      if (active) { setRemoteResults(result); setLoading(false) }
+      setLoadError(false)
+      try {
+        const result = await discoverPublicPeladas(query.trim())
+        if (active) setResults(result)
+      } catch {
+        if (active) { setResults([]); setLoadError(true) }
+      } finally {
+        if (active) setLoading(false)
+      }
     }, 250)
     return () => { active = false; window.clearTimeout(timeout) }
   }, [query])
@@ -54,7 +60,8 @@ export function DiscoverPage() {
     <div className="search-panel"><label><span className="sr-only">{t('discover.searchLabel')}</span><Search/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('discover.searchPlaceholder')}/></label><button type="button"><SlidersHorizontal/> {t('discover.filters')}</button><button type="button"><Map/> {t('discover.map')}</button></div>
     <div className="discover-summary" aria-live="polite"><strong>{loading ? t('discover.searching') : t('discover.resultCount', { count: results.length, city: referenceCity })}</strong><span>{t('discover.radius', { distance: formatNumber(searchRadiusKm, { style: 'unit', unit: 'kilometer' }) })}</span></div>
     {notice && <p className="inline-notice" role="status"><Check/> {notice}</p>}
-    {results.length ? <div className="discover-grid" aria-busy={loading}>{results.map((pelada) => {
+    {loadError ? <Card className="dashboard-data-state" role="alert"><Search/><div><h2>{t('discover.loadErrorTitle')}</h2><p>{t('discover.loadErrorBody')}</p></div></Card> : null}
+    {!loadError && results.length ? <div className="discover-grid" aria-busy={loading}>{results.map((pelada) => {
       const state = pelada.membership === 'active' ? 'active' : (joinStates[pelada.id] ?? 'idle')
       return <Card key={pelada.id} className="discover-card" style={{ '--accent': pelada.accent } as React.CSSProperties}>
         <div className="discover-card-head"><span className="pelada-monogram">{initials(pelada.name)}</span><Badge tone={state === 'active' ? 'blue' : state === 'pending' ? 'orange' : 'lime'}>{state === 'active' ? t('discover.badgeMember') : state === 'pending' ? t('discover.badgePending') : pelada.joinMode === 'open' ? t('discover.badgeOpen') : t('discover.badgeApproval')}</Badge></div>
@@ -63,7 +70,7 @@ export function DiscoverPage() {
         <div className="discover-foot"><span>{t('discover.next')} <strong>{pelada.nextMatch}</strong></span><Link to={`/p/${pelada.slug}`}>{t('discover.viewPelada')} <ArrowRight/></Link></div>
         <div className="discover-actions">{state === 'active' ? <Link className="btn btn-secondary btn-md" to={`/p/${pelada.slug}`}>{t('discover.openCommunity')}</Link> : state === 'pending' ? <span className="pending-label"><Clock3/> {t('discover.awaitingApproval')}</span> : <Button onClick={() => { setSelected(pelada); setNotice('') }}><Send/> {pelada.joinMode === 'open' ? t('discover.joinNow') : t('discover.requestJoin')}</Button>}</div>
       </Card>
-    })}</div> : <EmptyState icon={<Search/>} title={t('discover.emptyTitle')} body={t('discover.emptyBody')}/>}
+    })}</div> : !loadError && !loading ? <EmptyState icon={<Search/>} title={t('discover.emptyTitle')} body={t('discover.emptyBody')}/> : null}
 
     {selected && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelected(null)}>
       <section className="join-dialog" role="dialog" aria-modal="true" aria-labelledby="join-title">

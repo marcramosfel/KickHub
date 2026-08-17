@@ -2,11 +2,13 @@ import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
   'invite.badge': 'CONVITE PRIVADO',
+  'invite.loading': 'A validar o convite…',
   'invite.eyebrow': 'FOSTE CONVOCADO',
   'invite.title': 'Entra na {name}.',
   'invite.location': 'Local',
   'invite.community': 'Comunidade',
   'invite.nextMatch': 'Próximo jogo',
+  'invite.noMatch': 'A anunciar',
   'invite.secureTitle': 'Entrada segura',
   'invite.secureBody': 'O convite concede acesso como jogador. As permissões administrativas continuam protegidas.',
   'invite.accept': 'Aceitar convite',
@@ -19,11 +21,13 @@ type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
   'invite.badge': 'PRIVATE INVITE',
+  'invite.loading': 'Validating the invite…',
   'invite.eyebrow': 'YOU HAVE BEEN CALLED UP',
   'invite.title': 'Join {name}.',
   'invite.location': 'Location',
   'invite.community': 'Community',
   'invite.nextMatch': 'Next match',
+  'invite.noMatch': 'To be announced',
   'invite.secureTitle': 'Secure entry',
   'invite.secureBody': 'The invite grants player access. Administrative permissions remain protected.',
   'invite.accept': 'Accept invite',
@@ -34,11 +38,13 @@ const en: Record<Key, TranslationValue> = {
 
 const es: Record<Key, TranslationValue> = {
   'invite.badge': 'INVITACIÓN PRIVADA',
+  'invite.loading': 'Validando la invitación…',
   'invite.eyebrow': 'TE HAN CONVOCADO',
   'invite.title': 'Entra en {name}.',
   'invite.location': 'Lugar',
   'invite.community': 'Comunidad',
   'invite.nextMatch': 'Próximo partido',
+  'invite.noMatch': 'Por anunciar',
   'invite.secureTitle': 'Entrada segura',
   'invite.secureBody': 'La invitación da acceso como jugador. Los permisos administrativos siguen protegidos.',
   'invite.accept': 'Aceptar invitación',
@@ -49,11 +55,13 @@ const es: Record<Key, TranslationValue> = {
 
 const fr: Record<Key, TranslationValue> = {
   'invite.badge': 'INVITATION PRIVÉE',
+  'invite.loading': 'Validation de l’invitation…',
   'invite.eyebrow': 'TU AS ÉTÉ CONVOQUÉ',
   'invite.title': 'Rejoins {name}.',
   'invite.location': 'Lieu',
   'invite.community': 'Communauté',
   'invite.nextMatch': 'Prochain match',
+  'invite.noMatch': 'À annoncer',
   'invite.secureTitle': 'Entrée sécurisée',
   'invite.secureBody': 'L’invitation donne un accès joueur. Les permissions d’administration restent protégées.',
   'invite.accept': 'Accepter l’invitation',
@@ -64,11 +72,13 @@ const fr: Record<Key, TranslationValue> = {
 
 const de: Record<Key, TranslationValue> = {
   'invite.badge': 'PRIVATE EINLADUNG',
+  'invite.loading': 'Einladung wird geprüft…',
   'invite.eyebrow': 'DU WURDEST NOMINIERT',
   'invite.title': 'Tritt {name} bei.',
   'invite.location': 'Ort',
   'invite.community': 'Community',
   'invite.nextMatch': 'Nächstes Spiel',
+  'invite.noMatch': 'Wird angekündigt',
   'invite.secureTitle': 'Sicherer Beitritt',
   'invite.secureBody': 'Die Einladung gewährt Spielerzugang. Administrative Rechte bleiben geschützt.',
   'invite.accept': 'Einladung annehmen',

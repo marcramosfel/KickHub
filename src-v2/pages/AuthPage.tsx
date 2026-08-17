@@ -1,6 +1,6 @@
 import { ArrowLeft, Check, Mail } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/Brand'
 import { Button } from '../components/ui'
 import { useAuth } from '../lib/auth'
@@ -9,6 +9,7 @@ import { sendMagicLink } from '../lib/supabase'
 
 export function AuthPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useI18n()
   const { user, loading, signInWithGoogle } = useAuth()
   const [sent, setSent] = useState(false)
@@ -16,16 +17,20 @@ export function AuthPage() {
   const [busy, setBusy] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [error, setError] = useState('')
+  const requestedPath = (location.state as { from?: unknown } | null)?.from
+  const redirectPath = typeof requestedPath === 'string' && requestedPath.startsWith('/') && !requestedPath.startsWith('//')
+    ? requestedPath
+    : '/app'
 
   useEffect(() => {
-    if (!loading && user) navigate('/app', { replace: true })
-  }, [loading, navigate, user])
+    if (!loading && user) navigate(redirectPath, { replace: true })
+  }, [loading, navigate, redirectPath, user])
 
   const handleGoogleSignIn = async () => {
     setGoogleBusy(true)
     setError('')
     try {
-      const started = await signInWithGoogle()
+      const started = await signInWithGoogle(redirectPath)
       if (!started) {
         setError(t('auth.googleError'))
         setGoogleBusy(false)
@@ -41,7 +46,7 @@ export function AuthPage() {
     setBusy(true)
     setError('')
     try {
-      await sendMagicLink(email)
+      await sendMagicLink(email, redirectPath)
       setSent(true)
     } catch {
       setError(t('auth.magicLinkError'))
@@ -71,7 +76,6 @@ export function AuthPage() {
               <h2>{t('auth.checkEmailTitle')}</h2>
               <p>{t('auth.checkEmailBody')} <strong>{email}</strong></p>
               <Button variant="outline" onClick={() => setSent(false)}>{t('auth.useAnotherEmail')}</Button>
-              <Button onClick={() => navigate('/app')}>{t('auth.enterDemo')}</Button>
             </div>
           ) : (
             <>
@@ -109,10 +113,6 @@ export function AuthPage() {
                   {busy ? t('auth.sending') : t('auth.sendMagicLink')} {!busy && <ArrowRightIcon/>}
                 </Button>
               </form>
-              <div className="auth-divider"><span>{t('auth.dividerOr')}</span></div>
-              <Button variant="outline" size="lg" onClick={() => navigate('/app')}>
-                {t('auth.exploreDemo')}
-              </Button>
               <p className="legal-copy">{t('auth.legal')}</p>
             </>
           )}

@@ -18,18 +18,9 @@ function PlayerName({ row }: { row: Pick<RankingRow, 'displayName' | 'isFormer'>
 
 export function RankingSection({ variant }: { variant: 'ranking' | 'stats' }) {
   const { t } = useI18n()
-  const { pelada, isDemo } = useCurrentPelada()
-  const ranking = usePeladaRanking(pelada?.id, !isDemo)
-  const totals = usePeladaTotals(pelada?.id, !isDemo && variant === 'stats')
-
-  if (isDemo) {
-    return (
-      <div className="ranking-section">
-        <Heading variant={variant}/>
-        <p className="inline-notice" role="status"><ShieldCheck/> {t('ranking.demoNotice')}</p>
-      </div>
-    )
-  }
+  const { pelada } = useCurrentPelada()
+  const ranking = usePeladaRanking(pelada?.id, true)
+  const totals = usePeladaTotals(pelada?.id, variant === 'stats')
 
   const rows = ranking.data ?? []
   const played = rows.some((row) => row.gamesPlayed > 0)

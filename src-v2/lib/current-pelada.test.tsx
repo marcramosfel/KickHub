@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Pelada } from '../data/demo'
+import type { Pelada } from './pelada-types'
 import { canAdministerPelada, CurrentPeladaProvider, resolvePeladaStatus, useCurrentPelada } from './current-pelada'
 
 const contextMocks = vi.hoisted(() => ({
@@ -19,7 +19,7 @@ const adminPelada: Pelada = {
 }
 
 function Probe() {
-  const { pelada, slug, status, canAdmin, role, peladas, isDemo } = useCurrentPelada()
+  const { pelada, slug, status, canAdmin, role, peladas } = useCurrentPelada()
   return <dl>
     <dd data-testid="slug">{slug}</dd>
     <dd data-testid="status">{status}</dd>
@@ -27,7 +27,6 @@ function Probe() {
     <dd data-testid="role">{role ?? '—'}</dd>
     <dd data-testid="can-admin">{String(canAdmin)}</dd>
     <dd data-testid="count">{peladas.length}</dd>
-    <dd data-testid="demo">{String(isDemo)}</dd>
   </dl>
 }
 
@@ -41,28 +40,18 @@ function renderProbe(path: string) {
 
 describe('resolvePeladaStatus', () => {
   it('prioriza o carregamento e o erro do read model sobre a ausência de membership', () => {
-    expect(resolvePeladaStatus({ isDemo: false, isPending: true, isError: false, found: false })).toBe('loading')
-    expect(resolvePeladaStatus({ isDemo: false, isPending: false, isError: true, found: false })).toBe('error')
-    expect(resolvePeladaStatus({ isDemo: false, isPending: false, isError: false, found: false })).toBe('missing')
-    expect(resolvePeladaStatus({ isDemo: false, isPending: false, isError: false, found: true })).toBe('ready')
-  })
-
-  it('ignora o estado da query quando a demonstração está ativa', () => {
-    expect(resolvePeladaStatus({ isDemo: true, isPending: true, isError: true, found: true })).toBe('ready')
-    expect(resolvePeladaStatus({ isDemo: true, isPending: true, isError: true, found: false })).toBe('missing')
+    expect(resolvePeladaStatus({ isPending: true, isError: false, found: false })).toBe('loading')
+    expect(resolvePeladaStatus({ isPending: false, isError: true, found: false })).toBe('error')
+    expect(resolvePeladaStatus({ isPending: false, isError: false, found: false })).toBe('missing')
+    expect(resolvePeladaStatus({ isPending: false, isError: false, found: true })).toBe('ready')
   })
 })
 
 describe('canAdministerPelada', () => {
-  it('nunca concede administração a uma sessão demonstrativa', () => {
-    expect(canAdministerPelada(true, 'owner')).toBe(false)
-    expect(canAdministerPelada(true, 'admin')).toBe(false)
-  })
-
-  it('concede administração apenas a owners e admins autenticados', () => {
-    expect(canAdministerPelada(false, 'owner')).toBe(true)
-    expect(canAdministerPelada(false, 'admin')).toBe(true)
-    expect(canAdministerPelada(false, 'player')).toBe(false)
+  it('concede administração apenas a owners e admins', () => {
+    expect(canAdministerPelada('owner')).toBe(true)
+    expect(canAdministerPelada('admin')).toBe(true)
+    expect(canAdministerPelada('player')).toBe(false)
   })
 })
 
@@ -72,22 +61,13 @@ describe('useCurrentPelada', () => {
     contextMocks.query = { data: undefined, isPending: false, isError: false, refetch: vi.fn() }
   })
 
-  it('resolve a pelada demonstrativa a partir do slug da rota', () => {
+  it('não cria memberships quando não há dados reais', () => {
     renderProbe('/p/limmat-united')
-    expect(screen.getByTestId('status')).toHaveTextContent('ready')
-    expect(screen.getByTestId('name')).toHaveTextContent('Limmat United')
-    expect(screen.getByTestId('role')).toHaveTextContent('player')
+    expect(screen.getByTestId('status')).toHaveTextContent('missing')
+    expect(screen.getByTestId('name')).toHaveTextContent('—')
+    expect(screen.getByTestId('role')).toHaveTextContent('—')
     expect(screen.getByTestId('can-admin')).toHaveTextContent('false')
-    expect(screen.getByTestId('demo')).toHaveTextContent('true')
-    expect(screen.getByTestId('count')).toHaveTextContent('2')
-  })
-
-  it('trata a Browns demonstrativa como jogador sem poderes administrativos', () => {
-    renderProbe('/p/browns/admin')
-    expect(screen.getByTestId('status')).toHaveTextContent('ready')
-    expect(screen.getByTestId('role')).toHaveTextContent('player')
-    expect(screen.getByTestId('can-admin')).toHaveTextContent('false')
-    expect(screen.getByTestId('demo')).toHaveTextContent('true')
+    expect(screen.getByTestId('count')).toHaveTextContent('0')
   })
 
   it('deriva as permissões da membership devolvida pelo read model', () => {
@@ -98,7 +78,6 @@ describe('useCurrentPelada', () => {
     expect(screen.getByTestId('status')).toHaveTextContent('ready')
     expect(screen.getByTestId('role')).toHaveTextContent('admin')
     expect(screen.getByTestId('can-admin')).toHaveTextContent('true')
-    expect(screen.getByTestId('demo')).toHaveTextContent('false')
   })
 
   it('não recorre às fixtures quando a conta não possui a membership', () => {

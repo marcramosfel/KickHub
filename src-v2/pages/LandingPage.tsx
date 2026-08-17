@@ -12,7 +12,7 @@ export function LandingPage() {
         <nav aria-label={t('landing.pageNavigation')}>
           <a href="#produto">{t('landing.product')}</a><a href="#comunidade">{t('landing.community')}</a><a href="#seguranca">{t('landing.security')}</a>
         </nav>
-        <div className="landing-actions"><LocaleSelect compact /><Link className="btn btn-ghost btn-sm" to="/entrar">{t('common.signIn')}</Link><Link className="btn btn-primary btn-sm" to="/app">{t('landing.start')}</Link></div>
+        <div className="landing-actions"><LocaleSelect compact /><Link className="btn btn-ghost btn-sm" to="/entrar">{t('common.signIn')}</Link><Link className="btn btn-primary btn-sm" to="/entrar">{t('landing.start')}</Link></div>
       </header>
 
       <main>
@@ -21,7 +21,7 @@ export function LandingPage() {
             <span className="eyebrow"><Sparkles size={15}/> {t('landing.heroEyebrow')}</span>
             <h1>{t('landing.hero')}</h1>
             <p>{t('landing.heroBody')}</p>
-            <div className="hero-actions"><Link className="btn btn-primary btn-lg" to="/entrar">{t('landing.start')} <ArrowRight size={19}/></Link><Link className="btn btn-hero-secondary btn-lg" to="/app">{t('landing.explore')}</Link></div>
+            <div className="hero-actions"><Link className="btn btn-primary btn-lg" to="/entrar">{t('landing.start')} <ArrowRight size={19}/></Link></div>
             <div className="trust-row"><span><ShieldCheck size={17}/> {t('landing.privacy')}</span><span><UsersRound size={17}/> {t('landing.roles')}</span></div>
           </div>
           <div className="hero-visual" aria-label={t('landing.preview')}>
@@ -46,7 +46,7 @@ export function LandingPage() {
 
         <section id="comunidade" className="community-band">
           <div><span className="eyebrow">{t('landing.worldEyebrow')}</span><h2>{t('landing.identityTitle')}</h2></div>
-          <div className="metric"><strong>{formatNumber(2)}</strong><span>{t('landing.demoGroups')}</span></div>
+          <div className="metric"><strong>{formatNumber(1)}</strong><span>{t('landing.stagingTenant')}</span></div>
           <div className="metric"><strong>{formatNumber(5)}</strong><span>{t('landing.languages')}</span></div>
           <div className="metric"><strong>{formatNumber(1, { style: 'percent' })}</strong><span>{t('landing.mobileFirst')}</span></div>
         </section>

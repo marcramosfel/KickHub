@@ -17,26 +17,17 @@ const playerTypeKey = (value: PlayerType) => `squad.type${value}` as Translation
 
 export function SquadSection() {
   const { t } = useI18n()
-  const { pelada, isDemo, canAdmin } = useCurrentPelada()
-  const squad = usePeladaSquad(pelada?.id, !isDemo)
+  const { pelada, canAdmin } = useCurrentPelada()
+  const squad = usePeladaSquad(pelada?.id, true)
   // Sobe para aqui porque o cartão de cada membro passou a mostrar o overall
   // calculado, e não apenas o formulário de quem administra.
-  const ranking = usePeladaRanking(pelada?.id, !isDemo)
+  const ranking = usePeladaRanking(pelada?.id, true)
   // Duas passagens, e não por comodidade: os títulos dependem de comparar o
   // plantel inteiro, portanto não existe forma correcta de calcular o overall de
   // alguém isoladamente.
   const overallByMember = explainSquadOverall(ranking.data ?? [])
   const [editing, setEditing] = useState('')
   const [notice, setNotice] = useState('')
-
-  if (isDemo) {
-    return (
-      <div className="squad-section">
-        <SquadHeading count={null}/>
-        <p className="inline-notice" role="status"><ShieldCheck/> {t('squad.demoNotice')}</p>
-      </div>
-    )
-  }
 
   const members = squad.data ?? []
 

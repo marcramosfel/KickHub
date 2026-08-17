@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { Pelada } from '../data/demo'
+import type { Pelada } from './pelada-types'
 import { isSupabaseConfigured, supabase } from './supabase'
 
 const accents = ['#d8ff45', '#72d8ff', '#ff8657', '#c8a8ff']

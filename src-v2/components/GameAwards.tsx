@@ -21,8 +21,8 @@ import { usePeladaSquad } from '../lib/squad'
  */
 export function GameAwards({ game }: { game: Game }) {
   const { t } = useI18n()
-  const { pelada, isDemo, canAdmin } = useCurrentPelada()
-  const active = !isDemo && game.status === 'played'
+  const { pelada, canAdmin } = useCurrentPelada()
+  const active = game.status === 'played'
   const lineup = useGameLineup(game.id, active)
   const squad = usePeladaSquad(pelada?.id, active)
   const result = useGameResult(game.id, active)

@@ -64,18 +64,16 @@ export function CreatePeladaPage() {
     setBusy(true)
     setError('')
     try {
+      if (!user) throw new Error('AUTH_REQUIRED')
       let createdName = form.name.trim()
-      if (user) {
-        const created = await createPelada({
-          name: createdName, slug: createPeladaSlug(createdName), description: form.description.trim(),
-          countryCode: form.country, city: form.city.trim(), timezone: form.timezone,
-          visibility: form.visibility, joinMode: form.joinMode, defaultFormat: form.format, frequency: form.frequency,
-        })
-        createdName = created.name
-        await queryClient.invalidateQueries({ queryKey: ['my-peladas', user.id] })
-      }
+      const created = await createPelada({
+        name: createdName, slug: createPeladaSlug(createdName), description: form.description.trim(),
+        countryCode: form.country, city: form.city.trim(), timezone: form.timezone,
+        visibility: form.visibility, joinMode: form.joinMode, defaultFormat: form.format, frequency: form.frequency,
+      })
+      createdName = created.name
+      await queryClient.invalidateQueries({ queryKey: ['my-peladas', user.id] })
       const params = new URLSearchParams({ created: createdName })
-      if (!user) params.set('demo', '1')
       navigate(`/app?${params.toString()}`)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message.toLowerCase() : ''

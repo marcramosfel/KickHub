@@ -1,4 +1,4 @@
-import type { Pelada } from '../data/demo'
+import type { Pelada } from './pelada-types'
 import type { Translate } from './i18n'
 
 export function roleLabel(role: Pelada['role'], t: Translate) {

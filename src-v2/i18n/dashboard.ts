@@ -2,12 +2,10 @@ import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
   'dashboard.greeting': 'Bom dia, {name}.',
-  'dashboard.demoSummary': 'Duas peladas, uma semana cheia de futebol.',
   'dashboard.emptySummary': 'Ainda não participas em nenhuma pelada.',
   'dashboard.oneSummary': 'Uma comunidade pronta para entrar em campo.',
   'dashboard.manySummary': '{count} comunidades, uma só identidade.',
   'dashboard.newPelada': 'Nova pelada',
-  'dashboard.createdDemo': '{name} foi criada na demonstração.',
   'dashboard.createdReal': '{name} já faz parte das tuas peladas.',
   'dashboard.communitiesEyebrow': 'AS TUAS COMUNIDADES',
   'dashboard.myPeladas': 'Minhas peladas',
@@ -44,10 +42,10 @@ const pt = {
 type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
-  'dashboard.greeting': 'Good morning, {name}.', 'dashboard.demoSummary': 'Two groups, one football-packed week.',
+  'dashboard.greeting': 'Good morning, {name}.',
   'dashboard.emptySummary': 'You are not part of a group yet.', 'dashboard.oneSummary': 'One community ready to take the pitch.',
   'dashboard.manySummary': '{count} communities, one identity.', 'dashboard.newPelada': 'New group',
-  'dashboard.createdDemo': '{name} was created in the demo.', 'dashboard.createdReal': '{name} is now one of your groups.',
+  'dashboard.createdReal': '{name} is now one of your groups.',
   'dashboard.communitiesEyebrow': 'YOUR COMMUNITIES', 'dashboard.myPeladas': 'My groups',
   'dashboard.groupCount': { one: '{count} group', other: '{count} groups' }, 'dashboard.loading': 'Loading your groups',
   'dashboard.loadErrorTitle': 'We could not load your groups.', 'dashboard.loadErrorBody': 'Your session remains secure. Try again in a few seconds.',
@@ -71,10 +69,10 @@ const en: Record<Key, TranslationValue> = {
 }
 
 const es: Record<Key, TranslationValue> = {
-  'dashboard.greeting': 'Buenos días, {name}.', 'dashboard.demoSummary': 'Dos grupos, una semana llena de fútbol.',
+  'dashboard.greeting': 'Buenos días, {name}.',
   'dashboard.emptySummary': 'Todavía no participas en ningún grupo.', 'dashboard.oneSummary': 'Una comunidad lista para salir al campo.',
   'dashboard.manySummary': '{count} comunidades, una sola identidad.', 'dashboard.newPelada': 'Nuevo grupo',
-  'dashboard.createdDemo': '{name} se creó en la demostración.', 'dashboard.createdReal': '{name} ya forma parte de tus grupos.',
+  'dashboard.createdReal': '{name} ya forma parte de tus grupos.',
   'dashboard.communitiesEyebrow': 'TUS COMUNIDADES', 'dashboard.myPeladas': 'Mis grupos',
   'dashboard.groupCount': { one: '{count} grupo', other: '{count} grupos' }, 'dashboard.loading': 'Cargando tus grupos',
   'dashboard.loadErrorTitle': 'No pudimos cargar tus grupos.', 'dashboard.loadErrorBody': 'Tu sesión sigue segura. Inténtalo de nuevo en unos segundos.',
@@ -98,10 +96,10 @@ const es: Record<Key, TranslationValue> = {
 }
 
 const fr: Record<Key, TranslationValue> = {
-  'dashboard.greeting': 'Bonjour, {name}.', 'dashboard.demoSummary': 'Deux groupes, une semaine pleine de football.',
+  'dashboard.greeting': 'Bonjour, {name}.',
   'dashboard.emptySummary': 'Tu ne participes encore à aucun groupe.', 'dashboard.oneSummary': 'Une communauté prête à entrer sur le terrain.',
   'dashboard.manySummary': '{count} communautés, une seule identité.', 'dashboard.newPelada': 'Nouveau groupe',
-  'dashboard.createdDemo': '{name} a été créé dans la démo.', 'dashboard.createdReal': '{name} fait maintenant partie de tes groupes.',
+  'dashboard.createdReal': '{name} fait maintenant partie de tes groupes.',
   'dashboard.communitiesEyebrow': 'TES COMMUNAUTÉS', 'dashboard.myPeladas': 'Mes groupes',
   'dashboard.groupCount': { one: '{count} groupe', other: '{count} groupes' }, 'dashboard.loading': 'Chargement de tes groupes',
   'dashboard.loadErrorTitle': 'Impossible de charger tes groupes.', 'dashboard.loadErrorBody': 'Ta session reste sécurisée. Réessaie dans quelques secondes.',
@@ -125,10 +123,10 @@ const fr: Record<Key, TranslationValue> = {
 }
 
 const de: Record<Key, TranslationValue> = {
-  'dashboard.greeting': 'Guten Morgen, {name}.', 'dashboard.demoSummary': 'Zwei Gruppen, eine Woche voller Fußball.',
+  'dashboard.greeting': 'Guten Morgen, {name}.',
   'dashboard.emptySummary': 'Du bist noch in keiner Gruppe.', 'dashboard.oneSummary': 'Eine Community ist bereit für den Platz.',
   'dashboard.manySummary': '{count} Communities, eine Identität.', 'dashboard.newPelada': 'Neue Gruppe',
-  'dashboard.createdDemo': '{name} wurde in der Demo erstellt.', 'dashboard.createdReal': '{name} gehört jetzt zu deinen Gruppen.',
+  'dashboard.createdReal': '{name} gehört jetzt zu deinen Gruppen.',
   'dashboard.communitiesEyebrow': 'DEINE COMMUNITIES', 'dashboard.myPeladas': 'Meine Gruppen',
   'dashboard.groupCount': { one: '{count} Gruppe', other: '{count} Gruppen' }, 'dashboard.loading': 'Deine Gruppen werden geladen',
   'dashboard.loadErrorTitle': 'Deine Gruppen konnten nicht geladen werden.', 'dashboard.loadErrorBody': 'Deine Sitzung bleibt sicher. Versuche es in einigen Sekunden erneut.',

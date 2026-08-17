@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Pelada } from '../data/demo'
+import type { Pelada } from '../lib/pelada-types'
 import { I18nProvider } from '../lib/i18n'
 import { DashboardPage } from './DashboardPage'
 

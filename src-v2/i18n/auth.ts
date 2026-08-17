@@ -13,18 +13,15 @@ const pt = {
   'auth.googleCaption': 'Na primeira entrada, a tua conta e o perfil global são criados automaticamente.',
   'auth.googleError': 'Não foi possível entrar com o Google. Tenta novamente.',
   'auth.dividerEmail': 'ou por email',
-  'auth.dividerOr': 'ou',
   'auth.emailLabel': 'Email',
   'auth.emailPlaceholder': 'tu@email.com',
   'auth.sendMagicLink': 'Enviar link de acesso',
   'auth.sending': 'A enviar…',
   'auth.magicLinkError': 'Não foi possível enviar o link. Tenta novamente.',
-  'auth.exploreDemo': 'Explorar com dados de demonstração',
   'auth.legal': 'Ao continuar, aceitas os Termos e a Política de Privacidade.',
   'auth.checkEmailTitle': 'Confere o teu email',
   'auth.checkEmailBody': 'Enviámos um link seguro para este endereço:',
   'auth.useAnotherEmail': 'Usar outro email',
-  'auth.enterDemo': 'Entrar na demonstração',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -42,18 +39,15 @@ const en: Record<Key, TranslationValue> = {
   'auth.googleCaption': 'On your first sign-in, your account and global profile are created automatically.',
   'auth.googleError': 'We could not sign you in with Google. Please try again.',
   'auth.dividerEmail': 'or by email',
-  'auth.dividerOr': 'or',
   'auth.emailLabel': 'Email',
   'auth.emailPlaceholder': 'you@email.com',
   'auth.sendMagicLink': 'Send access link',
   'auth.sending': 'Sending…',
   'auth.magicLinkError': 'We could not send the link. Please try again.',
-  'auth.exploreDemo': 'Explore with demo data',
   'auth.legal': 'By continuing, you accept the Terms and the Privacy Policy.',
   'auth.checkEmailTitle': 'Check your email',
   'auth.checkEmailBody': 'We sent a secure link to this address:',
   'auth.useAnotherEmail': 'Use another email',
-  'auth.enterDemo': 'Enter the demo',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -69,18 +63,15 @@ const es: Record<Key, TranslationValue> = {
   'auth.googleCaption': 'En el primer acceso, tu cuenta y tu perfil global se crean automáticamente.',
   'auth.googleError': 'No pudimos entrar con Google. Inténtalo de nuevo.',
   'auth.dividerEmail': 'o por email',
-  'auth.dividerOr': 'o',
   'auth.emailLabel': 'Email',
   'auth.emailPlaceholder': 'tu@email.com',
   'auth.sendMagicLink': 'Enviar enlace de acceso',
   'auth.sending': 'Enviando…',
   'auth.magicLinkError': 'No pudimos enviar el enlace. Inténtalo de nuevo.',
-  'auth.exploreDemo': 'Explorar con datos de demostración',
   'auth.legal': 'Al continuar, aceptas los Términos y la Política de Privacidad.',
   'auth.checkEmailTitle': 'Revisa tu email',
   'auth.checkEmailBody': 'Enviamos un enlace seguro a esta dirección:',
   'auth.useAnotherEmail': 'Usar otro email',
-  'auth.enterDemo': 'Entrar en la demostración',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -96,18 +87,15 @@ const fr: Record<Key, TranslationValue> = {
   'auth.googleCaption': 'À la première connexion, ton compte et ton profil global sont créés automatiquement.',
   'auth.googleError': 'Connexion avec Google impossible. Réessaie.',
   'auth.dividerEmail': 'ou par email',
-  'auth.dividerOr': 'ou',
   'auth.emailLabel': 'Email',
   'auth.emailPlaceholder': 'toi@email.com',
   'auth.sendMagicLink': 'Envoyer le lien d’accès',
   'auth.sending': 'Envoi…',
   'auth.magicLinkError': 'Envoi du lien impossible. Réessaie.',
-  'auth.exploreDemo': 'Explorer avec des données de démo',
   'auth.legal': 'En continuant, tu acceptes les Conditions et la Politique de confidentialité.',
   'auth.checkEmailTitle': 'Consulte ton email',
   'auth.checkEmailBody': 'Nous avons envoyé un lien sécurisé à cette adresse :',
   'auth.useAnotherEmail': 'Utiliser un autre email',
-  'auth.enterDemo': 'Entrer dans la démo',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -123,18 +111,15 @@ const de: Record<Key, TranslationValue> = {
   'auth.googleCaption': 'Beim ersten Anmelden werden dein Konto und dein globales Profil automatisch erstellt.',
   'auth.googleError': 'Anmeldung mit Google nicht möglich. Versuche es erneut.',
   'auth.dividerEmail': 'oder per E-Mail',
-  'auth.dividerOr': 'oder',
   'auth.emailLabel': 'E-Mail',
   'auth.emailPlaceholder': 'du@email.com',
   'auth.sendMagicLink': 'Zugangslink senden',
   'auth.sending': 'Wird gesendet…',
   'auth.magicLinkError': 'Der Link konnte nicht gesendet werden. Versuche es erneut.',
-  'auth.exploreDemo': 'Mit Demodaten erkunden',
   'auth.legal': 'Mit dem Fortfahren akzeptierst du die AGB und die Datenschutzerklärung.',
   'auth.checkEmailTitle': 'Prüfe deine E-Mails',
   'auth.checkEmailBody': 'Wir haben einen sicheren Link an diese Adresse geschickt:',
   'auth.useAnotherEmail': 'Andere E-Mail verwenden',
-  'auth.enterDemo': 'Zur Demo',
 }
 
 export const authCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }
