@@ -57,8 +57,8 @@ from public.profiles p where p.auth_user_id = 'b1000000-0000-4000-8000-000000000
 -- O jogador legado: profile sem conta, à espera de dono.
 insert into public.profiles (id, auth_user_id, display_name, username)
 values ('00000000-0000-4000-8000-0000000de001', null, 'Jogador Legado', 'legado-um');
-insert into public.players (id, name, pin_hash)
-values ('00000000-0000-4000-8000-0000000df001', 'Jogador Legado', 'credencial-desativada');
+insert into public.players (id, user_id, name, pin_hash)
+values ('00000000-0000-4000-8000-0000000df001', 'CLAIM-LEGACY-1', 'Jogador Legado', 'credencial-desativada');
 insert into public.pelada_memberships (id, pelada_id, profile_id, role, status, legacy_player_id)
 values ('00000000-0000-4000-8000-0000000dd002', '00000000-0000-4000-8000-0000000dc001',
         '00000000-0000-4000-8000-0000000de001', 'player', 'active',

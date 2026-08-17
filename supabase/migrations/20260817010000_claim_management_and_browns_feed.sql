@@ -13,8 +13,10 @@ language plpgsql security definer
 set search_path = public, extensions
 as $$
 begin
-  if tg_table_name = 'players' and new.photo_url is not null then
-    perform public.validar_imagem_data_url(new.photo_url, 1500000);
+  if tg_table_name = 'players' then
+    if new.photo_url is not null then
+      perform public.validar_imagem_data_url(new.photo_url, 1500000);
+    end if;
   elsif tg_table_name = 'match_media' then
     perform public.validar_imagem_data_url(new.data_url, 3000000);
   elsif tg_table_name = 'matches' then
