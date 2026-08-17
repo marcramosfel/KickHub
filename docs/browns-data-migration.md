@@ -24,8 +24,11 @@ produto e não atravessam o cutover. O acesso passa para Supabase Auth e para o 
 3. Remover `app_config.admin_pw_hash`, `players.pin_hash`, tokens/hashes de `player_devices` e segredos.
    Onde uma coluna legada `not null` exigir valor, usar um marcador desativado que jamais autentique.
 4. Restaurar **somente a cópia sanitizada** no Supabase staging.
-5. Aplicar migrations, executar o pgTAP e chamar `backfill_browns_history()` com `service_role`.
-6. Comparar manifestos before/after e fazer smoke test com contas exclusivamente de staging.
+5. Aplicar migrations, executar o pgTAP e chamar `backfill_browns_history()` e
+   `backfill_browns_content()` com `service_role`.
+6. Na cópia sanitizada, migrar as imagens para o bucket privado com
+   `BROWNS_MEDIA_MODE=staging-sanitized` e `npm run data:migrate-media`.
+7. Comparar manifestos before/after e fazer smoke test com contas exclusivamente de staging.
 
 Dados e credenciais reais de produção nunca entram no staging.
 
@@ -39,14 +42,29 @@ Dados e credenciais reais de produção nunca entram no staging.
 
 ```sql
 select public.backfill_browns_history();
+select public.backfill_browns_content();
 ```
 
-6. Conferir o JSON devolvido. A própria função aborta se jogadores/jogos, gols, assistências,
+6. Migrar os binários das fotos para o bucket privado. Os segredos são injetados somente na
+   sessão operacional e nunca entram no `.env` do frontend:
+
+```bash
+BROWNS_MEDIA_SUPABASE_URL=https://PROJECT.supabase.co \
+BROWNS_MEDIA_SERVICE_ROLE_KEY=... \
+BROWNS_MEDIA_MODE=production-approved \
+BROWNS_MEDIA_CONFIRM=UPLOAD \
+npm run data:migrate-media
+```
+
+O migrador valida MIME e tamanho, calcula SHA-256, faz upload idempotente e só então marca cada
+objeto como `ready`. Fotos pendentes ou falhadas nunca aparecem no feed.
+
+7. Conferir os JSONs devolvidos. A própria função aborta se jogadores/jogos, gols, assistências,
    avaliações ou votos não reconciliarem.
-7. Capturar o manifesto after e executar `npm run data:compare`.
-8. Validar amostras de goleiro e jogador de linha: perfil, jogos, placar, gols, assistências,
+8. Capturar o manifesto after e executar `npm run data:compare`.
+9. Validar amostras de goleiro e jogador de linha: perfil, jogos, placar, gols, assistências,
    Overall, estrelas, craques e bagres.
-9. Só então liberar login/claim dos jogadores Browns.
+10. Validar feed e fotos por uma conta Browns de teste e só então liberar login/claim.
 
 ## Repetição e rollback
 

@@ -87,6 +87,12 @@ const hardenedPrivateFunctions = [
   'browns_profile_id',
   'browns_membership_id',
   'backfill_browns_history',
+  'profile_is_disposable_for_legacy_claim',
+  'capture_game_feed_event',
+  'capture_result_feed_event',
+  'backfill_browns_content',
+  'mark_browns_media_ready',
+  'mark_browns_media_failed',
   // Contam os votos de toda a gente para apurar craque e bagre. Ao alcance do
   // cliente devolveriam contagens erradas em silêncio, porque a RLS só lhe
   // mostra os votos próprios; só são alcançáveis de dentro de `get_game_awards`

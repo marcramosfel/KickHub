@@ -20,6 +20,7 @@
     "functions:serve": "supabase functions serve secure-rpc --no-verify-jwt",
     "data:snapshot": "node scripts/capture-browns-snapshot.mjs",
     "data:compare": "node scripts/compare-browns-snapshots.mjs",
+    "data:migrate-media": "node scripts/migrate-browns-media.mjs",
     "schema:dump:linked": "node scripts/schema-gate.mjs dump",
     "schema:diff:linked": "node scripts/schema-gate.mjs diff"
   },

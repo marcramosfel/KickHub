@@ -1,7 +1,8 @@
 # Como cada jogador da Browns recupera o seu histórico no KickHub
 
-Estado: **aprovado** e **implementado do lado do KickHub** em 16 de agosto de 2026. O passo 1, que
-vive na aplicação Browns, continua por fazer — ver "O que falta decidir".
+Estado: **aprovado e implementado no KickHub**, incluindo emissão/revogação pelo painel admin e
+fusão segura do profile automático criado no primeiro login. O autoatendimento dentro da aplicação
+Browns continua opcional e por implementar — ver "O que falta decidir".
 Data: 16 de agosto de 2026
 
 Este documento detalha o que o [ADR 0001](adr/0001-legacy-identity-claim.md) decide em princípio:
@@ -134,19 +135,17 @@ Continuam em aberto duas coisas que não bloqueiam a implementação:
 
 ## O que já está feito, e onde
 
-No KickHub: a tabela `legacy_claims` (só o SHA-256, nunca o código), `issue_legacy_claim` para quem
-organiza, `claim_legacy_profile` para quem reclama, e o ecrã em `/reclamar`. Ambas as RPCs escrevem
-no registo de auditoria.
+No KickHub: a tabela `legacy_claims` (só o SHA-256, nunca o código), `issue_legacy_claim` e
+`revoke_legacy_claim` para quem organiza, a consola admin, `claim_legacy_profile` para quem reclama,
+e o ecrã em `/reclamar`. Emissão, revogação e consumo escrevem no registo de auditoria.
 
-`pelada_memberships.legacy_player_id` mantém a chave estrangeira para `public.players`. Chegou a ser
-removida, com um fundamento errado da minha parte — eu julgara que o schema do legado no KickHub
-divergira do da Browns. Comparadas as duas bases com uma impressão MD5 das colunas e tipos, as oito
-tabelas são idênticas, e a chave foi devolvida. É ela que garante que nenhum membro aponta para um
-jogador que não existe.
+`pelada_memberships.legacy_player_id` mantém o UUID Browns como vínculo único e auditável, sem chave
+estrangeira para `public.players`. Isso evita restaurar ou fabricar linhas com `pin_hash`; a
+reconciliação before/after é o gate que garante a integridade do vínculo importado.
 
 ## O que isto não resolve
 
-Este desenho liga pessoas a históricos. **Não** move os dados — isso é o backfill, que tem os seus
-próprios gates em [foundation-gates.md](foundation-gates.md) e depende de os destinos existirem no
-KickHub. Hoje ainda faltam a votação de craque e bagre (60 votos na Browns) e a opinião do grupo
-voto a voto (841 avaliações), que colapsariam numa média se migrassem já.
+Este desenho liga pessoas a históricos. A projeção relacional, votos e avaliações são tratados pelo
+backfill; feed e fotos passam por uma migração separada para Storage privado. Os gates e o cutover
+continuam descritos em [foundation-gates.md](foundation-gates.md) e
+[browns-data-migration.md](browns-data-migration.md).
