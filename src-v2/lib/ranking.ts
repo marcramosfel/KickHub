@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import type { OverallPlayerType } from '../domain/player-overall'
 import { isSupabaseConfigured, supabase } from './supabase'
 
 export type RankingRow = {
@@ -33,6 +34,11 @@ export type RankingRow = {
   waeMatches: number
   /** Vitórias seguidas até agora. Zero é um facto. */
   currentWinStreak: number
+  /**
+   * O que a pelada o inscreveu para ser. Numa pelada de goleiros rotativos é o
+   * que distingue o guarda-redes de quem apenas começou a rodada na baliza.
+   */
+  playerType: OverallPlayerType | null
   /** O que fez nas rodadas em que foi escalado como guarda-redes. */
   gkMatches: number
   gkSaves: number
@@ -59,6 +65,12 @@ const toOptionalNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const playerTypes: readonly OverallPlayerType[] = ['FIELD', 'GOALKEEPER', 'HYBRID']
+
+/** Um valor que o servidor não reconheça vale o mesmo que nenhum. */
+const toPlayerType = (value: unknown) =>
+  playerTypes.includes(value as OverallPlayerType) ? value as OverallPlayerType : null
+
 export function toRankingRow(row: RankingApiRow): RankingRow {
   return {
     membershipId: String(row.membership_id ?? ''),
@@ -82,6 +94,7 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     waeSaldo: toOptionalNumber(row.wae_saldo),
     waeMatches: toNumber(row.wae_matches),
     currentWinStreak: toNumber(row.current_win_streak),
+    playerType: toPlayerType(row.player_type),
     gkMatches: toNumber(row.gk_matches),
     gkSaves: toNumber(row.gk_saves),
     gkConceded: toNumber(row.gk_conceded),

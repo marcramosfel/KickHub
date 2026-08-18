@@ -1,6 +1,6 @@
 begin;
 
-select plan(38);
+select plan(41);
 
 select has_function('public', 'backfill_browns_history', array[]::text[], 'backfill Browns existe');
 select has_function('public', 'browns_profile_id', array['uuid'], 'id de profile legado é determinístico');
@@ -24,7 +24,11 @@ insert into public.players (
   ('c2000000-0000-4000-8000-000000000002', 'BR002', 'Bia Legado', 'desativado', true, false, false, null,
    'FIELD', 'ST', null, false, null, '2025-01-02T10:00:00Z'),
   ('c3000000-0000-4000-8000-000000000003', 'BR003', 'Caio Legado', 'desativado', true, false, true, null,
-   'GOALKEEPER', 'GK', null, true, null, '2025-01-03T10:00:00Z');
+   'GOALKEEPER', 'GK', null, true, null, '2025-01-03T10:00:00Z'),
+  -- Rodou pela baliza numa rodada antiga: ficou registado apenas em
+  -- `goalkeeper_match_stats`, sem escalação e sem linha de estatística.
+  ('c5000000-0000-4000-8000-000000000005', 'BR004', 'Davi Legado', 'desativado', true, false, true, null,
+   'FIELD', 'ST', null, true, null, '2025-01-04T10:00:00Z');
 
 insert into public.ratings (rater_id, target_id, score) values
   ('c2000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001', 4.0),
@@ -61,7 +65,8 @@ insert into public.match_stats (match_id, player_id, team, goals, assists, own_g
   ('c4000000-0000-4000-8000-000000000004', 'c3000000-0000-4000-8000-000000000003', 'B', 0, 0, 1);
 
 insert into public.goalkeeper_match_stats (match_id, goalkeeper_id, team, saves, goals_conceded) values
-  ('c4000000-0000-4000-8000-000000000004', 'c3000000-0000-4000-8000-000000000003', 'B', 6, 3);
+  ('c4000000-0000-4000-8000-000000000004', 'c3000000-0000-4000-8000-000000000003', 'B', 6, 3),
+  ('c4000000-0000-4000-8000-000000000004', 'c5000000-0000-4000-8000-000000000005', 'A', 4, 2);
 
 insert into public.post_match_ratings (match_id, rater_id, target_id, stars, created_at, updated_at) values
   ('c4000000-0000-4000-8000-000000000004', 'c1000000-0000-4000-8000-000000000001', 'c2000000-0000-4000-8000-000000000002', 5, '2026-07-10T21:00:00Z', '2026-07-10T21:00:00Z'),
@@ -96,7 +101,7 @@ select is(
 select is(
   (select count(*)::int from public.pelada_memberships
    where pelada_id = '00000000-0000-4000-8000-000000000101' and legacy_player_id is not null),
-  3, 'cada jogador ganhou membership Browns'
+  4, 'cada jogador ganhou membership Browns'
 );
 select is(
   (select role from public.pelada_memberships where legacy_player_id = 'c1000000-0000-4000-8000-000000000001'),
@@ -124,7 +129,7 @@ select results_eq(
 );
 select is(
   (select count(*)::int from public.game_attendance where game_id = 'c4000000-0000-4000-8000-000000000004'),
-  3, 'todos os participantes aparecem na presença'
+  4, 'todos os participantes aparecem na presença'
 );
 select is(
   (select attendance.status from public.game_attendance attendance
@@ -135,7 +140,32 @@ select is(
 );
 select is(
   (select count(*)::int from public.game_lineups where game_id = 'c4000000-0000-4000-8000-000000000004'),
-  3, 'a escalação inteira foi preservada'
+  4, 'a escalação inteira foi preservada'
+);
+
+-- Quem guardou a baliza sem passar por `match_lineup` continuava sem linha de
+-- escalação: entrava no ranking com jogos e defesas, mas sem equipa — logo sem
+-- vitória nem derrota — e a média de forças do jogo saía a menos de um jogador.
+select results_eq(
+  $$select lineup.team, lineup.is_goalkeeper
+    from public.game_lineups lineup
+    join public.pelada_memberships member on member.id = lineup.membership_id
+    where lineup.game_id = 'c4000000-0000-4000-8000-000000000004'
+      and member.legacy_player_id = 'c5000000-0000-4000-8000-000000000005'$$,
+  $$values ('A', true)$$,
+  'quem só existe em goalkeeper_match_stats ganha escalação com a equipa dele'
+);
+select is(
+  (select count(*)::int from public.game_lineups lineup
+   where lineup.game_id = 'c4000000-0000-4000-8000-000000000004' and lineup.is_goalkeeper),
+  2, 'as duas balizas da rodada ficam marcadas'
+);
+select is(
+  (select stat.saves from public.game_player_stats stat
+   join public.pelada_memberships member on member.id = stat.membership_id
+   where stat.game_id = 'c4000000-0000-4000-8000-000000000004'
+     and member.legacy_player_id = 'c5000000-0000-4000-8000-000000000005'),
+  4, 'as defesas dele sobrevivem ao backfill'
 );
 
 -- ------------------------------------------------------- resultado e números
@@ -147,7 +177,7 @@ select results_eq(
 );
 select is(
   (select count(*)::int from public.game_player_stats where game_id = 'c4000000-0000-4000-8000-000000000004'),
-  3, 'há uma linha de estatística por jogador'
+  4, 'há uma linha de estatística por jogador'
 );
 select is(
   (select sum(goals)::int from public.game_player_stats where game_id = 'c4000000-0000-4000-8000-000000000004'),

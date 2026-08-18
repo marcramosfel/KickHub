@@ -9,12 +9,13 @@ const player = (overrides: Partial<OverallInput> = {}): OverallInput => ({
   gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null,
   craques: 0, bagres: 0, waeSaldo: null, waeMatches: 0, titles: [],
   gkMatches: 0, gkSaves: 0, gkConceded: 0, gkCleanSheets: 0, gkWinPoints: 0,
-  gkLeagueConcededPerGame: null, ...overrides,
+  gkLeagueConcededPerGame: null, playerType: 'FIELD', ...overrides,
 })
 
 const keeper = (overrides: Partial<OverallInput> = {}): OverallInput => player({
   gamesPlayed: 10, gkMatches: 10, gkSaves: 30, gkConceded: 10, gkCleanSheets: 3,
-  gkWinPoints: 5, gkLeagueConcededPerGame: 2, baseRating: 90, ...overrides,
+  gkWinPoints: 5, gkLeagueConcededPerGame: 2, baseRating: 90,
+  playerType: 'GOALKEEPER', ...overrides,
 })
 
 describe('contributo por jogo', () => {
@@ -357,6 +358,45 @@ describe('escala do guarda-redes', () => {
     const hibrido = explainOverall(keeper({ gamesPlayed: 10, gkMatches: 1 }))!
     expect(hibrido.parts.map((part) => part.key)).toContain('opinion')
     expect(hibrido.parts.map((part) => part.key)).not.toContain('gkSaves')
+  })
+
+  /**
+   * Numa pelada de goleiros rotativos, começar a rodada na baliza não faz de
+   * ninguém guarda-redes. Sem este travão, quem jogou uma vez e calhou começar
+   * lá passava o teste da metade das rodadas e perdia a nota do grupo e os
+   * golos que marcou nessa mesma rodada — que é exactamente o que a Pelada
+   * Browns produziu quando o histórico entrou.
+   */
+  it('não faz guarda-redes de quem rodou pela baliza numa rodada solta', () => {
+    const rodou = explainOverall(player({
+      gamesPlayed: 1, goals: 2, assists: 1, baseRating: 72, postRatingAvg: 2.33,
+      gkMatches: 1, gkConceded: 14, gkLeagueConcededPerGame: 8,
+    }))!
+    expect(rodou.parts.map((part) => part.key)).toContain('opinion')
+    expect(rodou.parts.map((part) => part.key)).toContain('performance')
+    expect(rodou.parts.map((part) => part.key)).not.toContain('gkSaves')
+    // A nota do grupo volta a mandar: o 40 da escala da baliza era o castigo.
+    expect(rodou.overall).toBeGreaterThan(55)
+  })
+
+  /**
+   * O inverso: quem a pelada inscreveu como guarda-redes é julgado como tal
+   * desde a primeira rodada. É para isso que a inscrição serve — não se espera
+   * três jornadas para reconhecer o que já está declarado.
+   */
+  it('julga pela baliza quem está inscrito como guarda-redes desde a estreia', () => {
+    const estreante = explainOverall(keeper({ gamesPlayed: 1, gkMatches: 1, gkSaves: 4, gkConceded: 2 }))!
+    expect(estreante.parts.map((part) => part.key)).toContain('gkSaves')
+    expect(estreante.parts.map((part) => part.key)).not.toContain('opinion')
+  })
+
+  /**
+   * A baliza como hábito conta, mesmo sem inscrição: quem lá está sempre é
+   * guarda-redes de facto, tenha ou não a etiqueta.
+   */
+  it('reconhece a baliza como hábito mesmo sem inscrição', () => {
+    const semEtiqueta = explainOverall(keeper({ playerType: 'FIELD', gamesPlayed: 3, gkMatches: 3 }))!
+    expect(semEtiqueta.parts.map((part) => part.key)).toContain('gkSaves')
   })
 
   /**

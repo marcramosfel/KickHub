@@ -62,7 +62,19 @@ export type OverallInput = {
    * para o plantel inteiro — não do próprio jogador.
    */
   gkLeagueConcededPerGame?: number | null
+  /**
+   * O que a pelada inscreveu este jogador para ser. É o que separa um
+   * guarda-redes de alguém a quem calhou a baliza numa rodada de rotação —
+   * `gkMatches` sozinho não sabe distinguir os dois.
+   */
+  playerType?: OverallPlayerType | null
 }
+
+/**
+ * Redeclarado aqui em vez de importado da camada de dados: o domínio não deve
+ * depender do formato das linhas que a interface lhe entrega.
+ */
+export type OverallPlayerType = 'FIELD' | 'GOALKEEPER' | 'HYBRID'
 
 export const NEUTRAL_OVERALL = 50
 export const MIN_OVERALL = 1
@@ -148,6 +160,19 @@ const GK_CONCEDED_SCALE = 15
 
 /** Rodadas na baliza a partir das quais o número deixa de ser puxado ao neutro. */
 const GK_FULL_MATCHES = 5
+
+/**
+ * Rodadas na baliza a partir das quais alguém que não está inscrito como
+ * guarda-redes passa a ser julgado como um.
+ *
+ * Numa pelada de goleiros rotativos, `is_goalkeeper` na escalação quer dizer
+ * "começou na baliza", não "é guarda-redes". Sem este mínimo, quem jogou uma
+ * única rodada e calhou começar lá passava o teste da metade das rodadas e era
+ * avaliado pela escala da baliza: a nota do grupo e os golos que marcou nessa
+ * mesma rodada caíam da conta. O master prompt diz o contrário — quem começa no
+ * gol e roda continua a marcar, a assistir e a ser avaliado.
+ */
+const GK_MIN_MATCHES = 3
 
 const clamp = (value: number) => Math.min(Math.max(Math.round(value), MIN_OVERALL), MAX_OVERALL)
 
@@ -336,7 +361,12 @@ function keepsGoal(input: OverallInput) {
   const gkMatches = input.gkMatches ?? 0
   // Metade ou mais das rodadas na baliza. Um híbrido que lá esteve uma jornada
   // em dez não é um guarda-redes por causa dessa uma.
-  return gkMatches > 0 && gkMatches * 2 >= input.gamesPlayed
+  if (gkMatches <= 0 || gkMatches * 2 < input.gamesPlayed) return false
+  // Quem a pelada inscreveu como guarda-redes é julgado como tal desde a
+  // primeira rodada — é para isso que serve a inscrição. Para os restantes a
+  // baliza tem de ser hábito e não acaso, senão uma rotação transforma um
+  // avançado em guarda-redes por uma jornada.
+  return input.playerType === 'GOALKEEPER' || gkMatches >= GK_MIN_MATCHES
 }
 
 /**
