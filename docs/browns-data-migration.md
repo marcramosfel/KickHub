@@ -19,8 +19,12 @@ produto e não atravessam o cutover. O acesso passa para Supabase Auth e para o 
 ## Ensaio seguro
 
 1. Fazer backup atual de Postgres e Storage e guardar os hashes no registro da mudança.
-2. Em uma máquina operacional isolada, restaurar o backup e sanitizar nomes, datas de nascimento,
-   fotos e qualquer outro dado pessoal, mantendo chaves e distribuições esportivas.
+2. Em uma máquina operacional isolada, restaurar o backup e escolher o modo de identidade. Por
+   omissão, nomes, datas de nascimento e fotos são substituídos por pseudónimos, mantendo chaves e
+   distribuições esportivas. Com `BROWNS_STAGING_IDENTITIES=real` e `BROWNS_STAGING_CONFIRM=REAL-DATA`,
+   nomes e fotos atravessam como estão — é a única forma de ver o KickHub igual à app original antes
+   do cutover, e transforma o staging num ambiente com dados pessoais. Ver
+   `docs/foundation-gates.md`.
 3. Remover `app_config.admin_pw_hash`, `players.pin_hash`, tokens/hashes de `player_devices` e segredos.
    Onde uma coluna legada `not null` exigir valor, usar um marcador desativado que jamais autentique.
 4. Restaurar **somente a cópia sanitizada** no Supabase staging.
@@ -30,7 +34,8 @@ produto e não atravessam o cutover. O acesso passa para Supabase Auth e para o 
    `BROWNS_MEDIA_MODE=staging-sanitized` e `npm run data:migrate-media`.
 7. Comparar manifestos before/after e fazer smoke test com contas exclusivamente de staging.
 
-Dados e credenciais reais de produção nunca entram no staging.
+Credenciais reais nunca entram no staging, em modo nenhum. Dados pessoais entram apenas quando o
+dono da pelada o pede explicitamente pelas duas variáveis acima.
 
 ## Cutover real
 

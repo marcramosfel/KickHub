@@ -13,8 +13,33 @@ Git.
 4. Registrar data, responsável, project ref e hashes dos artefatos no ticket de mudança.
 
 O backup real permanece no cofre de recuperação e só é restaurado no destino de produção durante o
-cutover aprovado. Nunca copiar utilizadores, fotos, PINs, senha administrativa, tokens ou dados reais
-da produção para staging. Não usar produção como destino de `db reset`, seed ou testes pgTAP.
+cutover aprovado. Não usar produção como destino de `db reset`, seed ou testes pgTAP.
+
+### Identidades no staging
+
+PINs, senha administrativa e tokens de dispositivo **nunca** atravessam para staging, em modo nenhum.
+Não são conteúdo do produto: o acesso ao KickHub passa por Supabase Auth e pelo claim de uso único, e
+uma credencial antiga copiada para outro ambiente é apenas mais um sítio de onde pode fugir.
+
+Nomes e fotos são outra decisão, e é do dono da pelada. O exportador tem dois modos:
+
+| Modo | Nomes e fotos | Quando |
+| --- | --- | --- |
+| `pseudonymized` (omissão) | `Jogador Browns NNN`, sem fotos | Validar lógica, ranking, sorteio, RLS |
+| `real` | como estão na Browns | Ver o KickHub igual à app original antes do cutover |
+
+O modo real exige as duas variáveis, para que ninguém lá caia por engano:
+
+```bash
+BROWNS_STAGING_IDENTITIES=real \
+BROWNS_STAGING_CONFIRM=REAL-DATA \
+npm run data:export-browns-staging
+```
+
+O ficheiro gerado passa a conter nomes e fotos de pessoas reais. É gravado com permissões `0600`,
+`artifacts/` está no `.gitignore`, e deve ser apagado depois de importar. O staging que o recebe passa
+a ser um ambiente com dados pessoais: quem tem acesso ao projeto Supabase de staging passa a ter
+acesso a eles.
 
 ## 2. Comparar schema real e migrations
 

@@ -3,11 +3,33 @@ import path from 'node:path'
 import process from 'node:process'
 import { createClient } from '@supabase/supabase-js'
 import { LEGACY_TABLES, assertServiceRoleKey } from './lib/brownsSnapshot.mjs'
-import { createSanitizedExport, serializeSanitizedExport } from './lib/brownsStagingExport.mjs'
+import { createSanitizedExport, isOmittedTable, serializeSanitizedExport } from './lib/brownsStagingExport.mjs'
 
 const SOURCE_PROJECT_REF = 'gfowkkchpqoirubumnau'
 const SOURCE_URL = `https://${SOURCE_PROJECT_REF}.supabase.co`
-const OMITTED_TABLES = new Set(['match_media', 'player_devices'])
+/**
+ * Por omissao o staging leva pseudonimos e nenhuma foto. O modo real existe
+ * porque so nele o KickHub fica igual a app original antes do cutover, e e uma
+ * decisao do dono da pelada — por isso exige as duas variaveis, e nao uma
+ * flag de linha de comando que se apanha por engano no historico da shell.
+ *
+ * Em qualquer modo, PIN, senha administrativa e tokens de dispositivo ficam
+ * de fora: nao sao conteudo do produto.
+ */
+function identityModeFromEnv() {
+  const requested = process.env.BROWNS_STAGING_IDENTITIES ?? 'pseudonymized'
+  if (requested === 'pseudonymized') return requested
+  if (requested !== 'real') {
+    throw new Error('BROWNS_STAGING_IDENTITIES deve ser pseudonymized ou real.')
+  }
+  if (process.env.BROWNS_STAGING_CONFIRM !== 'REAL-DATA') {
+    throw new Error(
+      'Identidades reais exigem BROWNS_STAGING_CONFIRM=REAL-DATA. '
+      + 'O arquivo passa a conter nomes e fotos de pessoas reais: guarde-o como tal.',
+    )
+  }
+  return requested
+}
 
 function outputPathFromArgs(argv) {
   const outputIndex = argv.indexOf('--output')
@@ -60,13 +82,13 @@ async function readHidden(prompt) {
   })
 }
 
-async function readLegacyTables(supabase) {
+async function readLegacyTables(supabase, identities) {
   const tables = {}
   const counts = {}
   const pageSize = 500
 
   for (const table of LEGACY_TABLES) {
-    if (OMITTED_TABLES.has(table.name)) {
+    if (isOmittedTable(table.name, identities)) {
       const { count, error } = await supabase
         .from(table.name)
         .select('*', { count: 'exact', head: true })
@@ -102,6 +124,7 @@ async function readLegacyTables(supabase) {
 }
 
 async function main() {
+  const identities = identityModeFromEnv()
   const outputPath = outputPathFromArgs(process.argv.slice(2))
   let serviceRoleKey = process.env.BROWNS_SERVICE_ROLE_KEY ?? ''
   if (!serviceRoleKey) {
@@ -115,21 +138,31 @@ async function main() {
   })
   serviceRoleKey = ''
 
-  const source = await readLegacyTables(supabase)
-  process.stdout.write('\nPseudonimizando identidades e removendo dados sensíveis…\n')
+  const source = await readLegacyTables(supabase, identities)
+  process.stdout.write(identities === 'real'
+    ? '\nMantendo identidades e fotos reais; removendo apenas credenciais…\n'
+    : '\nPseudonimizando identidades e removendo dados sensíveis…\n')
   const payload = createSanitizedExport({
     sourceProjectRef: SOURCE_PROJECT_REF,
     sourceTables: source.tables,
     sourceCounts: source.counts,
     generatedAt: new Date().toISOString(),
+    identities,
   })
   process.stdout.write('✓ Sanitização e validação concluídas\n')
 
   await mkdir(path.dirname(outputPath), { recursive: true })
   process.stdout.write('Gravando o arquivo privado…\n')
   await writeFile(outputPath, `${serializeSanitizedExport(payload)}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 })
-  process.stdout.write(`\nBackup sanitizado criado em:\n${outputPath}\n`)
+  process.stdout.write(`\nBackup criado em:\n${outputPath}\n`)
+  process.stdout.write(`Modo de identidade: ${identities}\n`)
   process.stdout.write(`SHA-256 do manifesto: ${payload.sha256}\n`)
+  if (identities === 'real') {
+    process.stdout.write(
+      '\nEste arquivo contém nomes e fotos de pessoas reais. Não o partilhe,\n'
+      + 'não o comite e apague-o depois de importar.\n',
+    )
+  }
 }
 
 main().catch((error) => {

@@ -115,6 +115,14 @@ async function main() {
   const inputPath = inputPathFromArgs(args)
   const backup = validateStagingExport(JSON.parse(await readFile(inputPath, 'utf8')))
   process.stdout.write(`Backup validado: ${backup.tables.players.rows.length} jogadores, SHA-256 ${backup.sha256}\n`)
+  process.stdout.write(`Modo de identidade: ${backup.sanitization.identities}\n`)
+  if (backup.sanitization.identities === 'real') {
+    process.stdout.write(
+      'Este staging vai conter nomes e fotos de pessoas reais.\n'
+      + 'Depois de importar, corra `npm run data:migrate-media` para as fotos\n'
+      + 'saírem das linhas e irem para o bucket privado.\n',
+    )
+  }
 
   let serviceRoleKey = process.env.KICKHUB_STAGING_SERVICE_ROLE_KEY ?? ''
   if (!serviceRoleKey) {
