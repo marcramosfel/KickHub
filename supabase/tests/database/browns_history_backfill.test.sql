@@ -1,6 +1,6 @@
 begin;
 
-select plan(45);
+select plan(49);
 
 select has_function('public', 'backfill_browns_history', array[]::text[], 'backfill Browns existe');
 select has_function('public', 'browns_profile_id', array['uuid'], 'id de profile legado é determinístico');
@@ -27,7 +27,7 @@ insert into public.players (
    'GOALKEEPER', 'GK', null, true, null, '2025-01-03T10:00:00Z'),
   -- Rodou pela baliza numa rodada antiga: ficou registado apenas em
   -- `goalkeeper_match_stats`, sem escalação e sem linha de estatística.
-  ('c5000000-0000-4000-8000-000000000005', 'BR004', 'Davi Legado', 'desativado', true, false, true, null,
+  ('c6000000-0000-4000-8000-000000000006', 'BR004', 'Davi Legado', 'desativado', true, false, true, null,
    'FIELD', 'ST', null, true, null, '2025-01-04T10:00:00Z');
 
 insert into public.ratings (rater_id, target_id, score) values
@@ -66,7 +66,7 @@ insert into public.match_stats (match_id, player_id, team, goals, assists, own_g
 
 insert into public.goalkeeper_match_stats (match_id, goalkeeper_id, team, saves, goals_conceded) values
   ('c4000000-0000-4000-8000-000000000004', 'c3000000-0000-4000-8000-000000000003', 'B', 6, 3),
-  ('c4000000-0000-4000-8000-000000000004', 'c5000000-0000-4000-8000-000000000005', 'A', 4, 2);
+  ('c4000000-0000-4000-8000-000000000004', 'c6000000-0000-4000-8000-000000000006', 'A', 4, 2);
 
 insert into public.post_match_ratings (match_id, rater_id, target_id, stars, created_at, updated_at) values
   ('c4000000-0000-4000-8000-000000000004', 'c1000000-0000-4000-8000-000000000001', 'c2000000-0000-4000-8000-000000000002', 5, '2026-07-10T21:00:00Z', '2026-07-10T21:00:00Z'),
@@ -175,7 +175,7 @@ select results_eq(
     from public.game_lineups lineup
     join public.pelada_memberships member on member.id = lineup.membership_id
     where lineup.game_id = 'c4000000-0000-4000-8000-000000000004'
-      and member.legacy_player_id = 'c5000000-0000-4000-8000-000000000005'$$,
+      and member.legacy_player_id = 'c6000000-0000-4000-8000-000000000006'$$,
   $$values ('A', true)$$,
   'quem só existe em goalkeeper_match_stats ganha escalação com a equipa dele'
 );
@@ -188,7 +188,7 @@ select is(
   (select stat.saves from public.game_player_stats stat
    join public.pelada_memberships member on member.id = stat.membership_id
    where stat.game_id = 'c4000000-0000-4000-8000-000000000004'
-     and member.legacy_player_id = 'c5000000-0000-4000-8000-000000000005'),
+     and member.legacy_player_id = 'c6000000-0000-4000-8000-000000000006'),
   4, 'as defesas dele sobrevivem ao backfill'
 );
 
@@ -260,6 +260,24 @@ select is(
   2, 'cada execução material fica auditada'
 );
 
+-- ------------------------------------------------- reconciliação da identidade
+-- O backfill criava os perfis com `on conflict (id) do nothing`, e por isso uma
+-- segunda importação — com outro modo de identidade, por exemplo — deixava toda
+-- a gente com o nome da primeira.
+
+update public.players set name = 'Bia Renomeada' where id = 'c2000000-0000-4000-8000-000000000002';
+set local role service_role;
+select lives_ok(
+  $$select public.backfill_browns_history()$$,
+  'o backfill volta a correr depois de a origem mudar de nome'
+);
+reset role;
+select is(
+  (select display_name from public.profiles
+   where id = public.browns_profile_id('c2000000-0000-4000-8000-000000000002')),
+  'Bia Renomeada', 'repetir o backfill reconcilia o nome de quem ainda não reclamou'
+);
+
 -- ---------------------------------------------------------- perfil autenticado
 
 insert into auth.users (id, email)
@@ -268,6 +286,21 @@ delete from public.profiles where auth_user_id = 'c5000000-0000-4000-8000-000000
 update public.profiles
 set auth_user_id = 'c5000000-0000-4000-8000-000000000005'
 where id = public.browns_profile_id('c1000000-0000-4000-8000-000000000001');
+
+-- Reclamado o perfil, o nome é da pessoa. Uma nova passagem do backfill não
+-- pode desfazer o que ela escreveu — é a mesma fronteira que o claim desenha.
+update public.players set name = 'Ana Sobrescrita' where id = 'c1000000-0000-4000-8000-000000000001';
+set local role service_role;
+select lives_ok(
+  $$select public.backfill_browns_history()$$,
+  'o backfill corre sem tocar em identidades reclamadas'
+);
+reset role;
+select is(
+  (select display_name from public.profiles
+   where id = public.browns_profile_id('c1000000-0000-4000-8000-000000000001')),
+  'Ana Legado', 'o backfill não sobrescreve o nome de quem já reclamou o perfil'
+);
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"c5000000-0000-4000-8000-000000000005"}';
