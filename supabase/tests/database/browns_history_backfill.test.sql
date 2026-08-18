@@ -69,7 +69,8 @@ insert into public.post_match_ratings (match_id, rater_id, target_id, stars, cre
 
 insert into public.award_votes (match_id, voter_id, craque_id, bagre_id, created_at) values
   ('c4000000-0000-4000-8000-000000000004', 'c1000000-0000-4000-8000-000000000001', 'c2000000-0000-4000-8000-000000000002', 'c2000000-0000-4000-8000-000000000002', '2026-07-10T21:10:00Z'),
-  ('c4000000-0000-4000-8000-000000000004', 'c2000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', '2026-07-10T21:11:00Z');
+  ('c4000000-0000-4000-8000-000000000004', 'c2000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', '2026-07-10T21:11:00Z'),
+  ('c4000000-0000-4000-8000-000000000004', 'c3000000-0000-4000-8000-000000000003', null, 'c1000000-0000-4000-8000-000000000001', '2026-07-10T21:12:00Z');
 
 set local role service_role;
 select lives_ok(
@@ -166,7 +167,7 @@ select is(
 );
 select is(
   (select count(*)::int from public.game_award_votes where game_id = 'c4000000-0000-4000-8000-000000000004'),
-  4, 'cada voto legado virou escolhas de craque e bagre'
+  5, 'escolhas completas e parciais de prÃªmio foram preservadas'
 );
 select is(
   (select count(*)::int from public.game_award_decisions where game_id = 'c4000000-0000-4000-8000-000000000004'),
@@ -194,7 +195,7 @@ select results_eq(
       (select count(*)::int from public.game_player_stats where game_id = 'c4000000-0000-4000-8000-000000000004'),
       (select count(*)::int from public.game_ratings where game_id = 'c4000000-0000-4000-8000-000000000004'),
       (select count(*)::int from public.game_award_votes where game_id = 'c4000000-0000-4000-8000-000000000004')$$,
-  $$values (1, 3, 2, 4)$$,
+  $$values (1, 3, 2, 5)$$,
   'a segunda execução não duplica jogos, stats, avaliações nem votos'
 );
 
