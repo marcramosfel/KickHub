@@ -7,6 +7,12 @@ export type GlobalProfile = {
   username: string | null
   display_name: string
   avatar_path: string | null
+  /**
+   * Preenchido quando `avatar_path` e um objeto no Storage privado, e nao um
+   * URL. E a unica coisa que distingue os dois casos: uma foto vinda do OAuth
+   * chega como `https://…` e nao tem bucket nenhum.
+   */
+  avatar_bucket_id: string | null
   locale: string
   timezone: string
 }
@@ -38,10 +44,25 @@ export function getAuthDisplayName(user: User | null, profile: GlobalProfile | n
   return profile?.display_name || metadataName || user?.email?.split('@')[0] || fallback
 }
 
+/**
+ * Devolve apenas URLs que o browser consegue carregar sozinho. Uma foto no
+ * bucket privado nao e um desses: precisa de assinatura, e quem a mostra usa
+ * `useSignedAvatars` com `getAuthAvatarObject`. Devolver aqui o caminho do
+ * objeto punha um `<img>` a apontar para um caminho que nunca resolve.
+ */
 export function getAuthAvatarUrl(user: User | null, profile?: GlobalProfile | null) {
-  if (profile?.avatar_path) return profile.avatar_path
+  if (profile?.avatar_path && !profile.avatar_bucket_id) return profile.avatar_path
   const value = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture
   return typeof value === 'string' ? value : undefined
+}
+
+/** A foto do proprio no Storage privado, para assinar em lote com as outras. */
+export function getAuthAvatarObject(profile?: GlobalProfile | null) {
+  return {
+    id: profile?.id ?? 'me',
+    path: profile?.avatar_bucket_id ? profile.avatar_path : null,
+    bucket: profile?.avatar_bucket_id ?? null,
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -88,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data } = await supabase
           .from('profiles')
-          .select('id,username,display_name,avatar_path,locale,timezone')
+          .select('id,username,display_name,avatar_path,avatar_bucket_id,locale,timezone')
           .eq('auth_user_id', authUserId)
           .maybeSingle()
 

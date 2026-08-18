@@ -1,6 +1,7 @@
 import { Compass, House, LogOut, Plus, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { getAuthAvatarUrl, getAuthDisplayName, useAuth } from '../lib/auth'
+import { getAuthAvatarObject, getAuthAvatarUrl, getAuthDisplayName, useAuth } from '../lib/auth'
+import { useSignedAvatars } from '../lib/avatars'
 import { LocaleSelect, useI18n } from '../lib/i18n'
 import { Brand } from './Brand'
 import { NotificationBell } from './NotificationBell'
@@ -14,7 +15,9 @@ export function AppShell() {
   const displayName = getAuthDisplayName(user, profile, t('common.player'))
   const username = profile?.username ? `@${profile.username}` : user?.email ?? ''
   const profileSlug = profile?.username ?? user?.id ?? 'perfil'
-  const avatarUrl = getAuthAvatarUrl(user, profile)
+  const storedAvatar = useSignedAvatars([getAuthAvatarObject(profile)])
+  // A foto do Storage manda; a do OAuth fica como recurso quando nao ha nenhuma.
+  const avatarUrl = storedAvatar.get(profile?.id ?? 'me') ?? getAuthAvatarUrl(user, profile)
   const links = [
     { to: '/app', label: t('common.home'), icon: House },
     { to: '/descobrir', label: t('common.discover'), icon: Compass },

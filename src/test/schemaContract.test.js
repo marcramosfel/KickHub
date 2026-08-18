@@ -93,6 +93,12 @@ const hardenedPrivateFunctions = [
   'backfill_browns_content',
   'mark_browns_media_ready',
   'mark_browns_media_failed',
+  // A lista de avatares pendentes devolve o data URL legado para o migrador o
+  // decodificar, e as duas marcações escrevem o caminho no perfil. Nada disto
+  // pertence ao browser: a foto entra pela sessão operacional do cutover.
+  'list_browns_pending_avatars',
+  'mark_browns_avatar_ready',
+  'mark_browns_avatar_failed',
   // Contam os votos de toda a gente para apurar craque e bagre. Ao alcance do
   // cliente devolveriam contagens erradas em silêncio, porque a RLS só lhe
   // mostra os votos próprios; só são alcançáveis de dentro de `get_game_awards`

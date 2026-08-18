@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assertMediaMode, decodeLegacyDataUrl, MAX_MEDIA_BYTES } from '../../scripts/lib/brownsMedia.mjs'
+import { assertMediaMode, avatarObjectPath, decodeLegacyDataUrl, MAX_MEDIA_BYTES } from '../../scripts/lib/brownsMedia.mjs'
 
 describe('migrador de mídia Browns', () => {
   it('exige modo e confirmação explícitos antes de escrever', () => {
@@ -21,5 +21,22 @@ describe('migrador de mídia Browns', () => {
     expect(() => decodeLegacyDataUrl('https://example.test/photo.jpg')).toThrow(/formato/i)
     const oversized = Buffer.alloc(MAX_MEDIA_BYTES + 1).toString('base64')
     expect(() => decodeLegacyDataUrl(`data:image/jpeg;base64,${oversized}`)).toThrow(/tamanho/i)
+  })
+
+  /**
+   * O primeiro segmento do caminho e o dono da foto: e sobre ele que a policy do
+   * Storage decide quem pode ler o objeto. Um caminho que comece por outra coisa
+   * ficaria legivel para toda a gente ou para ninguem.
+   */
+  it('poe o dono da foto no primeiro segmento do caminho', () => {
+    const profileId = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+    expect(avatarObjectPath(profileId, 'image/jpeg')).toBe(`${profileId}/avatar.jpg`)
+    expect(avatarObjectPath(profileId, 'image/webp')).toBe(`${profileId}/avatar.webp`)
+  })
+
+  it('recusa avatar sem perfil valido ou com formato fora da lista', () => {
+    expect(() => avatarObjectPath('nao-e-uuid', 'image/png')).toThrow(/perfil/i)
+    expect(() => avatarObjectPath(null, 'image/png')).toThrow(/perfil/i)
+    expect(() => avatarObjectPath('3f2504e0-4f89-41d3-9a0c-0305e82c3301', 'image/svg+xml')).toThrow(/formato/i)
   })
 })

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,7 +20,8 @@ vi.mock('../lib/player-profile', async (importOriginal) => ({
 
 const data: MyPlayerProfile = {
   profile: {
-    id: 'profile-1', username: 'marcos', displayName: 'Marcos Real', avatarUrl: null, bio: null,
+    id: 'profile-1', username: 'marcos', displayName: 'Marcos Real', avatarUrl: null,
+    avatarPath: null, avatarBucket: null, bio: null,
     countryCode: 'CH', city: 'Zürich', locale: 'pt', timezone: 'Europe/Zurich',
   },
   totals: { peladas: 1, matches: 8, goals: 4, assists: 5, craques: 2 },
@@ -31,7 +33,7 @@ const data: MyPlayerProfile = {
       membershipId: 'member-1', displayName: 'Marcos Real', gamesPlayed: 8, goals: 4, assists: 5, ownGoals: 0,
       saves: 0, wins: 5, draws: 1, losses: 2, isFormer: false, baseRating: 82, postRatingAvg: 4.5,
       postRatingCount: 10, craques: 2, bagres: 0, waeSaldo: .4, waeMatches: 5, currentWinStreak: 2,
-      playerType: 'FIELD',
+      playerType: 'FIELD', avatarPath: null, avatarBucket: null,
       gkMatches: 0, gkSaves: 0, gkConceded: 0, gkCleanSheets: 0, gkWinPoints: 0,
     },
     overall: { overall: 84, provisional: false, parts: [], adjustments: [] },
@@ -39,9 +41,14 @@ const data: MyPlayerProfile = {
 }
 
 function renderPage() {
-  return render(<MemoryRouter initialEntries={['/u/marcos']}><I18nProvider><Routes>
-    <Route path="/u/:username" element={<ProfilePage/>}/>
-  </Routes></I18nProvider></MemoryRouter>)
+  // A página assina a foto do perfil pelo Storage, e isso passa a exigir um
+  // cliente de query — o mesmo que a app inteira já tem em `main.tsx`.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={client}>
+    <MemoryRouter initialEntries={['/u/marcos']}><I18nProvider><Routes>
+      <Route path="/u/:username" element={<ProfilePage/>}/>
+    </Routes></I18nProvider></MemoryRouter>
+  </QueryClientProvider>)
 }
 
 describe('ProfilePage', () => {

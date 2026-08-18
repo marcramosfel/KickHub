@@ -23,6 +23,7 @@ vi.mock('./lib/auth', () => ({
   }),
   getAuthDisplayName: () => 'Marcos',
   getAuthAvatarUrl: () => undefined,
+  getAuthAvatarObject: () => ({ id: 'me', path: null, bucket: null }),
 }))
 
 vi.mock('./lib/peladas', async (importOriginal) => ({

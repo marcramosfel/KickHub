@@ -85,7 +85,7 @@ function ResultForm({ game, initial, onClose, onSaved }: {
   useEffect(() => {
     let active = true
     void listConfirmedPlayers(game.id)
-      .then((players) => {
+      .then(({ players }) => {
         if (!active) return
         const existing = new Map((initial?.players ?? []).map((player) => [player.membershipId, player]))
         setDrafts(players.map((player) => ({

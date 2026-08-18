@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Avatar, Badge, Button, Card } from '../components/ui'
 import { getAuthAvatarUrl, useAuth } from '../lib/auth'
+import { useSignedAvatars } from '../lib/avatars'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useMyPlayerProfile, type MyPlayerProfile, type PlayerProfileCommunity } from '../lib/player-profile'
 import { roleLabel } from '../lib/role-label'
@@ -38,6 +39,11 @@ function RealProfile({ data, avatarFallback }: { data: MyPlayerProfile; avatarFa
   const [notice, setNotice] = useState('')
   const { profile, peladas, totals } = data
   const position = peladas.map((pelada) => pelada.primaryPosition).find(Boolean)
+  // A foto do bucket privado precisa de assinatura; a do OAuth já é um URL e
+  // fica como recurso, tal como as iniciais ficam por baixo das duas.
+  const storedAvatar = useSignedAvatars([
+    { id: profile.id, path: profile.avatarPath, bucket: profile.avatarBucket },
+  ]).get(profile.id)
 
   const share = async () => {
     const url = window.location.href
@@ -54,7 +60,7 @@ function RealProfile({ data, avatarFallback }: { data: MyPlayerProfile; avatarFa
     <Card className="profile-hero">
       <div className="profile-cover"><span>{t('profile.coverLabel')}</span></div>
       <div className="profile-main">
-        <Avatar name={profile.displayName} size="lg" src={profile.avatarUrl ?? avatarFallback}/>
+        <Avatar name={profile.displayName} size="lg" src={storedAvatar ?? profile.avatarUrl ?? avatarFallback}/>
         <div>
           <div className="profile-name"><h1>{profile.displayName}</h1><Badge tone="lime">{t('profile.verified')}</Badge></div>
           <p>@{profile.username}{profile.city || profile.countryCode ? <> · <MapPin/> {[profile.city, profile.countryCode].filter(Boolean).join(', ')}</> : null}</p>

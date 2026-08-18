@@ -1,6 +1,6 @@
 begin;
 
-select plan(41);
+select plan(45);
 
 select has_function('public', 'backfill_browns_history', array[]::text[], 'backfill Browns existe');
 select has_function('public', 'browns_profile_id', array['uuid'], 'id de profile legado é determinístico');
@@ -102,6 +102,30 @@ select is(
   (select count(*)::int from public.pelada_memberships
    where pelada_id = '00000000-0000-4000-8000-000000000101' and legacy_player_id is not null),
   4, 'cada jogador ganhou membership Browns'
+);
+
+-- ------------------------------------------------------------- foto legada
+-- A foto antiga e um `data:image/...`. Guardar isso em `avatar_path` punha
+-- base64 dentro da linha do perfil e servia-o ao browser sem passar pelo bucket
+-- privado; o caminho fica vazio ate `data:migrate-media` fazer o upload.
+select results_eq(
+  $$select avatar_path, avatar_status from public.profiles
+    where id = public.browns_profile_id('c1000000-0000-4000-8000-000000000001')$$,
+  $$values (null::text, 'pending')$$,
+  'quem tinha foto legada fica pendente, sem data URL no perfil'
+);
+select is(
+  (select avatar_status from public.profiles
+   where id = public.browns_profile_id('c2000000-0000-4000-8000-000000000002')),
+  'ready', 'quem nunca teve foto nao fica pendente por nada'
+);
+select is(
+  public.ready_avatar_path('perfil/avatar.png', 'pending'),
+  null, 'uma foto pendente nao e servida meia carregada'
+);
+select is(
+  public.ready_avatar_path('data:image/png;base64,AA==', 'ready'),
+  null, 'um data URL nunca passa por caminho de objeto'
 );
 select is(
   (select role from public.pelada_memberships where legacy_player_id = 'c1000000-0000-4000-8000-000000000001'),

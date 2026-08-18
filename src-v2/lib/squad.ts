@@ -18,6 +18,9 @@ export type SquadMember = {
   acceptsOtherPositions: boolean
   overall: number | null
   isMe: boolean
+  /** Caminho no bucket privado, ou `null` enquanto a foto nao estiver pronta. */
+  avatarPath: string | null
+  avatarBucket: string | null
 }
 
 type MemberRow = {
@@ -31,6 +34,8 @@ type MemberRow = {
   accepts_other_positions: boolean
   overall: number | null
   is_me: boolean
+  avatar_path: string | null
+  avatar_bucket: string | null
 }
 
 const isPosition = (value: unknown): value is Position => positions.includes(value as Position)
@@ -48,6 +53,8 @@ export function toSquadMember(row: MemberRow): SquadMember {
     acceptsOtherPositions: row.accepts_other_positions !== false,
     overall: row.overall === null ? null : Number(row.overall),
     isMe: row.is_me === true,
+    avatarPath: row.avatar_path ?? null,
+    avatarBucket: row.avatar_bucket ?? null,
   }
 }
 

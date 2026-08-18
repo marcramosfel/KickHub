@@ -1,8 +1,9 @@
 import { Check, Shuffle } from 'lucide-react'
 import { useState } from 'react'
-import { Badge, Button, Card } from '../components/ui'
+import { Avatar, Badge, Button, Card } from '../components/ui'
 import { explainSquadOverall } from '../domain/player-overall'
 import { DrawError, generateBalancedTeams, type DrawResult } from '../domain/team-draw'
+import { useSignedAvatars, type AvatarSource } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import type { Game } from '../lib/games'
 import { useI18n, type TranslationKey } from '../lib/i18n'
@@ -24,6 +25,10 @@ export function GameDraw({ game }: { game: Game }) {
   const saved = useGameLineup(game.id, true)
   const save = useLineupMutations(game.id, pelada?.id)
   const [preview, setPreview] = useState<DrawResult | null>(null)
+  // As fotos do pré-sorteio vêm da mesma leitura das presenças; as das equipas
+  // já guardadas vêm da escalação. Assinam-se juntas para não fazer duas voltas
+  // ao Storage quando as duas listas estão no ecrã.
+  const [previewAvatars, setPreviewAvatars] = useState<AvatarSource[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -31,6 +36,12 @@ export function GameDraw({ game }: { game: Game }) {
   const teamSize = teamSizeOf(game)
   const missing = teamSize * 2 - game.confirmedCount
   const savedTeams = saved.data ?? []
+  const avatars = useSignedAvatars([
+    ...previewAvatars,
+    ...savedTeams.map((entry) => ({
+      id: entry.membershipId, path: entry.avatarPath, bucket: entry.avatarBucket,
+    })),
+  ])
 
   const draw = async () => {
     setBusy(true); setError(''); setNotice('')
@@ -42,12 +53,14 @@ export function GameDraw({ game }: { game: Game }) {
       // pelo mesmo overall que o ranking publica. Enquanto usou a nota escrita
       // à mão, o número que decidia as equipas não era o número que a pelada
       // via — a mesma jogadora valia 82 aqui e 53 na tabela.
-      const [players, settings, ranking] = await Promise.all([
+      const [attendance, settings, ranking] = await Promise.all([
         listConfirmedPlayers(game.id),
         pelada ? getPeladaSettings(pelada.id) : Promise.resolve(null),
         pelada ? getPeladaRanking(pelada.id) : Promise.resolve([]),
       ])
       // Duas passagens, como no plantel: os títulos dependem do plantel inteiro.
+      const { players, avatars } = attendance
+      setPreviewAvatars(avatars)
       const overallByMember = explainSquadOverall(ranking)
       // A semente inclui a hora para que voltar a sortear dê equipas novas; a
       // semente usada fica gravada, portanto o resultado continua reproduzível.
@@ -112,6 +125,7 @@ export function GameDraw({ game }: { game: Game }) {
                 <ol>
                   {team.players.map((player) => (
                     <li key={player.id}>
+                      <Avatar name={player.name} size="sm" src={avatars.get(player.id)}/>
                       <span>{player.name}</span>
                       {player.isGoalkeeper ? <Badge tone="blue">{t('games.goalkeeperShort')}</Badge> : null}
                       <b title={player.estimatedOverall ? t('games.estimatedOverall') : undefined}>
@@ -136,13 +150,13 @@ export function GameDraw({ game }: { game: Game }) {
           </div>
         </>
       ) : savedTeams.length > 0 ? (
-        <SavedTeams entries={savedTeams}/>
+        <SavedTeams entries={savedTeams} avatars={avatars}/>
       ) : null}
     </div>
   )
 }
 
-function SavedTeams({ entries }: { entries: LineupEntry[] }) {
+function SavedTeams({ entries, avatars }: { entries: LineupEntry[]; avatars: Map<string, string> }) {
   const { t, formatNumber } = useI18n()
   const teams: Array<'A' | 'B'> = ['A', 'B']
   return (
@@ -159,6 +173,7 @@ function SavedTeams({ entries }: { entries: LineupEntry[] }) {
             <ol>
               {players.map((entry) => (
                 <li key={entry.membershipId}>
+                  <Avatar name={entry.displayName} size="sm" src={avatars.get(entry.membershipId)}/>
                   <span>{entry.displayName}</span>
                   {entry.isGoalkeeper ? <Badge tone="blue">{t('games.goalkeeperShort')}</Badge> : null}
                   <b title={entry.overallEstimated ? t('games.estimatedOverall') : undefined}>

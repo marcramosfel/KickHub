@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { DrawPlayer, DrawResult } from '../domain/team-draw'
+import type { AvatarSource } from './avatars'
 import { isSupabaseConfigured, supabase } from './supabase'
 import type { PlayerType, Position } from './squad'
 
@@ -10,6 +11,9 @@ export type LineupEntry = {
   isGoalkeeper: boolean
   overallAtDraw: number
   overallEstimated: boolean
+  /** Caminho no bucket privado, ou `null` enquanto a foto nao estiver pronta. */
+  avatarPath: string | null
+  avatarBucket: string | null
 }
 
 type AttendanceRow = {
@@ -21,6 +25,8 @@ type AttendanceRow = {
   primary_position: string | null
   secondary_position: string | null
   accepts_other_positions: boolean
+  avatar_path: string | null
+  avatar_bucket: string | null
 }
 
 type LineupRow = {
@@ -30,6 +36,8 @@ type LineupRow = {
   is_goalkeeper: boolean
   overall_at_draw: number
   overall_estimated: boolean
+  avatar_path: string | null
+  avatar_bucket: string | null
 }
 
 export function toDrawPlayer(row: AttendanceRow): DrawPlayer {
@@ -52,7 +60,17 @@ export function toLineupEntry(row: LineupRow): LineupEntry {
     isGoalkeeper: row.is_goalkeeper === true,
     overallAtDraw: Number(row.overall_at_draw),
     overallEstimated: row.overall_estimated === true,
+    avatarPath: row.avatar_path ?? null,
+    avatarBucket: row.avatar_bucket ?? null,
   }
+}
+
+/**
+ * A foto anda ao lado do jogador, nao dentro dele: `DrawPlayer` e um tipo de
+ * dominio e o sorteio nao tem nada que saber de buckets.
+ */
+export function toAvatarSource(row: { membership_id: string; avatar_path: string | null; avatar_bucket: string | null }): AvatarSource {
+  return { id: row.membership_id, path: row.avatar_path ?? null, bucket: row.avatar_bucket ?? null }
 }
 
 /** Converte o resultado do domínio no formato que a RPC aceita. */
@@ -69,9 +87,8 @@ export function toLineupPayload(result: DrawResult) {
 export async function listConfirmedPlayers(gameId: string) {
   const { data, error } = await supabase.rpc('list_game_attendance', { p_game_id: gameId })
   if (error) throw error
-  return ((data ?? []) as AttendanceRow[])
-    .filter((row) => row.status === 'confirmed')
-    .map(toDrawPlayer)
+  const confirmed = ((data ?? []) as AttendanceRow[]).filter((row) => row.status === 'confirmed')
+  return { players: confirmed.map(toDrawPlayer), avatars: confirmed.map(toAvatarSource) }
 }
 
 export async function getGameLineup(gameId: string) {

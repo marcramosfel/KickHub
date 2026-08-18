@@ -1,6 +1,7 @@
 import { ShieldCheck, Trophy } from 'lucide-react'
-import { Badge, Card, EmptyState } from '../components/ui'
+import { Avatar, Badge, Card, EmptyState } from '../components/ui'
 import { explainSquadOverall } from '../domain/player-overall'
+import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n } from '../lib/i18n'
 import { contribution, usePeladaRanking, usePeladaTotals, winRate, type RankingRow } from '../lib/ranking'
@@ -66,6 +67,9 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
   // Duas passagens: os títulos dependem de comparar o plantel inteiro, portanto
   // o overall de uma linha não se calcula a partir dessa linha sozinha.
   const overallByMember = explainSquadOverall(rows)
+  const avatars = useSignedAvatars(rows.map((row) => ({
+    id: row.membershipId, path: row.avatarPath, bucket: row.avatarBucket,
+  })))
   return (
     <table className="ranking-table">
       <thead>
@@ -90,6 +94,7 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
             <tr key={row.membershipId}>
               <td>{formatNumber(index + 1)}</td>
               <th scope="row">
+                <Avatar name={row.displayName} size="sm" src={avatars.get(row.membershipId)}/>
                 <strong><PlayerName row={row}/></strong>
                 <small>{rate === null
                   ? t('ranking.noDecided')

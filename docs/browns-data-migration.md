@@ -56,8 +56,22 @@ BROWNS_MEDIA_CONFIRM=UPLOAD \
 npm run data:migrate-media
 ```
 
-O migrador valida MIME e tamanho, calcula SHA-256, faz upload idempotente e só então marca cada
-objeto como `ready`. Fotos pendentes ou falhadas nunca aparecem no feed.
+O migrador trata duas famílias de imagens no mesmo passo:
+
+- **fotos de jogo**, de `match_media` para `game_media` no bucket `game-media`;
+- **fotos de jogador**, de `players.photo_url` para o bucket privado `player-avatars`.
+
+Em ambas valida MIME e tamanho, calcula SHA-256, faz upload idempotente e só então marca cada objeto
+como `ready`. Fotos pendentes ou falhadas nunca aparecem no feed nem no plantel.
+
+O backfill **não** copia a foto legada para `profiles.avatar_path`: um `data:image/...` guardado ali
+seria base64 dentro da linha do perfil, servido ao browser sem passar por Storage nenhum. O perfil
+fica `avatar_status = 'pending'` sem caminho, e só este migrador o promove a `ready`. Enquanto isso,
+o plantel mostra as iniciais.
+
+O caminho de cada avatar é `<profile_id>/avatar.<ext>`. O primeiro segmento não é decoração: é sobre
+ele que a policy do Storage decide quem pode ler o objeto — só quem partilha uma pelada ativa com o
+dono da foto.
 
 7. Conferir os JSONs devolvidos. A própria função aborta se jogadores/jogos, gols, assistências,
    avaliações ou votos não reconciliarem.

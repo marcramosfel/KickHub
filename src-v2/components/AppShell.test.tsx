@@ -13,6 +13,7 @@ vi.mock('../lib/auth', () => ({
   useAuth: () => ({ user: shellMocks.user, profile: { display_name: 'Marcos', username: 'marcos' }, signOut: vi.fn() }),
   getAuthDisplayName: () => 'Marcos',
   getAuthAvatarUrl: () => undefined,
+  getAuthAvatarObject: () => ({ id: 'me', path: null, bucket: null }),
 }))
 
 vi.mock('../lib/supabase', () => ({

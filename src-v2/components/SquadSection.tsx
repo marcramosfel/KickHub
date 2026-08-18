@@ -2,6 +2,7 @@ import { Check, Pencil, ShieldCheck, UserMinus, UsersRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Avatar, Badge, Button, Card, EmptyState } from '../components/ui'
 import { computePlayerOverall, explainSquadOverall, isProvisional, type OverallBreakdown } from '../domain/player-overall'
+import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useRemoveMember, useSetMemberRole } from '../lib/pelada-admin'
@@ -30,6 +31,11 @@ export function SquadSection() {
   const [notice, setNotice] = useState('')
 
   const members = squad.data ?? []
+  // Uma assinatura por plantel, nao uma por cartao: trinta jogadores seriam
+  // trinta pedidos ao Storage se cada `<Avatar>` se assinasse a si mesmo.
+  const avatars = useSignedAvatars(members.map((member) => ({
+    id: member.membershipId, path: member.avatarPath, bucket: member.avatarBucket,
+  })))
 
   return (
     <div className="squad-section">
@@ -57,6 +63,7 @@ export function SquadSection() {
               editing={editing === member.membershipId}
               breakdown={overallByMember.get(member.membershipId)}
               overallPending={ranking.isPending}
+              avatarUrl={avatars.get(member.membershipId)}
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
@@ -75,6 +82,7 @@ export function SquadSection() {
               editing={editing === member.membershipId}
               breakdown={overallByMember.get(member.membershipId)}
               overallPending={ranking.isPending}
+              avatarUrl={avatars.get(member.membershipId)}
               onEdit={() => { setEditing(member.membershipId); setNotice('') }}
               onClose={() => setEditing('')}
               onSaved={(name) => { setEditing(''); setNotice(t('squad.savedNotice', { name })) }}
@@ -129,12 +137,14 @@ function explainTitle(breakdown: OverallBreakdown, t: (key: TranslationKey) => s
   ].join(' · ')
 }
 
-function MemberCard({ member, canAdmin, editing, breakdown, overallPending, onEdit, onClose, onSaved, onDone }: {
+function MemberCard({ member, canAdmin, editing, breakdown, overallPending, avatarUrl, onEdit, onClose, onSaved, onDone }: {
   member: SquadMember
   canAdmin: boolean
   editing: boolean
   breakdown: OverallBreakdown | undefined
   overallPending: boolean
+  /** Ausente enquanto a assinatura nao chega, ou se a foto nao existe. */
+  avatarUrl: string | undefined
   onEdit: () => void
   onClose: () => void
   onSaved: (name: string) => void
@@ -148,7 +158,7 @@ function MemberCard({ member, canAdmin, editing, breakdown, overallPending, onEd
 
   return (
     <Card className="squad-card">
-      <Avatar name={member.displayName} size="md"/>
+      <Avatar name={member.displayName} size="md" src={avatarUrl}/>
       <div className="squad-identity">
         <strong>{member.displayName}{member.isMe ? <span className="squad-you">{t('squad.you')}</span> : null}</strong>
         <small>{member.username ? `@${member.username} · ` : ''}{roleLabel(member.role, t)}</small>

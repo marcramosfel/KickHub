@@ -7,7 +7,11 @@ export type PlayerProfileIdentity = {
   id: string
   username: string
   displayName: string
+  /** URL directo — só existe quando a foto não vive no bucket privado. */
   avatarUrl: string | null
+  /** Caminho e bucket quando vive: aí precisa de assinatura antes de aparecer. */
+  avatarPath: string | null
+  avatarBucket: string | null
   bio: string | null
   countryCode: string | null
   city: string | null
@@ -102,7 +106,9 @@ export function toMyPlayerProfile(value: unknown): MyPlayerProfile {
       id: asString(profile.id),
       username: asString(profile.username),
       displayName: asString(profile.display_name, 'Jogador'),
-      avatarUrl: asNullableString(profile.avatar_path),
+      avatarUrl: asNullableString(profile.avatar_bucket_id) ? null : asNullableString(profile.avatar_path),
+      avatarPath: asNullableString(profile.avatar_bucket_id) ? asNullableString(profile.avatar_path) : null,
+      avatarBucket: asNullableString(profile.avatar_bucket_id),
       bio: asNullableString(profile.bio),
       countryCode: asNullableString(profile.country_code),
       city: asNullableString(profile.city),

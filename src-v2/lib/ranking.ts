@@ -39,6 +39,9 @@ export type RankingRow = {
    * que distingue o guarda-redes de quem apenas começou a rodada na baliza.
    */
   playerType: OverallPlayerType | null
+  /** Caminho no bucket privado, ou `null` enquanto a foto nao estiver pronta. */
+  avatarPath: string | null
+  avatarBucket: string | null
   /** O que fez nas rodadas em que foi escalado como guarda-redes. */
   gkMatches: number
   gkSaves: number
@@ -95,6 +98,8 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     waeMatches: toNumber(row.wae_matches),
     currentWinStreak: toNumber(row.current_win_streak),
     playerType: toPlayerType(row.player_type),
+    avatarPath: typeof row.avatar_path === 'string' && row.avatar_path ? row.avatar_path : null,
+    avatarBucket: typeof row.avatar_bucket === 'string' && row.avatar_bucket ? row.avatar_bucket : null,
     gkMatches: toNumber(row.gk_matches),
     gkSaves: toNumber(row.gk_saves),
     gkConceded: toNumber(row.gk_conceded),
