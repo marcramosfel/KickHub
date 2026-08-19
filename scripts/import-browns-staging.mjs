@@ -64,21 +64,32 @@ async function exactCount(supabase, tableName) {
   return count ?? 0
 }
 
-async function importTable(supabase, table, rows, allowResume) {
+async function importTable(supabase, table, rows, allowResume, overwrite) {
   if (rows.length === 0) {
     process.stdout.write(`– ${table.name}: sem linhas exportáveis\n`)
     return
   }
 
   const currentCount = await exactCount(supabase, table.name)
-  if (table.name === 'match_activity' && currentCount === rows.length) {
-    process.stdout.write(`= ${table.name}: já importada (${currentCount})\n`)
-    return
-  }
-  if (table.name === 'match_activity' && currentCount !== 0) {
-    throw new Error(`match_activity tem ${currentCount} linhas; a carga identity não pode ser retomada parcialmente.`)
-  }
-  if (!allowResume && table.name !== 'app_config' && currentCount !== 0 && currentCount !== rows.length) {
+
+  // `match_activity` tem chave gerada, portanto não há upsert que a case com
+  // o que já lá está: reimportar por cima só faz sentido apagando primeiro.
+  // Sem `--overwrite` é intocável, porque a contagem igual não garante que o
+  // conteúdo seja o mesmo — trocar o modo de identidade muda o texto e deixa
+  // a contagem exatamente onde estava.
+  if (table.name === 'match_activity') {
+    if (overwrite && currentCount !== 0) {
+      const { error } = await supabase.from(table.name).delete().gte('id', 0)
+      if (error) throw new Error(`${table.name}: falha ao limpar antes de reimportar (${error.message})`)
+      process.stdout.write(`~ ${table.name}: ${currentCount} linha(s) substituída(s)\n`)
+    } else if (currentCount === rows.length) {
+      process.stdout.write(`= ${table.name}: já importada (${currentCount})\n`)
+      return
+    } else if (currentCount !== 0) {
+      throw new Error(`match_activity tem ${currentCount} linhas; a carga identity não pode ser retomada parcialmente.`)
+    }
+  } else if (!allowResume && !overwrite && table.name !== 'app_config'
+    && currentCount !== 0 && currentCount !== rows.length) {
     throw new Error(`${table.name} já contém ${currentCount} linhas. Revise o staging antes de usar --resume.`)
   }
 
@@ -96,8 +107,16 @@ async function importTable(supabase, table, rows, allowResume) {
   }
 
   const finalCount = await exactCount(supabase, table.name)
-  if (finalCount !== rows.length) {
+  // Com `--overwrite` o destino pode ficar com linhas a mais: as que existiam
+  // antes e que esta exportação já não traz. O upsert cobre tudo o que veio;
+  // ficar a menos é que seria perda silenciosa.
+  if (overwrite ? finalCount < rows.length : finalCount !== rows.length) {
     throw new Error(`${table.name}: destino terminou com ${finalCount}, esperado ${rows.length}.`)
+  }
+  if (overwrite && finalCount > rows.length) {
+    process.stdout.write(
+      `! ${table.name}: ${finalCount - rows.length} linha(s) no destino que esta exportação não traz\n`,
+    )
   }
   process.stdout.write(`✓ ${table.name}: ${finalCount} linha(s)\n`)
 }
@@ -140,7 +159,10 @@ async function main() {
   if (destinationError) throw new Error(`A chave não pertence ao KickHub staging: ${destinationError.message}`)
 
   for (const table of LEGACY_TABLES) {
-    await importTable(supabase, table, backup.tables[table.name].rows, args.includes('--resume'))
+    await importTable(
+      supabase, table, backup.tables[table.name].rows,
+      args.includes('--resume'), args.includes('--overwrite'),
+    )
   }
 
   process.stdout.write('\nExecutando projeção multi-pelada…\n')

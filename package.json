@@ -22,6 +22,7 @@
     "data:compare": "node scripts/compare-browns-snapshots.mjs",
     "data:export-browns-staging": "node scripts/export-browns-staging.mjs",
     "data:import-browns-staging": "node scripts/import-browns-staging.mjs",
+    "data:refresh-browns-staging": "node scripts/refresh-browns-staging.mjs",
     "data:migrate-media": "node scripts/migrate-browns-media.mjs",
     "schema:dump:linked": "node scripts/schema-gate.mjs dump",
     "schema:diff:linked": "node scripts/schema-gate.mjs diff"

@@ -41,6 +41,26 @@ O ficheiro gerado passa a conter nomes e fotos de pessoas reais. É gravado com 
 a ser um ambiente com dados pessoais: quem tem acesso ao projeto Supabase de staging passa a ter
 acesso a eles.
 
+### Recarregar o staging de uma vez
+
+Os quatro passos — exportar, importar, projetar e migrar as fotos — têm de acontecer por esta ordem, e
+nenhum deles serve sozinho. Uma importação sem a migração de mídia deixa as fotos como
+`data:image/...` dentro das linhas e o plantel continua a mostrar iniciais.
+
+```bash
+BROWNS_SERVICE_ROLE_KEY=... KICKHUB_STAGING_SERVICE_ROLE_KEY=... BROWNS_STAGING_IDENTITIES=real BROWNS_STAGING_CONFIRM=REAL-DATA npm run data:refresh-browns-staging
+```
+
+O script recusa arrancar se o staging ainda não tiver as migrations aplicadas — falhar antes de
+escrever custa nada, falhar a meio custa uma limpeza à mão. O arquivo intermédio vive num diretório
+temporário fora do repositório e é apagado no fim, com ou sem falha. As chaves vêm do ambiente e não
+são escritas em lado nenhum.
+
+A reimportação usa `--overwrite`: os upserts reescrevem cada linha pela chave dela, e `match_activity`
+— que tem chave gerada e não casa por upsert — é limpa antes de recarregar. Nada é truncado. Um
+`truncate` em `public.players` arrastaria `pelada_memberships` inteira pela restrição
+`pelada_memberships_legacy_player_id_fkey`, levando com ela as outras peladas do staging.
+
 ## 2. Comparar schema real e migrations
 
 Vincule conscientemente este checkout ao projeto de staging e defina
