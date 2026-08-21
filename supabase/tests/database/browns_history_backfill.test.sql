@@ -66,7 +66,10 @@ insert into public.match_stats (match_id, player_id, team, goals, assists, own_g
 
 insert into public.goalkeeper_match_stats (match_id, goalkeeper_id, team, saves, goals_conceded) values
   ('c4000000-0000-4000-8000-000000000004', 'c3000000-0000-4000-8000-000000000003', 'B', 6, 3),
-  ('c4000000-0000-4000-8000-000000000004', 'c6000000-0000-4000-8000-000000000006', 'A', 4, 2);
+  -- Sem equipa registada, como a unica rodada da Browns em que isto acontece.
+  -- Sofreu 2 e o placar foi 3-2, logo guardava a baliza de A. Dar-lhe equipa
+  -- aqui era reproduzir a forma do problema e nao o problema.
+  ('c4000000-0000-4000-8000-000000000004', 'c6000000-0000-4000-8000-000000000006', null, 4, 2);
 
 insert into public.post_match_ratings (match_id, rater_id, target_id, stars, created_at, updated_at) values
   ('c4000000-0000-4000-8000-000000000004', 'c1000000-0000-4000-8000-000000000001', 'c2000000-0000-4000-8000-000000000002', 5, '2026-07-10T21:00:00Z', '2026-07-10T21:00:00Z'),
@@ -177,7 +180,7 @@ select results_eq(
     where lineup.game_id = 'c4000000-0000-4000-8000-000000000004'
       and member.legacy_player_id = 'c6000000-0000-4000-8000-000000000006'$$,
   $$values ('A', true)$$,
-  'quem só existe em goalkeeper_match_stats ganha escalação com a equipa dele'
+  'a equipa sai dos golos sofridos quando o legado não a registou'
 );
 select is(
   (select count(*)::int from public.game_lineups lineup
