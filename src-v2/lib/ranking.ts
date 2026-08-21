@@ -34,6 +34,8 @@ export type RankingRow = {
   waeMatches: number
   /** Vitórias seguidas até agora. Zero é um facto. */
   currentWinStreak: number
+  /** Maior sequência sem perder de sempre. É um recorde, não um estado. */
+  bestUnbeatenStreak: number
   /**
    * O que a pelada o inscreveu para ser. Numa pelada de goleiros rotativos é o
    * que distingue o guarda-redes de quem apenas começou a rodada na baliza.
@@ -98,6 +100,7 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     waeSaldo: toOptionalNumber(row.wae_saldo),
     waeMatches: toNumber(row.wae_matches),
     currentWinStreak: toNumber(row.current_win_streak),
+    bestUnbeatenStreak: toNumber(row.best_unbeaten_streak),
     playerType: toPlayerType(row.player_type),
     avatarPath: typeof row.avatar_path === 'string' && row.avatar_path ? row.avatar_path : null,
     avatarBucket: typeof row.avatar_bucket === 'string' && row.avatar_bucket ? row.avatar_bucket : null,

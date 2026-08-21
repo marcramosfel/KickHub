@@ -32,7 +32,7 @@ const data: MyPlayerProfile = {
     stats: {
       membershipId: 'member-1', displayName: 'Marcos Real', gamesPlayed: 8, goals: 4, assists: 5, ownGoals: 0,
       saves: 0, wins: 5, draws: 1, losses: 2, isFormer: false, baseRating: 82, postRatingAvg: 4.5,
-      postRatingCount: 10, craques: 2, bagres: 0, waeSaldo: .4, waeMatches: 5, currentWinStreak: 2,
+      postRatingCount: 10, craques: 2, bagres: 0, waeSaldo: .4, waeMatches: 5, currentWinStreak: 2, bestUnbeatenStreak: 4,
       playerType: 'FIELD', avatarPath: null, avatarBucket: null,
       gkMatches: 0, gkSaves: 0, gkConceded: 0, gkCleanSheets: 0, gkWins: 0,
     },

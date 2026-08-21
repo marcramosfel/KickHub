@@ -101,10 +101,34 @@ const WAE_MIN_JOGOS = 5
 
 const CRAQUE_BONUS = 9
 const BAGRE_PENALTY = 4
-const BONUS_TITULO = 1
+
+/**
+ * Os títulos valem por escalão. Ouro são os cinco que o grupo realmente disputa
+ * e que qualquer pessoa verifica de cabeça olhando para a tabela; prata mede
+ * constância — não basta ter feito muito, é preciso tê-lo feito seguido; bronze
+ * é o resto.
+ */
+const BONUS_TITULO = { ouro: 3, prata: 2, bronze: 1 } as const
+
+/**
+ * Tecto do total dos títulos.
+ *
+ * Somados sem tecto, os escalões dariam +37 num plantel dominante — mais de um
+ * terço da escala inteira — e o overall deixava de dizer "quanto vales" para
+ * dizer "quantas listas lideras". Com o tecto igual ao do craque, o título
+ * continua a ser medalha e não uma segunda dose do desempenho.
+ */
+const TETO_TITULOS = 9
 
 /** Vitórias seguidas a partir das quais a marca se ganha. */
 const WIN_STREAK_TITLE = 3
+
+/**
+ * Rodadas abaixo das quais um jogador não é candidato aos títulos que medem uma
+ * taxa. Não é "candidato com nota baixa": não é candidato de todo, senão quem
+ * ganhou o único jogo que disputou tinha 100% de aproveitamento.
+ */
+const JOGOS_MINIMOS = 3
 
 /**
  * Escala do guarda-redes. As defesas pesam mais porque são a parte quase
@@ -148,7 +172,31 @@ export type OverallAdjustment = {
 }
 
 export type TitleKey =
-  | 'topScorer' | 'topAssists' | 'mostWins' | 'mostCraques' | 'mostGames' | 'winStreak'
+  // 🥇 ouro, +3
+  | 'topScorer' | 'topAssists' | 'mostWins' | 'mostCraques' | 'mostGames'
+  // 🥈 prata, +2
+  | 'winStreak' | 'accuracy' | 'unbeaten'
+  // 🥉 bronze, +1
+  | 'wall' | 'saves'
+
+export const TITLE_TIER: Readonly<Record<TitleKey, keyof typeof BONUS_TITULO>> = {
+  topScorer: 'ouro',
+  topAssists: 'ouro',
+  mostWins: 'ouro',
+  mostCraques: 'ouro',
+  mostGames: 'ouro',
+  winStreak: 'prata',
+  accuracy: 'prata',
+  unbeaten: 'prata',
+  wall: 'bronze',
+  saves: 'bronze',
+}
+
+/** O que os títulos deste jogador valem, já com o tecto aplicado. */
+export function titleBonus(titles: readonly TitleKey[] | undefined) {
+  const total = (titles ?? []).reduce((sum, key) => sum + BONUS_TITULO[TITLE_TIER[key]], 0)
+  return Math.min(total, TETO_TITULOS)
+}
 
 export type OverallBreakdown = {
   overall: number
@@ -160,14 +208,43 @@ export type OverallBreakdown = {
   version: 1 | 2
 }
 
-/** O que cada título mede. Nunca o overall — ver `computeTitles`. */
-const TITLE_METRICS: ReadonlyArray<{ key: TitleKey; of: (row: TitleInput) => number }> = [
+/**
+ * O que cada título mede. Nunca o overall nem outros títulos: se medisse, o
+ * número passava a depender da ordem por que fossem calculados.
+ *
+ * `eligible` existe para os títulos que medem uma taxa. Quem não chega ao mínimo
+ * de rodadas não entra sequer na comparação — não é candidato com nota baixa.
+ */
+const TITLE_METRICS: ReadonlyArray<{
+  key: TitleKey
+  of: (row: TitleInput) => number
+  eligible?: (row: TitleInput) => boolean
+}> = [
   { key: 'topScorer', of: (row) => row.goals },
   { key: 'topAssists', of: (row) => row.assists },
   { key: 'mostWins', of: (row) => row.wins },
   { key: 'mostCraques', of: (row) => row.craques ?? 0 },
   { key: 'mostGames', of: (row) => row.gamesPlayed },
+  // Aproveitamento: três pontos por vitória, um por empate, sobre o total
+  // possível. É a mesma conta do card, e por isso pede o mínimo de rodadas.
+  {
+    key: 'accuracy',
+    of: (row) => row.gamesPlayed > 0
+      ? (3 * row.wins + (row.draws ?? 0)) / (3 * row.gamesPlayed)
+      : 0,
+    eligible: (row) => row.gamesPlayed >= JOGOS_MINIMOS,
+  },
+  { key: 'unbeaten', of: (row) => row.bestUnbeatenStreak ?? 0 },
+  { key: 'wall', of: (row) => row.gkCleanSheets ?? 0 },
+  { key: 'saves', of: (row) => row.saves ?? 0 },
 ]
+
+/**
+ * Comparar taxas por igualdade exacta faria dois aproveitamentos idênticos
+ * parecerem diferentes por um bit. O empate premeia todos, e é preciso conseguir
+ * reconhecê-lo.
+ */
+const SAME_VALUE = 1e-9
 
 export type TitleInput = {
   membershipId: string
@@ -175,8 +252,13 @@ export type TitleInput = {
   goals: number
   assists: number
   wins: number
+  draws?: number
   craques?: number
   currentWinStreak?: number
+  /** Maior sequência sem perder. Vem do servidor: depende da ordem dos jogos. */
+  bestUnbeatenStreak?: number
+  gkCleanSheets?: number
+  saves?: number
 }
 
 /**
@@ -260,7 +342,7 @@ function awardRate(times: number | undefined, gamesPlayed: number) {
 function adjustmentsOf(input: OverallInput): OverallAdjustment[] {
   const craque = awardRate(input.craques, input.gamesPlayed) * CRAQUE_BONUS
   const bagre = awardRate(input.bagres, input.gamesPlayed) * BAGRE_PENALTY
-  const titles = (input.titles?.length ?? 0) * BONUS_TITULO
+  const titles = titleBonus(input.titles)
   return [
     ...(craque > 0 ? [{ key: 'craque' as const, points: craque }] : []),
     ...(bagre > 0 ? [{ key: 'bagre' as const, points: -bagre }] : []),
@@ -286,9 +368,14 @@ export function computeTitles(rows: readonly TitleInput[]): Map<string, TitleKey
   const add = (membershipId: string, key: TitleKey) => titles.get(membershipId)?.push(key)
 
   for (const metric of TITLE_METRICS) {
-    const best = rows.reduce((max, row) => Math.max(max, metric.of(row)), 0)
+    const candidates = rows.filter((row) => metric.eligible?.(row) ?? true)
+    const best = candidates.reduce((max, row) => Math.max(max, metric.of(row)), 0)
+    // Um título só existe se alguém tiver mais do que zero: não há artilheiro
+    // numa pelada sem golos nem Muralha numa pelada sem jogos sem sofrer.
     if (best <= 0) continue
-    for (const row of rows) if (metric.of(row) === best) add(row.membershipId, metric.key)
+    for (const row of candidates) {
+      if (Math.abs(metric.of(row) - best) < SAME_VALUE) add(row.membershipId, metric.key)
+    }
   }
 
   for (const row of rows) {
@@ -373,7 +460,9 @@ function goalkeeperOverall(input: OverallInput): OverallBreakdown | null {
   // A confiança impede que uma rodada de sorte, ou de azar, mande alguém para o
   // topo ou para o fundo.
   const confidence = Math.min(matches / GK_FULL_MATCHES, 1)
-  const titles = (input.titles?.length ?? 0) * BONUS_TITULO
+  // O guarda-redes leva os títulos como toda a gente: quem mais jogou jogou mais
+  // do que o plantel inteiro, e a medalha é do grupo, não da fórmula de campo.
+  const titles = titleBonus(input.titles)
   const adjustments: OverallAdjustment[] = titles > 0 ? [{ key: 'titles', points: titles }] : []
 
   return {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computePlayerOverall, computeTitles, contributionPerGame, explainOverall,
   explainSquadOverall, isPostRatingProvisional, isProvisional, isWaeProvisional,
-  leagueConcededPerGame, pesosDaTransicao, MAX_OVERALL, MIN_OVERALL,
+  leagueConcededPerGame, pesosDaTransicao, titleBonus, MAX_OVERALL, MIN_OVERALL,
   type OverallInput, type TitleInput,
 } from './player-overall'
 
@@ -207,11 +207,12 @@ describe('prémios e títulos', () => {
     expect(bagre.adjustments[0].points).toBe(-4)
   })
 
-  it('dá um ponto por título', () => {
+  /** Dois títulos de ouro são +3 cada; os escalões estão em `TITLE_TIER`. */
+  it('paga cada título pelo escalão, e não um ponto por cabeça', () => {
     const breakdown = explainOverall(player({
       gamesPlayed: 2, goals: 2, baseRating: 50, titles: ['topScorer', 'mostWins'],
     }))!
-    expect(breakdown.adjustments).toEqual([{ key: 'titles', points: 2 }])
+    expect(breakdown.adjustments).toEqual([{ key: 'titles', points: 6 }])
   })
 
   /** Se as parcelas e os extras não somam ao total, o painel está errado. */
@@ -419,5 +420,110 @@ describe('limites e sinalização', () => {
     expect(isProvisional(player({
       gamesPlayed: 1, goals: 1, baseRating: 60, postRatingAvg: 4, postRatingCount: 1,
     }))).toBe(false)
+  })
+})
+
+describe('escalões dos títulos', () => {
+  const squad = (overrides: Array<Partial<TitleInput> & { membershipId: string }>) =>
+    overrides.map((row) => ({
+      gamesPlayed: 3, goals: 0, assists: 0, wins: 0, draws: 0, craques: 0,
+      currentWinStreak: 0, bestUnbeatenStreak: 0, gkCleanSheets: 0, saves: 0, ...row,
+    }))
+
+  /** Ouro +3, prata +2, bronze +1. */
+  it('paga cada título pelo escalão dele', () => {
+    const ouro = explainOverall(player({
+      gamesPlayed: 2, goals: 2, baseRating: 50, titles: ['topScorer'],
+    }))!
+    expect(ouro.adjustments).toEqual([{ key: 'titles', points: 3 }])
+
+    const prata = explainOverall(player({
+      gamesPlayed: 2, goals: 2, baseRating: 50, titles: ['unbeaten'],
+    }))!
+    expect(prata.adjustments).toEqual([{ key: 'titles', points: 2 }])
+
+    const bronze = explainOverall(player({
+      gamesPlayed: 2, goals: 2, baseRating: 50, titles: ['saves'],
+    }))!
+    expect(bronze.adjustments).toEqual([{ key: 'titles', points: 1 }])
+  })
+
+  /**
+   * Sem tecto, os dez títulos somariam mais do que o dobro do bónus de craque, e
+   * o overall passava a dizer "quantas listas lideras" em vez de "quanto vales".
+   */
+  it('trava o total dos títulos no mesmo tecto do craque', () => {
+    expect(titleBonus(['topScorer', 'topAssists', 'mostWins'])).toBe(9)
+    expect(titleBonus([
+      'topScorer', 'topAssists', 'mostWins', 'mostCraques', 'mostGames',
+      'winStreak', 'accuracy', 'unbeaten', 'wall', 'saves',
+    ])).toBe(9)
+    expect(titleBonus(['topScorer', 'saves'])).toBe(4)
+    expect(titleBonus([])).toBe(0)
+    expect(titleBonus(undefined)).toBe(0)
+  })
+
+  /** O empate premeia todos: não se inventa desempate para escolher um só. */
+  it('dá o título a todos os empatados, sem desempate inventado', () => {
+    const titles = computeTitles(squad([
+      { membershipId: 'a', goals: 7 },
+      { membershipId: 'b', goals: 7 },
+      { membershipId: 'c', goals: 6 },
+    ]))
+    expect(titles.get('a')).toContain('topScorer')
+    expect(titles.get('b')).toContain('topScorer')
+    expect(titles.get('c')).not.toContain('topScorer')
+  })
+
+  /** Aproveitamento: 3 por vitória, 1 por empate, sobre o total possível. */
+  it('mede o aproveitamento e ignora quem não tem rodadas que cheguem', () => {
+    const titles = computeTitles(squad([
+      // 2V+1E em 3 jogos = 7/9
+      { membershipId: 'regular', gamesPlayed: 3, wins: 2, draws: 1 },
+      // ganhou os dois que fez, mas duas rodadas não chegam para ser candidato
+      { membershipId: 'estreante', gamesPlayed: 2, wins: 2 },
+    ]))
+    expect(titles.get('regular')).toContain('accuracy')
+    expect(titles.get('estreante')).not.toContain('accuracy')
+  })
+
+  /** Duas taxas idênticas não podem divergir por um bit. */
+  it('reconhece o empate entre dois aproveitamentos iguais', () => {
+    const titles = computeTitles(squad([
+      { membershipId: 'a', gamesPlayed: 3, wins: 2, draws: 1 },
+      { membershipId: 'b', gamesPlayed: 6, wins: 4, draws: 2 },
+    ]))
+    expect(titles.get('a')).toContain('accuracy')
+    expect(titles.get('b')).toContain('accuracy')
+  })
+
+  it('premeia a maior sequência sem perder, as defesas e os jogos sem sofrer', () => {
+    const titles = computeTitles(squad([
+      { membershipId: 'invicto', bestUnbeatenStreak: 5 },
+      { membershipId: 'guardiao', gkCleanSheets: 3, saves: 40 },
+      { membershipId: 'comum', bestUnbeatenStreak: 2, saves: 1 },
+    ]))
+    expect(titles.get('invicto')).toContain('unbeaten')
+    expect(titles.get('guardiao')).toContain('wall')
+    expect(titles.get('guardiao')).toContain('saves')
+    expect(titles.get('comum')).not.toContain('unbeaten')
+  })
+
+  /** Não há Muralha numa pelada onde ninguém deixou de sofrer. */
+  it('não atribui título nenhum quando ninguém tem mais do que zero', () => {
+    const titles = computeTitles(squad([
+      { membershipId: 'a', gamesPlayed: 3 },
+      { membershipId: 'b', gamesPlayed: 3 },
+    ]))
+    expect(titles.get('a')).not.toContain('wall')
+    expect(titles.get('a')).not.toContain('saves')
+    expect(titles.get('a')).not.toContain('unbeaten')
+  })
+
+  /** O guarda-redes leva a medalha como toda a gente. */
+  it('paga os títulos ao guarda-redes, depois da confiança', () => {
+    const semTitulo = explainOverall(keeper())!
+    const comTitulo = explainOverall(keeper({ titles: ['mostGames'] }))!
+    expect(comTitulo.overall - semTitulo.overall).toBe(3)
   })
 })

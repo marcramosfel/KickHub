@@ -163,10 +163,11 @@ describe('GameDraw', () => {
     const payload = (call[1] as { p_lineup: Array<Record<string, unknown>> }).p_lineup
     const primeiro = payload.find((entry) => entry.membership_id === 'm0')!
 
-    // Sem estrelas, os pesos 0,4 e 0,2 renormalizam para 2/3 e 1/3:
-    // 2/3 × 90 + 1/3 × 10 (desempenho nulo em 20 jogos, encolhido) = 63.
-    // Mais um ponto de título: é o único no ranking, portanto lidera presenças.
-    expect(primeiro.overall_at_draw).toBe(64)
+    // Sem avaliações dos companheiros, o jogador está na v1: 0,70 × 90 + 0,30 ×
+    // desempenho. O desempenho é zero — nenhum golo e nenhuma assistência em 20
+    // rodadas — e conta a zero, sem encolhimento: 63.
+    // Mais os +3 de "mais jogos", que é ouro e ele lidera por ser o único.
+    expect(primeiro.overall_at_draw).toBe(66)
   })
 
   it('separa os guarda-redes quando a pelada joga com eles fixos', async () => {
