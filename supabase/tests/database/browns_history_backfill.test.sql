@@ -213,7 +213,7 @@ select is(
 );
 select is(
   (select sum(saves)::int from public.game_player_stats where game_id = 'c4000000-0000-4000-8000-000000000004'),
-  6, 'defesas do goleiro foram incorporadas'
+  10, 'as defesas das duas balizas foram incorporadas'
 );
 select is(
   (select count(*)::int from public.game_ratings where game_id = 'c4000000-0000-4000-8000-000000000004'),
@@ -234,7 +234,7 @@ select is(
 
 -- ------------------------------------------------------ origem e repetibilidade
 
-select is((select count(*)::int from public.players where id::text like 'c%'), 3, 'as linhas legadas continuam intactas');
+select is((select count(*)::int from public.players where id::text like 'c%'), 4, 'as linhas legadas continuam intactas');
 
 set local role service_role;
 select lives_ok(
@@ -249,7 +249,7 @@ select results_eq(
       (select count(*)::int from public.game_player_stats where game_id = 'c4000000-0000-4000-8000-000000000004'),
       (select count(*)::int from public.game_ratings where game_id = 'c4000000-0000-4000-8000-000000000004'),
       (select count(*)::int from public.game_award_votes where game_id = 'c4000000-0000-4000-8000-000000000004')$$,
-  $$values (1, 3, 2, 5)$$,
+  $$values (1, 4, 2, 5)$$,
   'a segunda execução não duplica jogos, stats, avaliações nem votos'
 );
 
