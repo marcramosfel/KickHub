@@ -1,6 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { isSupabaseConfigured, signInWithGoogle as startGoogleSignIn, supabase } from './supabase'
+import { setTelemetryContext } from './telemetry'
 
 export type GlobalProfile = {
   id: string
@@ -143,6 +144,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }, [])
+
+  // O contexto de erro anexa-se à sessão. Um erro no sorteio não sabe quem é o
+  // utilizador, e passar isso de função em função era garantir que alguém se
+  // esquecia.
+  useEffect(() => {
+    setTelemetryContext({ userId: session?.user?.id ?? null, locale: profile?.locale ?? null })
+  }, [profile?.locale, session?.user?.id])
 
   const value = useMemo<AuthContextValue>(() => ({
     session,

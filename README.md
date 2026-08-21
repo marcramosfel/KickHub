@@ -100,6 +100,8 @@ As migrations são append-only:
     região e precisão da morada por pelada.
 25. `20260822010000_platform_governance.sql` — papéis de plataforma, flags, denúncias,
     privacidade, GDPR, arquivo e planos.
+26. `20260822020000_notification_preferences.sql` — canais de notificação, preferências por
+    assunto e índices de leitura.
 
 Com Docker disponível:
 
@@ -130,6 +132,8 @@ supabase/
 Decisões e limites da arquitetura: `docs/architecture-v2.md`.
 
 Tokens, componentes e acessibilidade: `docs/design-system.md`.
+
+Estado de cada secção do master prompt: `docs/master-prompt-coverage.md`.
 
 Configuração e fluxo de autenticação: `docs/authentication.md`.
 
