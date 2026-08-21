@@ -99,6 +99,8 @@ const hardenedPrivateFunctions = [
   'list_browns_pending_avatars',
   'mark_browns_avatar_ready',
   'mark_browns_avatar_failed',
+  // Deriva o `@` do jogador a partir do nome. Só o backfill a chama.
+  'browns_username_from_name',
   // Contam os votos de toda a gente para apurar craque e bagre. Ao alcance do
   // cliente devolveriam contagens erradas em silêncio, porque a RLS só lhe
   // mostra os votos próprios; só são alcançáveis de dentro de `get_game_awards`
