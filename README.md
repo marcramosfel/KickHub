@@ -21,6 +21,8 @@ O produto inclui:
 - sorteio equilibrado reproduzível, com escalação persistida e overall congelado;
 - resultado do jogo com placar, golos, assistências e defesas por jogador;
 - ranking e estatísticas por pelada, agregados no banco;
+- Seleção da Pelada e anti-seleção: o melhor (e o pior) de cada posição na formação da
+  comunidade, só com quem já tem Overall calculado;
 - overall calculado a partir das estatísticas, sugerido a quem organiza;
 - notificações in-app de convocatória, cancelamento e resposta a pedidos;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
