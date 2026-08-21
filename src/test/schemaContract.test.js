@@ -108,6 +108,31 @@ const hardenedPrivateFunctions = [
   'pelada_award_winners',
 ]
 
+/**
+ * Nomes de funções cuja definição declara `returns table` ou `returns setof`.
+ *
+ * Percorre linha a linha de propósito. Uma regex que salte de `function` até
+ * `returns table` sobre o ficheiro inteiro atravessa o corpo de quem devolve
+ * `void`, vai buscar o `returns` da função seguinte e engole pelo caminho as
+ * definições que era suposto examinar — foi assim que a primeira versão deste
+ * contrato passou a verde com o defeito lá dentro.
+ */
+const tableReturningDefinitions = (() => {
+  const names = new Set()
+  const lines = allMigrations.split('\n')
+  for (let index = 0; index < lines.length; index += 1) {
+    const created = lines[index].match(/^\s*create\s+(?:or\s+replace\s+)?function\s+public\.([a-z_][a-z0-9_]*)\s*\(/i)
+    if (!created) continue
+    // O cabeçalho acaba onde o corpo começa: `language`, `as $$`, ou a próxima
+    // instrução de topo. Procurar para lá disso apanharia o `returns` de outra.
+    for (let ahead = index; ahead < Math.min(index + 60, lines.length); ahead += 1) {
+      if (ahead > index && /^\s*(?:language|as|create|drop|grant|revoke|comment)\b/i.test(lines[ahead])) break
+      if (/^\s*returns\s+(?:table|setof)\b/i.test(lines[ahead])) { names.add(created[1]); break }
+    }
+  }
+  return names
+})()
+
 describe('contrato frontend ↔ Supabase', () => {
   it('mantém cada RPC usada pelo frontend definida nas migrations', () => {
     expect(rpcNames.length).toBeGreaterThan(50)
@@ -160,6 +185,45 @@ describe('fronteira de segurança do baseline', () => {
     for (const name of hardenedPrivateFunctions) {
       expect(allMigrations).toMatch(new RegExp(`revoke all on function public\\.${name}\\(`, 'i'))
     }
+  })
+
+  /**
+   * O Postgres recusa `create or replace function` quando o `returns table`
+   * muda: acrescentar uma coluna muda a linha que a função devolve, e isso é o
+   * erro 42P13. A migration tem de fazer `drop function` primeiro.
+   *
+   * Custou um deploy de staging para descobrir. O contrato existe para que a
+   * próxima vez custe um teste vermelho em vez de um pipeline vermelho.
+   */
+  it('faz drop antes de redefinir uma função que devolve tabela', () => {
+    // Confirma que o scanner vê mesmo o universo que devia ver. Sem isto, um
+    // scanner partido devolve zero definições e o teste passa a aplaudir-se.
+    expect(tableReturningDefinitions.has('list_pelada_members')).toBe(true)
+    expect(tableReturningDefinitions.has('get_pelada_ranking')).toBe(true)
+
+    const seen = new Set()
+    const redefinedWithoutDrop = []
+    let lastDropped = null
+
+    for (const line of allMigrations.split('\n')) {
+      const dropped = line.match(/^\s*drop\s+function\s+if\s+exists\s+public\.([a-z_][a-z0-9_]*)\s*\(/i)
+      if (dropped) { lastDropped = dropped[1]; continue }
+
+      const created = line.match(/^\s*create\s+(or\s+replace\s+)?function\s+public\.([a-z_][a-z0-9_]*)\s*\(/i)
+      if (!created) continue
+
+      const [, orReplace, name] = created
+      // A primeira definição cria a função e não tem nada para largar. A partir
+      // daí, redefinir sem `drop` só é seguro se a assinatura não mudar — e isso
+      // nenhum teste garante, portanto exige-se sempre o drop.
+      if (tableReturningDefinitions.has(name) && seen.has(name) && orReplace && lastDropped !== name) {
+        redefinedWithoutDrop.push(name)
+      }
+      seen.add(name)
+      lastDropped = null
+    }
+
+    expect(redefinedWithoutDrop).toEqual([])
   })
 
   it('não contém a senha previsível do baseline antigo', () => {

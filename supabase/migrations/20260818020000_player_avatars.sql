@@ -89,7 +89,13 @@ create policy player_avatars_objects_shared_read on storage.objects
 
 -- ------------------------------------------------------------------ plantel
 
-create or replace function public.list_pelada_members(p_pelada_id uuid)
+-- `create or replace` recusa mudar o tipo de retorno de uma funcao que ja
+-- existe: acrescentar colunas ao `returns table` muda a linha que ela devolve.
+-- Sem `drop` primeiro, o Postgres rejeita com 42P13. Sem `cascade`, de
+-- proposito: se algo passar a depender destas, quero saber pelo erro.
+drop function if exists public.list_pelada_members(uuid);
+
+create function public.list_pelada_members(p_pelada_id uuid)
 returns table (
   membership_id uuid,
   display_name text,
@@ -138,7 +144,9 @@ grant execute on function public.list_pelada_members(uuid) to authenticated;
 
 -- ------------------------------------------------------- escalação e sorteio
 
-create or replace function public.get_game_lineup(p_game_id uuid)
+drop function if exists public.get_game_lineup(uuid);
+
+create function public.get_game_lineup(p_game_id uuid)
 returns table (
   membership_id uuid,
   display_name text,
@@ -169,7 +177,9 @@ as $$
   order by line.team, line.is_goalkeeper desc, line.overall_at_draw desc, line.membership_id;
 $$;
 
-create or replace function public.list_game_attendance(p_game_id uuid)
+drop function if exists public.list_game_attendance(uuid);
+
+create function public.list_game_attendance(p_game_id uuid)
 returns table (
   membership_id uuid,
   display_name text,
