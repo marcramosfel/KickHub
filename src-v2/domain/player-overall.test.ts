@@ -1,465 +1,358 @@
 import { describe, expect, it } from 'vitest'
 import {
   computePlayerOverall, computeTitles, contributionPerGame, explainOverall,
-  explainSquadOverall, isProvisional, leagueConcededPerGame, MAX_OVERALL, MIN_OVERALL,
+  explainSquadOverall, isPostRatingProvisional, isProvisional, isWaeProvisional,
+  leagueConcededPerGame, pesosDaTransicao, MAX_OVERALL, MIN_OVERALL,
   type OverallInput, type TitleInput,
 } from './player-overall'
 
+/** Jogador de campo sem nada preenchido: cada teste acrescenta o que precisa. */
 const player = (overrides: Partial<OverallInput> = {}): OverallInput => ({
-  gamesPlayed: 10, goals: 0, assists: 0, baseRating: null, postRatingAvg: null,
+  gamesPlayed: 0, goals: 0, assists: 0, baseRating: null,
+  postRatingAvg: null, postRatingCount: 0,
   craques: 0, bagres: 0, waeSaldo: null, waeMatches: 0, titles: [],
-  gkMatches: 0, gkSaves: 0, gkConceded: 0, gkCleanSheets: 0, gkWinPoints: 0,
-  gkLeagueConcededPerGame: null, playerType: 'FIELD', ...overrides,
+  playerType: 'FIELD',
+  gkMatches: 0, gkSaves: 0, gkConceded: 0, gkCleanSheets: 0, gkWins: 0,
+  gkLeagueConcededPerGame: null, ...overrides,
 })
 
 const keeper = (overrides: Partial<OverallInput> = {}): OverallInput => player({
-  gamesPlayed: 10, gkMatches: 10, gkSaves: 30, gkConceded: 10, gkCleanSheets: 3,
-  gkWinPoints: 5, gkLeagueConcededPerGame: 2, baseRating: 90,
-  playerType: 'GOALKEEPER', ...overrides,
+  playerType: 'GOALKEEPER',
+  gkMatches: 5, gkSaves: 30, gkConceded: 10, gkCleanSheets: 3, gkWins: 3,
+  gkLeagueConcededPerGame: 2, baseRating: 90, ...overrides,
 })
 
 describe('contributo por jogo', () => {
-  it('pesa a assistência abaixo do golo, mas perto', () => {
+  /**
+   * A assistência vale um golo inteiro. A fórmula da pelada é
+   * `(golos + assistências) / rodadas` — não uma média pesada.
+   */
+  it('conta a assistência como conta o golo', () => {
     expect(contributionPerGame(player({ gamesPlayed: 10, goals: 10 }))).toBe(1)
-    expect(contributionPerGame(player({ gamesPlayed: 10, assists: 10 }))).toBe(0.7)
+    expect(contributionPerGame(player({ gamesPlayed: 10, assists: 10 }))).toBe(1)
+    expect(contributionPerGame(player({ gamesPlayed: 4, goals: 6, assists: 6 }))).toBe(3)
   })
 
-  it('não divide por zero jogos', () => {
-    expect(contributionPerGame(player({ gamesPlayed: 0, goals: 4 }))).toBe(0)
+  it('não mede contributo a quem não jogou', () => {
+    expect(contributionPerGame(player({ gamesPlayed: 0, goals: 5 }))).toBe(0)
   })
 })
 
-describe('parcelas', () => {
-  it('não devolve nada a quem não tem jogos nem nota', () => {
-    expect(computePlayerOverall(player({ gamesPlayed: 0 }))).toBeNull()
-    expect(explainOverall(player({ gamesPlayed: 0 }))).toBeNull()
+describe('v1 — antes da primeira avaliação pós-jogo', () => {
+  /** 0,70 × grupo + 0,30 × desempenho. */
+  it('mistura a nota do grupo com o desempenho a 70/30', () => {
+    // desempenho: (6+6)/4 = 3 participações por jogo, o topo → 100
+    const breakdown = explainOverall(player({
+      gamesPlayed: 4, goals: 6, assists: 6, baseRating: 80,
+    }))!
+    expect(breakdown.version).toBe(1)
+    expect(breakdown.overall).toBe(0.70 * 80 + 0.30 * 100)
+    expect(breakdown.parts.map((part) => [part.key, part.weight]))
+      .toEqual([['opinion', 0.70], ['performance', 0.30]])
   })
 
   /**
-   * A regra que governa quase tudo: a ausência de um dado nunca vale zero.
-   * Quem nunca foi avaliado não pode levar "zero de avaliação".
+   * Os ramos parciais não levam extras: quem não tem nota do grupo — ou não tem
+   * rodadas — também não tem prémios que contem.
    */
-  it('deixa cair a opinião em falta em vez de a contar como zero', () => {
-    const semNota = explainOverall(player({ gamesPlayed: 10, goals: 30 }))!
-    expect(semNota.parts.map((part) => part.key)).toEqual(['performance'])
-    expect(semNota.parts[0].weight).toBe(1)
-
-    // Três golos por jogo é o desempenho máximo, encolhido pela amostra: 83.
-    // Se a ausência de nota valesse zero, ficaria em 2/3 × 0 + 1/3 × 83 = 28 —
-    // um castigo por algo que não aconteceu.
-    expect(semNota.overall).toBe(83)
+  it('sem nota do grupo devolve o desempenho puro, sem prémios', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 2, goals: 3, baseRating: null, craques: 2, titles: ['topScorer'],
+    }))!
+    expect(breakdown.overall).toBe(50) // (3/2)/3 = 0,5
+    expect(breakdown.adjustments).toEqual([])
+    expect(breakdown.provisional).toBe(true)
   })
 
-  it('deixa cair o desempenho de quem ainda não jogou', () => {
-    const soNota = explainOverall(player({ gamesPlayed: 0, baseRating: 80 }))!
-    expect(soNota.parts.map((part) => part.key)).toEqual(['opinion'])
-    expect(soNota.overall).toBe(80)
+  it('sem rodadas devolve a nota do grupo pura, sem prémios', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 0, baseRating: 70, craques: 3, titles: ['mostWins'],
+    }))!
+    expect(breakdown.overall).toBe(70)
+    expect(breakdown.adjustments).toEqual([])
+    expect(breakdown.provisional).toBe(true)
   })
 
-  it('renormaliza os pesos para somarem sempre um', () => {
-    for (const input of [player({ baseRating: 70, goals: 10 }), player({ goals: 10 }), player({ gamesPlayed: 0, baseRating: 70 })]) {
-      const total = explainOverall(input)!.parts.reduce((sum, part) => sum + part.weight, 0)
-      expect(total).toBeCloseTo(1, 10)
+  /** Nada de números bonitos e falsos: sem dados nenhuns, não há resposta. */
+  it('sem nota do grupo e sem rodadas não devolve número nenhum', () => {
+    expect(explainOverall(player())).toBeNull()
+    expect(computePlayerOverall(player())).toBeNull()
+    expect(isProvisional(player())).toBe(true)
+  })
+})
+
+describe('v2 — a partir da primeira avaliação pós-jogo', () => {
+  /**
+   * A transição é do jogador e não do deploy: acontece quando ele recebe a
+   * primeira avaliação válida dos companheiros.
+   */
+  it('só transita quando existe avaliação pós-jogo', () => {
+    const semAvaliacao = explainOverall(player({ gamesPlayed: 3, goals: 3, baseRating: 70 }))!
+    expect(semAvaliacao.version).toBe(1)
+
+    const comAvaliacao = explainOverall(player({
+      gamesPlayed: 3, goals: 3, baseRating: 70, postRatingAvg: 4, postRatingCount: 1,
+    }))!
+    expect(comAvaliacao.version).toBe(2)
+  })
+
+  /** Uma média sem votos não é média nenhuma. */
+  it('ignora uma média pós-jogo que não veio de voto nenhum', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 3, goals: 3, baseRating: 70, postRatingAvg: 4, postRatingCount: 0,
+    }))!
+    expect(breakdown.version).toBe(1)
+  })
+
+  /**
+   * Sem rodadas medidas o peso das vitórias é zero, e os 15% dele estão
+   * distribuídos pelo grupo e pelo desempenho: 50/0/25/25.
+   */
+  it('sem saldo medido reparte os pesos por 50/0/25/25', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 4, goals: 3, assists: 3, baseRating: 80,
+      postRatingAvg: 4, postRatingCount: 3, waeMatches: 0,
+    }))!
+    expect(breakdown.parts.map((part) => [part.key, part.weight])).toEqual([
+      ['postRating', 0.25], ['opinion', 0.50], ['performance', 0.25],
+    ])
+    // 80×0,25 + 80×0,50 + 50×0,25 = 72,5
+    expect(breakdown.overall).toBe(73)
+  })
+
+  /** Com cinco rodadas medidas os pesos são os do regime: 40/15/20/25. */
+  it('com cinco rodadas medidas usa 40/15/20/25', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 5, goals: 5, assists: 10, baseRating: 60,
+      postRatingAvg: 3, postRatingCount: 5, waeSaldo: 1, waeMatches: 5,
+    }))!
+    expect(breakdown.parts.map((part) => [part.key, part.weight])).toEqual([
+      ['postRating', 0.25], ['opinion', 0.40], ['wae', 0.15], ['performance', 0.20],
+    ])
+    // 60×0,25 + 60×0,40 + 70×0,15 + 100×0,20 = 69,5
+    expect(breakdown.overall).toBe(70)
+  })
+
+  /**
+   * Os pesos deslizam em vez de ligarem de uma vez às cinco rodadas. Ligar de
+   * repente fazia quem rendeu exactamente o esperado perder cinco pontos de um
+   * dia para o outro, sem nada ter acontecido em campo.
+   */
+  it('desliza os pesos entre zero e cinco rodadas', () => {
+    expect(pesosDaTransicao(0)).toEqual({ grupo: 0.50, vitorias: 0, desempenho: 0.25, posJogo: 0.25 })
+    expect(pesosDaTransicao(5)).toEqual({ grupo: 0.40, vitorias: 0.15, desempenho: 0.20, posJogo: 0.25 })
+
+    const meio = pesosDaTransicao(2)
+    expect(meio.grupo).toBeCloseTo(0.46, 10)
+    expect(meio.vitorias).toBeCloseTo(0.06, 10)
+    expect(meio.desempenho).toBeCloseTo(0.23, 10)
+    expect(meio.posJogo).toBe(0.25)
+  })
+
+  it('os pesos somam sempre um, em qualquer ponto da transição', () => {
+    for (const rodadas of [0, 1, 2, 3, 4, 5, 9]) {
+      const pesos = pesosDaTransicao(rodadas)
+      const soma = pesos.grupo + pesos.vitorias + pesos.desempenho + pesos.posJogo
+      expect(soma).toBeCloseTo(1, 10)
     }
   })
 
-  /** Se a decomposição não soma ao total, o painel está errado — ou a conta está. */
-  it('as parcelas e os prémios somam ao número que é mostrado', () => {
+  /** A parcela que falta sai da conta; o que resta renormaliza-se. */
+  it('deixa cair a nota do grupo de quem ninguém votou', () => {
     const breakdown = explainOverall(player({
-      gamesPlayed: 8, goals: 12, assists: 4, baseRating: 74, postRatingAvg: 4, craques: 2, bagres: 1,
+      gamesPlayed: 2, goals: 3, baseRating: null, postRatingAvg: 4, postRatingCount: 2,
+    }))!
+    expect(breakdown.parts.map((part) => part.key)).not.toContain('opinion')
+    expect(breakdown.parts.reduce((sum, part) => sum + part.weight, 0)).toBeCloseTo(1, 10)
+  })
+
+  /** 50 é exactamente o esperado: a nota é crua, quem trata da amostra é o peso. */
+  it('põe o esperado no meio da escala e não sai dela', () => {
+    const exacto = explainOverall(player({
+      gamesPlayed: 5, baseRating: 50, postRatingAvg: 2.5, postRatingCount: 5,
+      waeSaldo: 0, waeMatches: 5,
+    }))!
+    expect(exacto.parts.find((part) => part.key === 'wae')!.value).toBe(50)
+
+    const extremo = explainOverall(player({
+      gamesPlayed: 5, baseRating: 50, postRatingAvg: 2.5, postRatingCount: 5,
+      waeSaldo: 5, waeMatches: 5,
+    }))!
+    expect(extremo.parts.find((part) => part.key === 'wae')!.value).toBe(100)
+  })
+})
+
+describe('prémios e títulos', () => {
+  /**
+   * Contam pela taxa e nunca pelo total: craque em todas as rodadas vale o
+   * máximo, craque numa de vinte vale quase nada.
+   */
+  it('conta craque e bagre pela taxa, não pelo total', () => {
+    const metade = explainOverall(player({
+      gamesPlayed: 4, goals: 6, baseRating: 50, craques: 2,
+    }))!
+    expect(metade.adjustments).toEqual([{ key: 'craque', points: 4.5 }])
+
+    const raro = explainOverall(player({
+      gamesPlayed: 20, goals: 30, baseRating: 50, craques: 1,
+    }))!
+    expect(raro.adjustments[0].points).toBeCloseTo(0.45, 10)
+  })
+
+  /** Premiar mais do que castigar: +9 contra −4. */
+  it('premeia o craque mais do que castiga o bagre', () => {
+    const craque = explainOverall(player({ gamesPlayed: 2, goals: 2, baseRating: 50, craques: 2 }))!
+    const bagre = explainOverall(player({ gamesPlayed: 2, goals: 2, baseRating: 50, bagres: 2 }))!
+    expect(craque.adjustments[0].points).toBe(9)
+    expect(bagre.adjustments[0].points).toBe(-4)
+  })
+
+  it('dá um ponto por título', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 2, goals: 2, baseRating: 50, titles: ['topScorer', 'mostWins'],
+    }))!
+    expect(breakdown.adjustments).toEqual([{ key: 'titles', points: 2 }])
+  })
+
+  /** Se as parcelas e os extras não somam ao total, o painel está errado. */
+  it('a decomposição soma ao número mostrado', () => {
+    const breakdown = explainOverall(player({
+      gamesPlayed: 5, goals: 4, assists: 3, baseRating: 72,
+      postRatingAvg: 3.4, postRatingCount: 6, waeSaldo: 0.6, waeMatches: 4,
+      craques: 1, bagres: 1, titles: ['mostGames'],
     }))!
     const soma = breakdown.parts.reduce((sum, part) => sum + part.value * part.weight, 0)
       + breakdown.adjustments.reduce((sum, item) => sum + item.points, 0)
     expect(Math.round(soma)).toBe(breakdown.overall)
-    expect(breakdown.adjustments.map((item) => item.key)).toEqual(['craque', 'bagre'])
   })
 })
 
-describe('confiança', () => {
-  it('encolhe o desempenho para o neutro enquanto a amostra é pequena', () => {
-    const umJogo = explainOverall(player({ gamesPlayed: 1, goals: 3 }))!
-    const vinteJogos = explainOverall(player({ gamesPlayed: 20, goals: 60 }))!
-
-    // O mesmo rendimento por jogo, amostras muito diferentes.
-    expect(umJogo.overall).toBeLessThan(vinteJogos.overall)
+describe('títulos do plantel', () => {
+  const row = (overrides: Partial<TitleInput> & { membershipId: string }): TitleInput => ({
+    gamesPlayed: 1, goals: 0, assists: 0, wins: 0, craques: 0, currentWinStreak: 0, ...overrides,
   })
 
-  /**
-   * A opinião do grupo não é uma amostra pequena, é um juízo: não encolhe, e
-   * quem a tem deixa de ver o número marcado como provisório.
-   */
-  it('não encolhe a opinião do grupo', () => {
-    expect(explainOverall(player({ gamesPlayed: 1, baseRating: 90 }))!.parts
-      .find((part) => part.key === 'opinion')!.value).toBe(90)
-    expect(isProvisional(player({ gamesPlayed: 1, baseRating: 90 }))).toBe(false)
-    expect(isProvisional(player({ gamesPlayed: 1 }))).toBe(true)
-    expect(isProvisional(player({ gamesPlayed: 0 }))).toBe(false)
-  })
-})
-
-describe('estrelas pós-jogo', () => {
-  it('traduz as estrelas para a escala das outras parcelas', () => {
-    const cinco = explainOverall(player({ gamesPlayed: 0, baseRating: null, postRatingAvg: 5 }))!
-    expect(cinco.parts.map((part) => part.key)).toEqual(['postRating'])
-    expect(cinco.overall).toBe(99)
-
-    const tres = explainOverall(player({ gamesPlayed: 0, postRatingAvg: 3 }))!
-    expect(tres.overall).toBe(60)
-  })
-
-  it('deixa cair as estrelas em falta em vez de as contar como zero', () => {
-    const sem = explainOverall(player({ gamesPlayed: 10, baseRating: 80 }))!
-    expect(sem.parts.map((part) => part.key)).toEqual(['opinion', 'performance'])
-
-    // Se a ausência valesse zero, esta parcela arrastaria 25% do total para
-    // baixo e um jogador por avaliar ficaria abaixo de quem tem duas estrelas.
-    const comDuas = explainOverall(player({ gamesPlayed: 10, baseRating: 80, postRatingAvg: 2 }))!
-    expect(sem.overall).toBeGreaterThan(comDuas.overall)
-  })
-
-  /**
-   * Quatro parcelas nominais, três produzidas: o saldo de vitórias acima do
-   * esperado ainda não existe e o seu peso reparte-se, em vez de entrar a zero.
-   */
-  it('reparte o peso da parcela que ainda não é calculada', () => {
-    const completo = explainOverall(player({ gamesPlayed: 10, goals: 10, baseRating: 80, postRatingAvg: 4 }))!
-    const pesos = Object.fromEntries(completo.parts.map((part) => [part.key, part.weight]))
-
-    // 0,4 / 0,2 / 0,25 renormalizados sobre 0,85.
-    expect(pesos.opinion).toBeCloseTo(0.4 / 0.85, 6)
-    expect(pesos.performance).toBeCloseTo(0.2 / 0.85, 6)
-    expect(pesos.postRating).toBeCloseTo(0.25 / 0.85, 6)
-    expect(completo.parts.reduce((sum, part) => sum + part.weight, 0)).toBeCloseTo(1, 10)
-  })
-
-  it('deixa de marcar como provisório quem já foi avaliado pelos companheiros', () => {
-    expect(isProvisional(player({ gamesPlayed: 1 }))).toBe(true)
-    expect(isProvisional(player({ gamesPlayed: 1, postRatingAvg: 4 }))).toBe(false)
-  })
-})
-
-describe('craque e bagre', () => {
-  /**
-   * Premiar mais do que castigar: o craque vale +9 e o bagre −4. A assimetria
-   * é deliberada e é a mesma regra que governa o resto da conta.
-   */
-  it('premia mais do que castiga', () => {
-    const base = explainOverall(player({ gamesPlayed: 10, baseRating: 50 }))!.overall
-    const craque = explainOverall(player({ gamesPlayed: 10, baseRating: 50, craques: 10 }))!.overall
-    const bagre = explainOverall(player({ gamesPlayed: 10, baseRating: 50, bagres: 10 }))!.overall
-
-    expect(craque - base).toBe(9)
-    expect(base - bagre).toBe(4)
-  })
-
-  /**
-   * Contam pela taxa, não pelo total: senão quem joga há mais tempo acumulava
-   * bónus só por ter jogado mais.
-   */
-  it('conta pela taxa e não pelo total', () => {
-    const dezEmDez = explainOverall(player({ gamesPlayed: 10, baseRating: 50, craques: 10 }))!
-    const umEmVinte = explainOverall(player({ gamesPlayed: 20, baseRating: 50, craques: 1 }))!
-
-    expect(dezEmDez.adjustments[0].points).toBe(9)
-    expect(umEmVinte.adjustments[0].points).toBeCloseTo(0.45, 6)
-  })
-
-  it('não deixa a taxa passar de um, nem sem jogos rebentar', () => {
-    // Mais prémios do que jogos não deve existir, mas se existir não infla.
-    expect(explainOverall(player({ gamesPlayed: 2, baseRating: 50, craques: 5 }))!.adjustments[0].points).toBe(9)
-    expect(explainOverall(player({ gamesPlayed: 0, baseRating: 50, craques: 3 }))!.adjustments).toEqual([])
-  })
-
-  it('não inventa um ajuste para quem nunca levou prémio', () => {
-    expect(explainOverall(player({ gamesPlayed: 10, baseRating: 50 }))!.adjustments).toEqual([])
-  })
-})
-
-describe('vitórias acima do esperado', () => {
-  /**
-   * 50 é "exactamente o esperado". Ganhar sendo favorito folgado quase não
-   * conta; ganhar sendo azarão conta muito. É o que distingue esta parcela da
-   * taxa de vitórias crua, que numa pelada com sorteio equilibrado mede ruído.
-   */
-  it('põe o esperado no meio da escala', () => {
-    const comoEsperado = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0, waeMatches: 10 }))!
-    expect(comoEsperado.parts.find((part) => part.key === 'wae')!.value).toBe(50)
-
-    // Favorito a 93% que ganha: saldo +0,07 por rodada.
-    const favorito = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0.07 * 10, waeMatches: 10 }))!
-    expect(favorito.parts.find((part) => part.key === 'wae')!.value).toBeCloseTo(57, 6)
-
-    // Ligeiro favorito a 74% que ganha: saldo +0,26 por rodada.
-    const ligeiro = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0.26 * 10, waeMatches: 10 }))!
-    expect(ligeiro.parts.find((part) => part.key === 'wae')!.value).toBeCloseTo(76, 6)
-
-    // Ganhar sempre como azarão a 7% dá 143 e trava no topo da escala: quem o
-    // faz esgotou o que esta parcela consegue medir.
-    const azarao = explainOverall(player({ gamesPlayed: 10, waeSaldo: 0.93 * 10, waeMatches: 10 }))!
-    expect(azarao.parts.find((part) => part.key === 'wae')!.value).toBe(100)
-  })
-
-  it('não sai da escala mesmo com saldos extremos', () => {
-    const impossivel = explainOverall(player({ gamesPlayed: 3, waeSaldo: 30, waeMatches: 3 }))!
-    expect(impossivel.parts.find((part) => part.key === 'wae')!.value).toBe(100)
-    const fundo = explainOverall(player({ gamesPlayed: 3, waeSaldo: -30, waeMatches: 3 }))!
-    expect(fundo.parts.find((part) => part.key === 'wae')!.value).toBe(0)
-  })
-
-  /**
-   * O peso desliza em vez de ligar de repente às cinco rodadas: um jogador que
-   * rendeu exactamente o esperado não pode perder pontos de um dia para o outro
-   * só por cruzar uma fronteira.
-   */
-  it('faz o peso deslizar até às cinco rodadas', () => {
-    const pesoCom = (matches: number) => {
-      const parts = explainOverall(player({ gamesPlayed: 10, baseRating: 60, waeSaldo: 0, waeMatches: matches }))!.parts
-      return parts.find((part) => part.key === 'wae')?.weight ?? 0
-    }
-    // Nominal 0,15, mas renormalizado — o que importa é crescer sem saltos.
-    expect(pesoCom(0)).toBe(0)
-    expect(pesoCom(1)).toBeGreaterThan(0)
-    expect(pesoCom(1)).toBeLessThan(pesoCom(3))
-    expect(pesoCom(3)).toBeLessThan(pesoCom(5))
-    expect(pesoCom(5)).toBeCloseTo(pesoCom(20), 10)
-  })
-
-  it('não inventa a parcela sem rodadas medidas', () => {
-    const sem = explainOverall(player({ gamesPlayed: 10, baseRating: 60 }))!
-    expect(sem.parts.map((part) => part.key)).not.toContain('wae')
-  })
-
-  /**
-   * Sem esta guarda, um jogador com saldo exactamente zero e nenhuma rodada
-   * medida entraria com nota 50 e um peso de zero — inofensivo, mas a parcela
-   * apareceria na decomposição a dizer que foi medida quando não foi.
-   */
-  it('trata saldo nulo como ausência, e não como zero', () => {
-    expect(explainOverall(player({ gamesPlayed: 10, baseRating: 60, waeSaldo: null, waeMatches: 3 }))!
-      .parts.map((part) => part.key)).not.toContain('wae')
-  })
-})
-
-const squadRow = (overrides: Partial<TitleInput> = {}): TitleInput => ({
-  membershipId: 'm1', gamesPlayed: 0, goals: 0, assists: 0, wins: 0, craques: 0,
-  currentWinStreak: 0, ...overrides,
-})
-
-describe('títulos', () => {
-  it('dá o título a quem lidera cada métrica', () => {
-    const titles = computeTitles([
-      squadRow({ membershipId: 'a', gamesPlayed: 5, goals: 9, assists: 1, wins: 4, craques: 2 }),
-      squadRow({ membershipId: 'b', gamesPlayed: 9, goals: 2, assists: 7, wins: 1, craques: 0 }),
-    ])
-    expect(titles.get('a')).toEqual(['topScorer', 'mostWins', 'mostCraques'])
-    expect(titles.get('b')).toEqual(['topAssists', 'mostGames'])
-  })
-
-  /** Empate premeia todos os empatados. */
   it('premeia todos os empatados', () => {
     const titles = computeTitles([
-      squadRow({ membershipId: 'a', goals: 5 }),
-      squadRow({ membershipId: 'b', goals: 5 }),
-      squadRow({ membershipId: 'c', goals: 2 }),
+      row({ membershipId: 'a', goals: 5 }),
+      row({ membershipId: 'b', goals: 5 }),
+      row({ membershipId: 'c', goals: 1 }),
     ])
     expect(titles.get('a')).toContain('topScorer')
     expect(titles.get('b')).toContain('topScorer')
     expect(titles.get('c')).not.toContain('topScorer')
   })
 
-  /** Não há artilheiro numa pelada sem golos. */
-  it('não inventa um título quando ninguém marcou', () => {
-    const titles = computeTitles([squadRow({ membershipId: 'a' }), squadRow({ membershipId: 'b' })])
-    expect(titles.get('a')).toEqual([])
-    expect(titles.get('b')).toEqual([])
+  it('não inventa artilheiro numa pelada sem golos', () => {
+    const titles = computeTitles([row({ membershipId: 'a' }), row({ membershipId: 'b' })])
+    // Ambos têm uma rodada, portanto empatam em "mais jogos" e levam essa. O que
+    // não pode existir é artilheiro, porque ninguém marcou.
+    expect(titles.get('a')).not.toContain('topScorer')
+    expect(titles.get('b')).not.toContain('topScorer')
+    expect(titles.get('a')).toContain('mostGames')
   })
 
-  /**
-   * A sequência não é um lugar único: é uma marca. Quem chegar a três leva, e
-   * podem ser vários ao mesmo tempo.
-   */
-  it('dá a marca de sequência a todos os que chegam a três', () => {
+  /** A sequência não é um lugar único: é uma marca, e podem tê-la vários. */
+  it('dá a sequência a quem chegar a três, mesmo que sejam vários', () => {
     const titles = computeTitles([
-      squadRow({ membershipId: 'a', currentWinStreak: 3 }),
-      squadRow({ membershipId: 'b', currentWinStreak: 7 }),
-      squadRow({ membershipId: 'c', currentWinStreak: 2 }),
+      row({ membershipId: 'a', currentWinStreak: 3 }),
+      row({ membershipId: 'b', currentWinStreak: 4 }),
+      row({ membershipId: 'c', currentWinStreak: 2 }),
     ])
-    expect(titles.get('a')).toEqual(['winStreak'])
-    expect(titles.get('b')).toEqual(['winStreak'])
-    expect(titles.get('c')).toEqual([])
-  })
-
-  it('soma um ponto por título, e nada a quem não tem nenhum', () => {
-    const sem = explainOverall(player({ gamesPlayed: 10, baseRating: 50 }))!
-    const comDois = explainOverall(player({
-      gamesPlayed: 10, baseRating: 50, titles: ['topScorer', 'mostGames'],
-    }))!
-    expect(comDois.overall - sem.overall).toBe(2)
-    expect(comDois.adjustments.find((item) => item.key === 'titles')!.points).toBe(2)
-    expect(sem.adjustments).toEqual([])
-  })
-
-  /**
-   * Nenhum título mede o overall. Se medisse, o número passaria a alimentar-se
-   * a si mesmo e o resultado dependeria da ordem por que fossem calculados.
-   */
-  it('não olha para o overall ao decidir quem lidera', () => {
-    const rows = [
-      squadRow({ membershipId: 'fraco', gamesPlayed: 3, goals: 9 }),
-      squadRow({ membershipId: 'forte', gamesPlayed: 3, goals: 1 }),
-    ]
-    expect(computeTitles(rows).get('fraco')).toContain('topScorer')
-  })
-})
-
-describe('o plantel em duas passagens', () => {
-  /**
-   * Os títulos dependem de comparar todos, portanto o overall de alguém não se
-   * pode calcular isoladamente. Esta é a razão arquitetural das duas passagens.
-   */
-  it('atribui o bónus de título a partir da comparação, não da linha', () => {
-    // O primeiro lidera golos e presenças; o segundo não lidera nada.
-    const rows = [
-      { ...player({ gamesPlayed: 4, goals: 8, baseRating: 50 }), membershipId: 'artilheiro', wins: 0 },
-      { ...player({ gamesPlayed: 2, goals: 1, baseRating: 50 }), membershipId: 'outro', wins: 0 },
-    ]
-    const porMembro = explainSquadOverall(rows)
-
-    const artilheiro = porMembro.get('artilheiro')!
-    expect(artilheiro.adjustments.find((item) => item.key === 'titles')!.points).toBe(2)
-    expect(porMembro.get('outro')!.adjustments).toEqual([])
-
-    // Calculado sozinho, o mesmo jogador não teria o título — porque não há com
-    // quem o comparar.
-    expect(explainOverall(rows[0])!.adjustments).toEqual([])
-  })
-
-  it('deixa de fora quem não tem número nenhum a mostrar', () => {
-    const porMembro = explainSquadOverall([
-      { ...player({ gamesPlayed: 0, baseRating: null }), membershipId: 'sem-nada', wins: 0 },
-    ])
-    expect(porMembro.has('sem-nada')).toBe(false)
+    expect(titles.get('a')).toContain('winStreak')
+    expect(titles.get('b')).toContain('winStreak')
+    expect(titles.get('c')).not.toContain('winStreak')
   })
 })
 
 describe('escala do guarda-redes', () => {
   /**
-   * Um guarda-redes não cabe na fórmula de campo: não marca, não assiste, e a
-   * opinião do grupo sozinha castiga quem passa a rodada a apanhar bolas.
+   * Só quem é do **tipo** guarda-redes. Um jogador de campo com passagens na
+   * baliza mantém o overall de campo — foi o que a rotação da Browns produziu.
    */
-  it('julga quem guarda a baliza pela escala dele', () => {
-    const partes = explainOverall(keeper())!.parts.map((part) => part.key)
-    expect(partes).toEqual(['gkSaves', 'gkConceded', 'gkCleanSheets', 'gkWins'])
-    expect(partes).not.toContain('opinion')
-    expect(partes).not.toContain('performance')
-  })
+  it('julga pela baliza apenas quem está inscrito como guarda-redes', () => {
+    const inscrito = explainOverall(keeper())!
+    expect(inscrito.parts.map((part) => part.key))
+      .toEqual(['gkSaves', 'gkConceded', 'gkCleanSheets', 'gkWins'])
 
-  it('não aplica a escala a quem passou pela baliza uma vez em dez', () => {
-    const hibrido = explainOverall(keeper({ gamesPlayed: 10, gkMatches: 1 }))!
-    expect(hibrido.parts.map((part) => part.key)).toContain('opinion')
-    expect(hibrido.parts.map((part) => part.key)).not.toContain('gkSaves')
-  })
-
-  /**
-   * Numa pelada de goleiros rotativos, começar a rodada na baliza não faz de
-   * ninguém guarda-redes. Sem este travão, quem jogou uma vez e calhou começar
-   * lá passava o teste da metade das rodadas e perdia a nota do grupo e os
-   * golos que marcou nessa mesma rodada — que é exactamente o que a Pelada
-   * Browns produziu quando o histórico entrou.
-   */
-  it('não faz guarda-redes de quem rodou pela baliza numa rodada solta', () => {
     const rodou = explainOverall(player({
-      gamesPlayed: 1, goals: 2, assists: 1, baseRating: 72, postRatingAvg: 2.33,
-      gkMatches: 1, gkConceded: 14, gkLeagueConcededPerGame: 8,
+      playerType: 'FIELD', gamesPlayed: 3, goals: 3, baseRating: 70,
+      gkMatches: 3, gkSaves: 10, gkConceded: 5,
     }))!
     expect(rodou.parts.map((part) => part.key)).toContain('opinion')
-    expect(rodou.parts.map((part) => part.key)).toContain('performance')
     expect(rodou.parts.map((part) => part.key)).not.toContain('gkSaves')
-    // A nota do grupo volta a mandar: o 40 da escala da baliza era o castigo.
-    expect(rodou.overall).toBeGreaterThan(55)
   })
 
-  /**
-   * O inverso: quem a pelada inscreveu como guarda-redes é julgado como tal
-   * desde a primeira rodada. É para isso que a inscrição serve — não se espera
-   * três jornadas para reconhecer o que já está declarado.
-   */
-  it('julga pela baliza quem está inscrito como guarda-redes desde a estreia', () => {
-    const estreante = explainOverall(keeper({ gamesPlayed: 1, gkMatches: 1, gkSaves: 4, gkConceded: 2 }))!
-    expect(estreante.parts.map((part) => part.key)).toContain('gkSaves')
-    expect(estreante.parts.map((part) => part.key)).not.toContain('opinion')
+  /** 60% defesas + 20% golos sofridos + 10% sem sofrer + 10% vitórias. */
+  it('pesa as defesas mais do que tudo o resto junto', () => {
+    // defesas 30/40 = 75 ; sofridos 10/5 = 2 = média → 50 ; sem sofrer 3/5 = 60
+    // vitórias 3/5 = 60 → 75×0,6 + 50×0,2 + 60×0,1 + 60×0,1 = 67
+    expect(explainOverall(keeper())!.overall).toBe(67)
   })
 
-  /**
-   * A baliza como hábito conta, mesmo sem inscrição: quem lá está sempre é
-   * guarda-redes de facto, tenha ou não a etiqueta.
-   */
-  it('reconhece a baliza como hábito mesmo sem inscrição', () => {
-    const semEtiqueta = explainOverall(keeper({ playerType: 'FIELD', gamesPlayed: 3, gkMatches: 3 }))!
-    expect(semEtiqueta.parts.map((part) => part.key)).toContain('gkSaves')
+  /** Um empate não é meia vitória para quem esteve lá atrás. */
+  it('conta vitórias na baliza, não pontos', () => {
+    const semVitorias = explainOverall(keeper({ gkWins: 0 }))!
+    const comTodas = explainOverall(keeper({ gkWins: 5 }))!
+    expect(comTodas.overall - semVitorias.overall).toBe(10)
   })
 
-  /**
-   * As defesas pesam mais porque são a parte quase inteiramente dele: golos
-   * sofridos, jogos sem sofrer e vitórias dependem também da linha à frente.
-   */
-  it('dá às defesas mais peso do que a tudo o resto junto', () => {
-    const parts = explainOverall(keeper())!.parts
-    const defesas = parts.find((part) => part.key === 'gkSaves')!.weight
-    const resto = parts.filter((part) => part.key !== 'gkSaves').reduce((sum, part) => sum + part.weight, 0)
-    expect(defesas).toBeGreaterThan(resto)
-    expect(defesas).toBeCloseTo(0.6, 10)
-  })
-
-  /**
-   * Comparam-se com a média da pelada, não com um número absoluto: é o que
-   * torna o valor justo para quem joga atrás de uma defesa que sofre muito.
-   */
+  /** Comparam-se com a média da pelada, não com um número absoluto. */
   it('compara os golos sofridos com a média da pelada', () => {
-    const naMedia = explainOverall(keeper({ gkConceded: 20, gkLeagueConcededPerGame: 2 }))!
+    const naMedia = explainOverall(keeper({ gkConceded: 10, gkLeagueConcededPerGame: 2 }))!
     expect(naMedia.parts.find((part) => part.key === 'gkConceded')!.value).toBe(50)
 
-    // Um golo por jogo abaixo da média vale 15 pontos.
-    const melhor = explainOverall(keeper({ gkConceded: 10, gkLeagueConcededPerGame: 2 }))!
+    const melhor = explainOverall(keeper({ gkConceded: 5, gkLeagueConcededPerGame: 2 }))!
     expect(melhor.parts.find((part) => part.key === 'gkConceded')!.value).toBe(65)
-
-    // A mesma prestação numa pelada onde se sofre mais vale mais.
-    const peladaGoleadora = explainOverall(keeper({ gkConceded: 10, gkLeagueConcededPerGame: 4 }))!
-    expect(peladaGoleadora.parts.find((part) => part.key === 'gkConceded')!.value).toBe(95)
-  })
-
-  it('deixa cair as defesas quando nem uma bola foi à baliza', () => {
-    const semRemates = explainOverall(keeper({ gkSaves: 0, gkConceded: 0 }))!
-    expect(semRemates.parts.map((part) => part.key)).not.toContain('gkSaves')
-    expect(semRemates.parts.reduce((sum, part) => sum + part.weight, 0)).toBeCloseTo(1, 10)
   })
 
   /**
-   * A confiança impede que uma rodada de sorte, ou de azar, mande alguém para o
-   * topo ou para o fundo.
+   * Sem média da pelada usa-se a do próprio, que dá exactamente 50. Um neutro
+   * honesto vale mais do que uma referência inventada.
    */
-  it('puxa o número ao neutro enquanto há poucas rodadas na baliza', () => {
-    const umaRodada = explainOverall(keeper({ gamesPlayed: 1, gkMatches: 1, gkSaves: 10, gkConceded: 0, gkCleanSheets: 1, gkWinPoints: 1 }))!
-    const cincoRodadas = explainOverall(keeper({ gamesPlayed: 5, gkMatches: 5, gkSaves: 50, gkConceded: 0, gkCleanSheets: 5, gkWinPoints: 5 }))!
-
-    // A mesma prestação perfeita, amostras diferentes.
-    expect(umaRodada.overall).toBeLessThan(cincoRodadas.overall)
-
-    // 0,6×100 + 0,2×80 + 0,1×100 + 0,1×100 = 96, e não 99: sofrer zero contra
-    // uma média de dois vale 80, porque a parcela é relativa à pelada. Só
-    // ficaria em 100 quem sofresse 3,3 golos por jogo abaixo da média.
-    expect(cincoRodadas.overall).toBe(96)
+  it('cai no neutro quando não há média da pelada', () => {
+    const sozinho = explainOverall(keeper({ gkLeagueConcededPerGame: null }))!
+    expect(sozinho.parts.find((part) => part.key === 'gkConceded')!.value).toBe(50)
   })
 
-  /** Se as parcelas não somam ao total, o painel dele está errado. */
+  /** A confiança impede que uma rodada de sorte mande alguém para o topo. */
+  it('puxa o número ao neutro enquanto há poucas rodadas na baliza', () => {
+    const uma = explainOverall(keeper({
+      gkMatches: 1, gkSaves: 10, gkConceded: 0, gkCleanSheets: 1, gkWins: 1,
+    }))!
+    // defesas 100 ; sofridos 50+15×2 = 80 ; sem sofrer 100 ; vitórias 100 → 96
+    // confiança 1/5 → 50 + (96−50)×0,2 = 59,2
+    expect(uma.overall).toBe(59)
+    expect(uma.provisional).toBe(true)
+
+    const cinco = explainOverall(keeper({
+      gkMatches: 5, gkSaves: 50, gkConceded: 0, gkCleanSheets: 5, gkWins: 5,
+    }))!
+    expect(cinco.overall).toBe(96)
+    expect(cinco.provisional).toBe(false)
+  })
+
+  it('não devolve número a quem nunca guardou a baliza', () => {
+    expect(explainOverall(keeper({ gkMatches: 0 }))).toBeNull()
+  })
+
+  /** A escala é 0–100, e não 1–99 como a de campo. */
+  it('deixa o guarda-redes chegar a zero e a cem', () => {
+    const pessimo = explainOverall(keeper({
+      gkMatches: 5, gkSaves: 0, gkConceded: 50, gkCleanSheets: 0, gkWins: 0,
+      gkLeagueConcededPerGame: 1,
+    }))!
+    expect(pessimo.overall).toBe(0)
+  })
+
   it('a decomposição do guarda-redes soma ao número mostrado', () => {
-    const breakdown = explainOverall(keeper({ titles: ['mostGames'] }))!
+    const breakdown = explainOverall(keeper({ titles: ['mostWins'] }))!
     const soma = breakdown.parts.reduce((sum, part) => sum + part.value * part.weight, 0)
       + breakdown.adjustments.reduce((sum, item) => sum + item.points, 0)
     expect(Math.round(soma)).toBe(breakdown.overall)
   })
 
-  it('tira a média da pelada de todas as rodadas guardadas, e não de uma', () => {
+  it('calcula a média de golos sofridos da pelada', () => {
     expect(leagueConcededPerGame([
       keeper({ gkMatches: 4, gkConceded: 4 }),
       keeper({ gkMatches: 6, gkConceded: 16 }),
@@ -468,17 +361,63 @@ describe('escala do guarda-redes', () => {
   })
 })
 
-describe('limites', () => {
-  it('nunca sai de 1 a 99', () => {
-    const extremo = computePlayerOverall(player({ gamesPlayed: 40, goals: 400, baseRating: 99 }))!
-    expect(extremo).toBeLessThanOrEqual(MAX_OVERALL)
-    expect(computePlayerOverall(player({ gamesPlayed: 40, baseRating: 1 }))!).toBeGreaterThanOrEqual(MIN_OVERALL)
+describe('plantel inteiro', () => {
+  /**
+   * Os títulos dependem de comparar todos, portanto não existe forma correcta de
+   * calcular o overall de alguém isoladamente.
+   */
+  it('atribui os títulos antes de calcular, numa segunda passagem', () => {
+    // 'b' joga menos rodadas de propósito: senão empatava em "mais jogos" e
+    // levava um título, e o teste deixava de distinguir quem lidera de quem não.
+    const rows = [
+      { membershipId: 'a', ...player({ gamesPlayed: 3, goals: 9, baseRating: 50 }), wins: 3 },
+      { membershipId: 'b', ...player({ gamesPlayed: 1, goals: 1, baseRating: 50 }), wins: 0 },
+    ]
+    const overalls = explainSquadOverall(rows)
+    const artilheiro = overalls.get('a')!
+    expect(artilheiro.adjustments.some((item) => item.key === 'titles')).toBe(true)
+    expect(overalls.get('b')!.adjustments.some((item) => item.key === 'titles')).toBe(false)
   })
 
-  it('não deixa a opinião do grupo ser o número inteiro quando há jogos', () => {
-    // 2/3 e 1/3: uma nota alta com desempenho fraco desce, mas não desaba.
-    const overall = computePlayerOverall(player({ gamesPlayed: 20, goals: 0, baseRating: 90 }))!
-    expect(overall).toBeLessThan(90)
-    expect(overall).toBeGreaterThan(60)
+  it('deixa de fora quem não tem número nenhum', () => {
+    const overalls = explainSquadOverall([
+      { membershipId: 'vazio', ...player(), wins: 0 },
+    ])
+    expect(overalls.has('vazio')).toBe(false)
+  })
+})
+
+describe('limites e sinalização', () => {
+  it('nunca sai da escala de campo', () => {
+    const altissimo = explainOverall(player({
+      gamesPlayed: 5, goals: 50, baseRating: 99, postRatingAvg: 5, postRatingCount: 5,
+      waeSaldo: 5, waeMatches: 5, craques: 5, titles: ['topScorer', 'mostWins', 'mostGames'],
+    }))!
+    expect(altissimo.overall).toBeLessThanOrEqual(MAX_OVERALL)
+
+    const baixissimo = explainOverall(player({
+      gamesPlayed: 5, baseRating: 1, postRatingAvg: 1, postRatingCount: 5,
+      waeSaldo: -5, waeMatches: 5, bagres: 5,
+    }))!
+    expect(baixissimo.overall).toBeGreaterThanOrEqual(MIN_OVERALL)
+  })
+
+  /** O peso das vitórias ainda sobe; o valor não está errado por isso. */
+  it('assinala que o peso das vitórias ainda não é o cheio', () => {
+    expect(isWaeProvisional(player({ waeMatches: 3 }))).toBe(true)
+    expect(isWaeProvisional(player({ waeMatches: 5 }))).toBe(false)
+    expect(isWaeProvisional(player({ waeMatches: 0 }))).toBe(false)
+  })
+
+  /** Uma única avaliação é pouca confiança — mas o peso dela não muda. */
+  it('assinala a avaliação pós-jogo que vem de um voto só', () => {
+    expect(isPostRatingProvisional(player({ postRatingCount: 1 }))).toBe(true)
+    expect(isPostRatingProvisional(player({ postRatingCount: 2 }))).toBe(false)
+  })
+
+  it('quem já foi avaliado pelos companheiros não é provisório', () => {
+    expect(isProvisional(player({
+      gamesPlayed: 1, goals: 1, baseRating: 60, postRatingAvg: 4, postRatingCount: 1,
+    }))).toBe(false)
   })
 })

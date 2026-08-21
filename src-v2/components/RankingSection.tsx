@@ -70,6 +70,19 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
   const avatars = useSignedAvatars(rows.map((row) => ({
     id: row.membershipId, path: row.avatarPath, bucket: row.avatarBucket,
   })))
+
+  // A ordem é a do overall, e ele só existe aqui: o servidor não o calcula, e
+  // por isso devolve as linhas por golos. Quem ainda não tem número fica no fim
+  // — ordenar por um valor que não existe é inventá-lo.
+  const ranked = [...rows].sort((left, right) => {
+    const leftOverall = overallByMember.get(left.membershipId)?.overall
+    const rightOverall = overallByMember.get(right.membershipId)?.overall
+    if (leftOverall !== rightOverall) return (rightOverall ?? -1) - (leftOverall ?? -1)
+    if (left.gamesPlayed !== right.gamesPlayed) return right.gamesPlayed - left.gamesPlayed
+    if (contribution(left) !== contribution(right)) return contribution(right) - contribution(left)
+    if (left.wins !== right.wins) return right.wins - left.wins
+    return left.displayName.localeCompare(right.displayName)
+  })
   return (
     <table className="ranking-table">
       <thead>
@@ -85,7 +98,7 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((row, index) => {
+        {ranked.map((row, index) => {
           const rate = winRate(row)
           const breakdown = overallByMember.get(row.membershipId)
           const overall = breakdown?.overall ?? null

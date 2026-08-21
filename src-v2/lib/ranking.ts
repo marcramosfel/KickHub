@@ -47,7 +47,8 @@ export type RankingRow = {
   gkSaves: number
   gkConceded: number
   gkCleanSheets: number
-  gkWinPoints: number
+  /** Vitórias com ele na baliza. Um empate não é meia vitória. */
+  gkWins: number
 }
 
 export type PeladaTotals = {
@@ -104,7 +105,7 @@ export function toRankingRow(row: RankingApiRow): RankingRow {
     gkSaves: toNumber(row.gk_saves),
     gkConceded: toNumber(row.gk_conceded),
     gkCleanSheets: toNumber(row.gk_clean_sheets),
-    gkWinPoints: toNumber(row.gk_win_points),
+    gkWins: toNumber(row.gk_wins),
   }
 }
 

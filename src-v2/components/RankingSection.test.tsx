@@ -118,13 +118,22 @@ describe('RankingSection', () => {
 
   it('mostra o overall calculado e assinala quando ainda e provisorio', async () => {
     respondWith({ ranking: [
-      makeRow({ membership_id: 'm1', display_name: 'Veterana', games_played: 12, goals: 14, wins: 8, losses: 4 }),
-      makeRow({ membership_id: 'm2', display_name: 'Novato', games_played: 2, goals: 3, wins: 2, losses: 0 }),
+      // Tem nota do grupo e rodadas: o número assenta nas duas pernas.
+      makeRow({
+        membership_id: 'm1', display_name: 'Veterana',
+        games_played: 12, goals: 14, wins: 8, losses: 4, base_rating: 78,
+      }),
+      // Sem nota do grupo o overall vem só do desempenho, e isso é meia história.
+      makeRow({
+        membership_id: 'm2', display_name: 'Novato',
+        games_played: 2, goals: 3, wins: 2, losses: 0, base_rating: null,
+      }),
     ] })
     renderRanking()
 
     await screen.findByText('Veterana')
-    // O asterisco marca a amostra curta; a veterana ja nao o tem.
+    // O asterisco marca o que falta, não a amostra curta: quem tem as duas
+    // parcelas não o leva, mesmo com poucos jogos.
     expect(screen.getByText(/^\d+\*$/)).toBeInTheDocument()
   })
 
