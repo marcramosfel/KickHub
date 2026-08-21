@@ -22,6 +22,10 @@ export function App() {
       <Route element={<AppShell/>}>
         <Route path="/app" element={<DashboardPage/>}/>
         <Route path="/descobrir" element={<DiscoverPage/>}/>
+        {/* As páginas por região de §24: um endereço próprio por região, que
+            se possa partilhar e indexar. */}
+        <Route path="/descobrir/:country" element={<DiscoverPage/>}/>
+        <Route path="/descobrir/:country/:region" element={<DiscoverPage/>}/>
         <Route path="/criar" element={<CreatePeladaPage/>}/>
         <Route path="/reclamar" element={<ClaimPage/>}/>
         <Route path="/u/:username" element={<ProfilePage/>}/>

@@ -8,6 +8,7 @@ import { PeladaSettingsForm } from '../components/PeladaSettingsForm'
 import { PeladaSwitcher } from '../components/PeladaSwitcher'
 import { RankingSection } from '../components/RankingSection'
 import { CuriositiesSection } from '../components/CuriositiesSection'
+import { DiscoverySettingsForm } from '../components/DiscoverySettingsForm'
 import { SelectionSection } from '../components/SelectionSection'
 import { SquadSection } from '../components/SquadSection'
 import { Badge, Button, Card } from '../components/ui'
@@ -140,7 +141,7 @@ function AdminPanel() {
         {pending.length ? <div className="request-list">{pending.map((request) => <Card className="request-card" key={request.id}><div className="request-person"><span className="avatar avatar-md">{request.playerName.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><strong>{request.playerName}</strong><small>@{request.username} · {formatDate(request.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</small></div></div><blockquote>{request.message || t('admin.noMessage')}</blockquote><div className="request-actions"><Button variant="outline" disabled={busyId === request.id} onClick={() => decide(request.id, 'rejected')}><UserX/> {t('admin.reject')}</Button><Button disabled={busyId === request.id} onClick={() => decide(request.id, 'approved')}><UserCheck/> {t('admin.approve')}</Button></div></Card>)}</div> : <Card className="empty-state compact"><span className="empty-icon"><Inbox/></span><h2>{t('admin.emptyQueueTitle')}</h2><p>{t('admin.emptyQueueBody')}</p></Card>}
         <LegacyClaimsPanel peladaId={peladaId}/>
       </section>
-      <aside><PeladaSettingsForm/>
+      <aside><PeladaSettingsForm/><DiscoverySettingsForm/>
         <Card className="invite-builder"><span className="invite-icon"><Link2/></span><p className="eyebrow dark-text">{t('admin.inviteEyebrow')}</p><h2>{t('admin.inviteTitle')}</h2><p>{t('admin.inviteBody', { days: inviteTtlHours / 24, uses: inviteMaxUses })}</p>{inviteUrl ? <div className="invite-result"><label htmlFor="invite-url">{t('admin.inviteLinkLabel')}</label><div><input id="invite-url" readOnly value={inviteUrl}/><Button size="icon" variant="outline" onClick={copyInvite} aria-label={t('admin.copyInvite')}><Copy/></Button></div><small>{t('admin.inviteExpiry', { date: inviteExpiry })}</small></div> : <Button onClick={generateInvite} disabled={busyId === 'invite'}>{busyId === 'invite' ? t('admin.creatingInvite') : t('admin.createInvite')} <ArrowRight/></Button>}</Card>
         <Card className="permission-card"><ShieldCheck/><div><strong>{t('admin.permissionsTitle')}</strong><p>{t('admin.permissionsBody')}</p></div></Card>
       </aside>

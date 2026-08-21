@@ -10,7 +10,8 @@ O produto inclui:
 
 - landing e autenticação única por Google ou magic link, obrigatória em todas as áreas privadas;
 - dashboard global “Minhas Peladas” alimentado pelas memberships ativas do utilizador;
-- descoberta por nome/localização;
+- descoberta com PostGIS: busca por proximidade no servidor, filtros de distância, dia,
+  formato, nível e vagas, alternância lista/mapa e páginas por região;
 - pedidos de entrada, aprovação administrativa e convites privados de uso limitado;
 - wizard acessível de criação em seis etapas, com formato e frequência persistidos;
 - perfil global autenticado com números reais por pelada e o mesmo Overall do ranking;
@@ -88,6 +89,8 @@ As migrations são append-only:
 21. `20260816120000_goalkeeper_scale.sql` — métricas próprias de guarda-redes.
 22. `20260816130000_legacy_claim.sql` + `20260816140000_restore_legacy_player_fk.sql` — claim Browns e vínculo auditável ao legado.
 23. `20260817000000_browns_history_backfill.sql` — projeção reconciliada do histórico Browns e perfil real do jogador.
+24. `20260822000000_geographic_discovery.sql` — PostGIS, filtros de descoberta, páginas por
+    região e precisão da morada por pelada.
 
 Com Docker disponível:
 
