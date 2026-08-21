@@ -1,6 +1,8 @@
 import { ShieldCheck, Trophy } from 'lucide-react'
 import { Avatar, Badge, Card, EmptyState } from '../components/ui'
-import { explainSquadOverall } from '../domain/player-overall'
+import { CardBadge } from './PlayerCards'
+import { computeCards, mainCard } from '../domain/player-cards'
+import { computeTitles, explainSquadOverall } from '../domain/player-overall'
 import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n } from '../lib/i18n'
@@ -67,6 +69,18 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
   // Duas passagens: os títulos dependem de comparar o plantel inteiro, portanto
   // o overall de uma linha não se calcula a partir dessa linha sozinha.
   const overallByMember = explainSquadOverall(rows)
+  // Os cards saem do mesmo plantel que o overall — a liderança de um título só
+  // existe comparando toda a gente, e comparar duas vezes dava duas respostas.
+  const titlesByMember = computeTitles(rows)
+  const cardsByMember = computeCards({
+    rows: rows.map((row) => ({
+      ...row,
+      primaryPosition: null, secondaryPosition: null, acceptsOtherPositions: false,
+      overall: overallByMember.get(row.membershipId)?.overall ?? null,
+      provisional: overallByMember.get(row.membershipId)?.provisional ?? true,
+      titles: titlesByMember.get(row.membershipId) ?? [],
+    })),
+  })
   const avatars = useSignedAvatars(rows.map((row) => ({
     id: row.membershipId, path: row.avatarPath, bucket: row.avatarBucket,
   })))
@@ -108,7 +122,7 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
               <td>{formatNumber(index + 1)}</td>
               <th scope="row">
                 <Avatar name={row.displayName} size="sm" src={avatars.get(row.membershipId)}/>
-                <strong><PlayerName row={row}/></strong>
+                <strong><PlayerName row={row}/><CardBadge card={mainCard(cardsByMember.get(row.membershipId))}/></strong>
                 <small>{rate === null
                   ? t('ranking.noDecided')
                   : t('ranking.winRate', { value: formatNumber(rate, { style: 'percent' }) })}</small>

@@ -16,6 +16,7 @@ const pt = {
   'selection.emptyTitle': 'Ainda não há onze para discutir.',
   'selection.emptyBody': 'A seleção precisa de jogadores com overall calculado. Joguem e avaliem-se — ela aparece sozinha.',
   'selection.positionGK': 'Guarda-redes', 'selection.positionDEF': 'Defesa', 'selection.positionMID': 'Meio-campo', 'selection.positionATT': 'Atacante',
+  'selection.shareText': 'Seleção da Pelada ({formation}): {names}. No KickHub.',
 } as const satisfies Record<string, TranslationValue>
 type Key = keyof typeof pt
 
@@ -35,6 +36,7 @@ const en: Record<Key, TranslationValue> = {
   'selection.emptyTitle': 'No eleven to argue about yet.',
   'selection.emptyBody': 'The team needs players with a settled overall. Play and rate each other — it shows up on its own.',
   'selection.positionGK': 'Goalkeeper', 'selection.positionDEF': 'Defender', 'selection.positionMID': 'Midfielder', 'selection.positionATT': 'Forward',
+  'selection.shareText': 'Team of the Pelada ({formation}): {names}. On KickHub.',
 }
 const es: Record<Key, TranslationValue> = {
   'selection.eyebrow': 'La charla de la semana', 'selection.title': 'Selección de la Pelada',
@@ -52,6 +54,7 @@ const es: Record<Key, TranslationValue> = {
   'selection.emptyTitle': 'Todavía no hay once que discutir.',
   'selection.emptyBody': 'La selección necesita jugadores con overall calculado. Jueguen y evalúense — aparece sola.',
   'selection.positionGK': 'Portero', 'selection.positionDEF': 'Defensa', 'selection.positionMID': 'Centrocampista', 'selection.positionATT': 'Delantero',
+  'selection.shareText': 'Selección de la Pelada ({formation}): {names}. En KickHub.',
 }
 const fr: Record<Key, TranslationValue> = {
   'selection.eyebrow': 'Le débat de la semaine', 'selection.title': 'Équipe type de la Pelada',
@@ -69,6 +72,7 @@ const fr: Record<Key, TranslationValue> = {
   'selection.emptyTitle': 'Pas encore de onze à débattre.',
   'selection.emptyBody': 'L’équipe type a besoin de joueurs avec un overall établi. Jouez et notez-vous — elle apparaîtra d’elle-même.',
   'selection.positionGK': 'Gardien', 'selection.positionDEF': 'Défenseur', 'selection.positionMID': 'Milieu', 'selection.positionATT': 'Attaquant',
+  'selection.shareText': 'Équipe type de la Pelada ({formation}) : {names}. Sur KickHub.',
 }
 const de: Record<Key, TranslationValue> = {
   'selection.eyebrow': 'Der Streit der Woche', 'selection.title': 'Elf der Pelada',
@@ -86,6 +90,7 @@ const de: Record<Key, TranslationValue> = {
   'selection.emptyTitle': 'Noch keine Elf zum Diskutieren.',
   'selection.emptyBody': 'Die Elf braucht Spieler mit belastbarem Overall. Spielt und bewertet euch — sie erscheint von selbst.',
   'selection.positionGK': 'Torwart', 'selection.positionDEF': 'Verteidiger', 'selection.positionMID': 'Mittelfeld', 'selection.positionATT': 'Stürmer',
+  'selection.shareText': 'Elf der Pelada ({formation}): {names}. Auf KickHub.',
 }
 
 export const selectionCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

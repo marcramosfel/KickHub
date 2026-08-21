@@ -6,6 +6,7 @@ import type { Game } from '../lib/games'
 import { useI18n } from '../lib/i18n'
 import { listConfirmedPlayers } from '../lib/lineups'
 import { useGameResult, useResultMutations, type StatInput } from '../lib/results'
+import { ShareButton } from './ShareButton'
 
 type StatDraft = StatInput & { displayName: string }
 
@@ -45,6 +46,10 @@ export function GameResult({ game }: { game: Game }) {
         <>
           <p className="final-score">{t('games.finalScore', { scoreA: formatNumber(recorded.scoreA), scoreB: formatNumber(recorded.scoreB) })}</p>
           {recorded.notes ? <p className="result-notes">{recorded.notes}</p> : null}
+          <ShareButton content={() => ({
+            title: t('games.shareResultTitle'),
+            text: t('games.shareResultText', { scoreA: recorded.scoreA, scoreB: recorded.scoreB }),
+          })}/>
           {recorded.players.length === 0 ? (
             <p className="result-empty">{t('games.noStatsYet')}</p>
           ) : (

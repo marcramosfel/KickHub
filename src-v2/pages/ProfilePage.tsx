@@ -1,6 +1,8 @@
-import { Award, CalendarDays, MapPin, Medal, Share2, Shield, ShieldCheck, Trophy } from 'lucide-react'
+import { CalendarDays, MapPin, Share2, Shield, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { CardCollection } from '../components/PlayerCards'
+import { computePlayerCards } from '../domain/player-cards'
 import { Avatar, Badge, Button, Card } from '../components/ui'
 import { getAuthAvatarUrl, useAuth } from '../lib/auth'
 import { useSignedAvatars } from '../lib/avatars'
@@ -87,15 +89,66 @@ function RealProfile({ data, avatarFallback }: { data: MyPlayerProfile; avatarFa
         )}
       </section>
       <section>
-        <div className="section-title-row"><div><span className="eyebrow dark-text">{t('profile.achievementsEyebrow')}</span><h2>{t('profile.achievementsTitle')}</h2></div></div>
-        <div className="achievement-grid">
-          <Card><span className="achievement gold"><Trophy/></span><strong>{t('profile.starTitle', { count: totals.craques })}</strong><small>{t('profile.starBodyReal')}</small></Card>
-          <Card><span className="achievement violet"><Award/></span><strong>{t('profile.architectTitle')}</strong><small>{t('profile.architectBody', { count: totals.assists })}</small></Card>
-          <Card><span className="achievement blue"><Medal/></span><strong>{t('profile.veteranTitle')}</strong><small>{t('profile.veteranBody', { count: totals.matches })}</small></Card>
-        </div>
+        <div className="section-title-row"><div><span className="eyebrow dark-text">{t('cards.eyebrow')}</span><h2>{t('cards.title')}</h2></div></div>
+        {peladas.length ? peladas.map((pelada) => (
+          <PeladaCards
+            key={pelada.id}
+            community={pelada}
+            name={profile.displayName}
+            avatar={storedAvatar ?? profile.avatarUrl ?? avatarFallback}
+          />
+        )) : <Card className="profile-empty"><p>{t('cards.emptyBody')}</p></Card>}
       </section>
     </div>
   </div>
+}
+
+/**
+ * Os cards de um jogador numa pelada.
+ *
+ * Sem o Rei da Pelada nem o Paredão: o perfil traz uma linha por pelada e não o
+ * plantel de cada uma, e coroar alguém a partir de uma linha só era coroar toda
+ * a gente. Os títulos, esses, já vêm calculados contra o plantel.
+ */
+function PeladaCards({ community, name, avatar }: {
+  community: PlayerProfileCommunity
+  name: string
+  avatar?: string
+}) {
+  const cards = computePlayerCards({
+    membershipId: community.membershipId,
+    displayName: name,
+    playerType: community.playerType === 'GOALKEEPER' ? 'GOALKEEPER' : 'FIELD',
+    primaryPosition: community.primaryPosition,
+    secondaryPosition: community.secondaryPosition,
+    // O perfil não guarda esta preferência; sem ela o Coringa não se atribui,
+    // que é melhor do que o atribuir a quem não a escolheu.
+    acceptsOtherPositions: false,
+    overall: community.overall?.overall ?? null,
+    provisional: community.overall?.provisional ?? true,
+    titles: community.titles,
+    gamesPlayed: community.stats.gamesPlayed,
+    goals: community.stats.goals,
+    assists: community.stats.assists,
+    wins: community.stats.wins,
+    saves: community.stats.saves,
+    craques: community.stats.craques,
+    currentWinStreak: community.stats.currentWinStreak,
+    bestUnbeatenStreak: community.stats.bestUnbeatenStreak,
+    gkCleanSheets: community.stats.gkCleanSheets,
+  })
+  return (
+    <Card className="profile-cards">
+      <Link className="profile-cards-pelada" to={`/p/${community.slug}`}>{community.name}</Link>
+      <CardCollection
+        cards={cards}
+        name={name}
+        overall={community.overall?.overall ?? null}
+        avatar={avatar}
+        peladaName={community.name}
+      />
+    </Card>
+  )
 }
 
 function CommunityCard({ community }: { community: PlayerProfileCommunity }) {

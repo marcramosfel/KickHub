@@ -23,8 +23,13 @@ O produto inclui:
 - ranking e estatísticas por pelada, agregados no banco;
 - Seleção da Pelada e anti-seleção: o melhor (e o pior) de cada posição na formação da
   comunidade, só com quem já tem Overall calculado;
-- Curiosidades: o melhor jogo possível, o duelo dos perebas e um campeonato imaginário,
-  simulados com um motor de Poisson reproduzível sobre os números reais da pelada;
+- Curiosidades: o melhor jogo possível, o duelo dos perebas, um campeonato imaginário e um
+  simulador manual de equipas, todos com o mesmo motor de Poisson reproduzível sobre os
+  números reais da pelada;
+- cards e conquistas derivados dos números do momento — lideranças vindas dos títulos do
+  Overall, marcos pessoais, cinco raridades — no perfil e como emblema no ranking;
+- partilha nativa (Web Share, com o clipboard como recurso) no resultado, na Seleção, nas
+  Curiosidades, no simulador e no card;
 - overall calculado a partir das estatísticas, sugerido a quem organiza;
 - notificações in-app de convocatória, cancelamento e resposta a pedidos;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência

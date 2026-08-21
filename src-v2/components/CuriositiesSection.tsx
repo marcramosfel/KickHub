@@ -15,6 +15,8 @@ import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type Translate, type TranslationKey } from '../lib/i18n'
 import { usePeladaPlayers, type PeladaPlayer } from '../lib/pelada-players'
 import { usePeladaSettings } from '../lib/pelada-settings'
+import { ShareButton } from './ShareButton'
+import { TeamSimulator } from './TeamSimulator'
 import { Badge, Card, EmptyState } from './ui'
 
 const teamNames: Record<ChampionshipTeamId, TranslationKey> = {
@@ -109,6 +111,7 @@ export function CuriositiesSection() {
       <DuelCard duel={best} title={t('curiosities.bestTitle')} body={t('curiosities.bestBody')} needed={needed} have={eligible}/>
       <DuelCard duel={worst} title={t('curiosities.worstTitle')} body={t('curiosities.worstBody')} needed={needed} have={eligible}/>
       <ChampionshipCard championship={championship} needed={needed} have={eligible}/>
+      <TeamSimulator players={pool} teamNameA={t('simulator.teamA')} teamNameB={t('simulator.teamB')}/>
     </div>
   )
 }
@@ -171,6 +174,13 @@ function DuelCard({ duel, title, body, needed, have }: {
         {match.star && <div><dt>{t('curiosities.star')}</dt><dd>{match.star.name}</dd></div>}
         {match.flop && <div><dt>{t('curiosities.flop')}</dt><dd>{match.flop.name}</dd></div>}
       </dl>
+
+      <ShareButton content={() => ({
+        title,
+        text: t('curiosities.shareDuel', {
+          title, a: match.nameA, b: match.nameB, goalsA: match.goalsA, goalsB: match.goalsB,
+        }),
+      })}/>
     </Card>
   )
 }
@@ -267,6 +277,11 @@ function ChampionshipCard({ championship, needed, have }: {
       </dl>
 
       {championship.leftOut > 0 && <p className="curiosity-note">{t('curiosities.cupLeftOut', { count: championship.leftOut })}</p>}
+
+      <ShareButton content={() => ({
+        title: t('curiosities.cupTitle'),
+        text: t('curiosities.shareCup', { name: t(teamNames[championship.champion]) }),
+      })}/>
     </Card>
   )
 }

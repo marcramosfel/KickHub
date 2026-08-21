@@ -11,6 +11,7 @@ import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { usePeladaPlayers } from '../lib/pelada-players'
 import { usePeladaSettings } from '../lib/pelada-settings'
+import { ShareButton } from './ShareButton'
 import { Avatar, Badge, Card, EmptyState } from './ui'
 
 const positionLabels: Record<SelectionPosition, TranslationKey> = {
@@ -67,6 +68,13 @@ export function SelectionSection() {
         crowned
       />
       <p className="selection-note">{t('selection.note')}</p>
+      <span className="selection-toggle"><ShareButton content={() => ({
+        title: t('selection.title'),
+        text: t('selection.shareText', {
+          formation: best.formation.name,
+          names: [best.goalkeeper, ...best.outfield].filter(Boolean).map((player) => player!.displayName).join(', '),
+        }),
+      })}/></span>
 
       {showWorst ? (
         <>

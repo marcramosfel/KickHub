@@ -31,6 +31,8 @@ const pt = {
   'curiosities.colTeam': 'Equipa', 'curiosities.colPlayed': 'J', 'curiosities.colWon': 'V', 'curiosities.colDrawn': 'E',
   'curiosities.colLost': 'D', 'curiosities.colScored': 'GM', 'curiosities.colConceded': 'GS', 'curiosities.colPoints': 'P',
   'curiosities.teamBLACK': 'Pretos', 'curiosities.teamWHITE': 'Brancos', 'curiosities.teamBLUE': 'Azuis', 'curiosities.teamRED': 'Vermelhos',
+  'curiosities.shareDuel': '{title}: {a} {goalsA} · {goalsB} {b} — imaginado no KickHub.',
+  'curiosities.shareCup': 'Campeão do campeonato imaginário: {name}. Simulado no KickHub.',
 } as const satisfies Record<string, TranslationValue>
 type Key = keyof typeof pt
 
@@ -65,6 +67,8 @@ const en: Record<Key, TranslationValue> = {
   'curiosities.colTeam': 'Team', 'curiosities.colPlayed': 'P', 'curiosities.colWon': 'W', 'curiosities.colDrawn': 'D',
   'curiosities.colLost': 'L', 'curiosities.colScored': 'GF', 'curiosities.colConceded': 'GA', 'curiosities.colPoints': 'Pts',
   'curiosities.teamBLACK': 'Blacks', 'curiosities.teamWHITE': 'Whites', 'curiosities.teamBLUE': 'Blues', 'curiosities.teamRED': 'Reds',
+  'curiosities.shareDuel': '{title}: {a} {goalsA} · {goalsB} {b} — imagined on KickHub.',
+  'curiosities.shareCup': 'Champion of the imaginary tournament: {name}. Simulated on KickHub.',
 }
 const es: Record<Key, TranslationValue> = {
   'curiosities.eyebrow': 'Partidos que nunca ocurrirán', 'curiosities.title': 'Curiosidades',
@@ -97,6 +101,8 @@ const es: Record<Key, TranslationValue> = {
   'curiosities.colTeam': 'Equipo', 'curiosities.colPlayed': 'PJ', 'curiosities.colWon': 'G', 'curiosities.colDrawn': 'E',
   'curiosities.colLost': 'P', 'curiosities.colScored': 'GF', 'curiosities.colConceded': 'GC', 'curiosities.colPoints': 'Pts',
   'curiosities.teamBLACK': 'Negros', 'curiosities.teamWHITE': 'Blancos', 'curiosities.teamBLUE': 'Azules', 'curiosities.teamRED': 'Rojos',
+  'curiosities.shareDuel': '{title}: {a} {goalsA} · {goalsB} {b} — imaginado en KickHub.',
+  'curiosities.shareCup': 'Campeón del campeonato imaginario: {name}. Simulado en KickHub.',
 }
 const fr: Record<Key, TranslationValue> = {
   'curiosities.eyebrow': 'Des matchs qui n’auront jamais lieu', 'curiosities.title': 'Curiosités',
@@ -129,6 +135,8 @@ const fr: Record<Key, TranslationValue> = {
   'curiosities.colTeam': 'Équipe', 'curiosities.colPlayed': 'J', 'curiosities.colWon': 'G', 'curiosities.colDrawn': 'N',
   'curiosities.colLost': 'P', 'curiosities.colScored': 'BP', 'curiosities.colConceded': 'BC', 'curiosities.colPoints': 'Pts',
   'curiosities.teamBLACK': 'Noirs', 'curiosities.teamWHITE': 'Blancs', 'curiosities.teamBLUE': 'Bleus', 'curiosities.teamRED': 'Rouges',
+  'curiosities.shareDuel': '{title} : {a} {goalsA} · {goalsB} {b} — imaginé sur KickHub.',
+  'curiosities.shareCup': 'Champion du tournoi imaginaire : {name}. Simulé sur KickHub.',
 }
 const de: Record<Key, TranslationValue> = {
   'curiosities.eyebrow': 'Spiele, die nie stattfinden werden', 'curiosities.title': 'Kuriositäten',
@@ -161,6 +169,8 @@ const de: Record<Key, TranslationValue> = {
   'curiosities.colTeam': 'Team', 'curiosities.colPlayed': 'Sp', 'curiosities.colWon': 'S', 'curiosities.colDrawn': 'U',
   'curiosities.colLost': 'N', 'curiosities.colScored': 'T', 'curiosities.colConceded': 'GT', 'curiosities.colPoints': 'Pkt',
   'curiosities.teamBLACK': 'Schwarze', 'curiosities.teamWHITE': 'Weiße', 'curiosities.teamBLUE': 'Blaue', 'curiosities.teamRED': 'Rote',
+  'curiosities.shareDuel': '{title}: {a} {goalsA} · {goalsB} {b} — erdacht auf KickHub.',
+  'curiosities.shareCup': 'Meister des Fantasieturniers: {name}. Simuliert auf KickHub.',
 }
 
 export const curiositiesCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

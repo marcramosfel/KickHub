@@ -62,10 +62,23 @@ describe('ProfilePage', () => {
     renderPage()
 
     expect(screen.getByRole('heading', { name: 'Marcos Real' })).toBeInTheDocument()
-    expect(screen.getByText('Pelada Browns')).toBeInTheDocument()
-    expect(screen.getByText('84')).toBeInTheDocument()
+    // Duas vezes: na coluna das comunidades e a rotular a colecção de cards.
+    expect(screen.getAllByText('Pelada Browns')).toHaveLength(2)
+    // O overall aparece nas estatísticas da comunidade e no card.
+    expect(screen.getAllByText('84')).toHaveLength(2)
     expect(screen.getAllByText('8')).toHaveLength(2)
     expect(screen.queryByText('overall global')).not.toBeInTheDocument()
+  })
+
+  it('mostra as conquistas reais da pelada, e não destaques fixos', () => {
+    mocks.useMyPlayerProfile.mockReturnValue({ data, isPending: false, isError: false, refetch: vi.fn() })
+    const { container } = renderPage()
+
+    // A fixture tem um título — o das assistências — e mais nada. A colecção
+    // tem de ter exactamente uma conquista, não três destaques inventados.
+    expect(container.querySelectorAll('.card-chip')).toHaveLength(1)
+    expect(container.querySelector('.player-card-title')?.textContent)
+      .toBe(container.querySelector('.card-chip')?.textContent?.replace(/[^A-Za-zÀ-ÿ ]/g, '').trim())
   })
 
   it('não mostra o perfil privado de outro username', () => {
