@@ -162,9 +162,12 @@ as $$
   )
 $$;
 
+-- `jsonb_exists_all` e não o operador `?&`: há clientes que tratam o `?` como
+-- marcador de parâmetro, e uma migração não pode depender de qual deles a
+-- aplica. A função é o mesmo operador com outro nome.
 update public.profiles
 set privacy = public.default_privacy() || privacy
-where not (privacy ?& array['profile','stats','show_city','show_peladas','accept_invites']);
+where not jsonb_exists_all(privacy, array['profile','stats','show_city','show_peladas','accept_invites']);
 
 alter table public.profiles
   alter column privacy set default '{"profile":"members","stats":"members","show_city":false,"show_peladas":"members","accept_invites":true}'::jsonb;

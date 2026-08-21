@@ -13,6 +13,13 @@
 
 create extension if not exists postgis with schema extensions;
 
+-- O PostGIS pode já estar instalado noutro esquema — nesse caso o `create
+-- extension if not exists` acima não faz nada e o `with schema` é ignorado.
+-- Fixar `extensions.` nas chamadas partia exactamente nesse caso. Com o
+-- `search_path` a incluir os dois, o Postgres resolve as funções aqui, em DDL,
+-- e guarda os OIDs — o que fica gravado passa a ser independente disto.
+set search_path = public, extensions;
+
 -- 'exact' faltava. O enum tinha 'hidden', 'city' e 'approximate', mas §23 pede
 -- três opções que incluem a morada exacta, e sem este valor não havia como uma
 -- pelada dizer "podem ver onde jogamos".
@@ -26,13 +33,13 @@ alter table public.peladas
 -- ponto velho, e um trigger para manter duas verdades sincronizadas é uma
 -- verdade a mais.
 alter table public.peladas
-  add column if not exists location extensions.geography(Point, 4326)
+  add column if not exists location geography(Point, 4326)
   generated always as (
     case
       when latitude is null or longitude is null then null
-      else extensions.st_setsrid(
-        extensions.st_makepoint(longitude::double precision, latitude::double precision), 4326
-      )::extensions.geography
+      else st_setsrid(
+        st_makepoint(longitude::double precision, latitude::double precision), 4326
+      )::geography
     end
   ) stored;
 
@@ -136,9 +143,9 @@ as $$
   with centre as (
     select case
       when p_latitude is null or p_longitude is null then null
-      else extensions.st_setsrid(
-        extensions.st_makepoint(p_longitude::double precision, p_latitude::double precision), 4326
-      )::extensions.geography
+      else st_setsrid(
+        st_makepoint(p_longitude::double precision, p_latitude::double precision), 4326
+      )::geography
     end as point
   ),
   candidates as (
@@ -152,7 +159,7 @@ as $$
         -- Metros para quilómetros, com uma casa: a precisão do metro num
         -- filtro de "peladas a 10 km" é ruído, e sugere uma exactidão que a
         -- própria localização desfocada não tem.
-        else round((extensions.st_distance(p.location, (select point from centre)) / 1000)::numeric, 1)
+        else round((st_distance(p.location, (select point from centre)) / 1000)::numeric, 1)
       end as distance_km
     from public.peladas p
     left join public.pelada_settings s on s.pelada_id = p.id

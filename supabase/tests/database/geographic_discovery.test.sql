@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(17);
 
 -- A descoberta geográfica existe e está aberta a quem ainda não tem conta:
 -- procurar uma pelada é o passo anterior a criar uma.
@@ -31,7 +31,12 @@ select ok(
   (select is_generated = 'ALWAYS' from information_schema.columns
    where table_schema = 'public' and table_name = 'peladas' and column_name = 'location'),
   'o ponto é gerado a partir das coordenadas');
-select has_index('public', 'peladas', 'peladas_location_idx', 'a busca por proximidade tem índice espacial');
+-- Não é `has_index` com quatro argumentos: nessa forma o pgTAP lê o quarto
+-- como o nome de uma coluna, e não como a descrição do teste.
+select ok(
+  exists (select 1 from pg_indexes
+    where schemaname = 'public' and tablename = 'peladas' and indexname = 'peladas_location_idx'),
+  'a busca por proximidade tem índice espacial');
 
 -- Os campos que os filtros de §21 exigem.
 select has_column('public', 'pelada_settings', 'match_weekday', 'o dia habitual é filtrável');
@@ -41,13 +46,13 @@ select has_column('public', 'pelada_settings', 'max_players', 'as vagas são fil
 
 -- O ponto público respeita a precisão escolhida. 'hidden' não devolve nem
 -- desfocado, e 'city' arredonda o suficiente para não denunciar o campo.
-select is(public.public_pelada_point('hidden', 37.0812345, -8.1123456), null,
+select is(public.public_pelada_point('hidden', 37.081234, -8.112345), null::jsonb,
   'quem esconde a morada não devolve ponto nenhum');
 select is(
-  public.public_pelada_point('city', 37.0812345, -8.1123456)->>'lat', '37.1',
+  public.public_pelada_point('city', 37.081234, -8.112345)->>'lat', '37.1',
   'a precisão de cidade arredonda a uma casa');
 select is(
-  public.public_pelada_point('exact', 37.0812345, -8.1123456)->>'lat', '37.081235',
+  public.public_pelada_point('exact', 37.081234, -8.112345)->>'lat', '37.081234',
   'a precisão exacta devolve o que lá está');
 
 -- Só quem administra mexe na descoberta da pelada.
