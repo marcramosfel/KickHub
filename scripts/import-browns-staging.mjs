@@ -6,8 +6,11 @@ import { LEGACY_TABLES, assertServiceRoleKey } from './lib/brownsSnapshot.mjs'
 import {
   KICKHUB_STAGING_PROJECT_REF,
   chunksOf,
+  fetchDestinationColumns,
   rowsForStaging,
+  unknownColumns,
   validateStagingExport,
+  withoutColumns,
 } from './lib/brownsStagingImport.mjs'
 
 const TARGET_URL = `https://${KICKHUB_STAGING_PROJECT_REF}.supabase.co`
@@ -64,7 +67,7 @@ async function exactCount(supabase, tableName) {
   return count ?? 0
 }
 
-async function importTable(supabase, table, rows, allowResume, overwrite) {
+async function importTable(supabase, table, rows, allowResume, overwrite, destinationColumns) {
   if (rows.length === 0) {
     process.stdout.write(`– ${table.name}: sem linhas exportáveis\n`)
     return
@@ -93,7 +96,11 @@ async function importTable(supabase, table, rows, allowResume, overwrite) {
     throw new Error(`${table.name} já contém ${currentCount} linhas. Revise o staging antes de usar --resume.`)
   }
 
-  const preparedRows = rowsForStaging(table.name, rows)
+  // O schema legado da Browns continuou a andar depois do baseline do KickHub.
+  // As colunas que o destino nao conhece caem aqui: nao sao lidas pela projecao
+  // multi-pelada, e o PostgREST recusaria a linha inteira por causa delas.
+  const staged = rowsForStaging(table.name, rows)
+  const preparedRows = withoutColumns(staged, unknownColumns(staged, destinationColumns))
   for (const chunk of chunksOf(preparedRows)) {
     const query = table.name === 'match_activity'
       ? supabase.from(table.name).insert(chunk)
@@ -153,15 +160,35 @@ async function main() {
     auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
     global: { headers: { 'X-Client-Info': 'kickhub-staging-data-import/1' } },
   })
+  // O OpenAPI do PostgREST e lido por `fetch` directo, fora do cliente, e por
+  // isso precisa da chave. Fica so nesta variavel e nunca sai daqui.
+  const columnsKey = serviceRoleKey
   serviceRoleKey = ''
 
   const { error: destinationError } = await supabase.from('peladas').select('id').limit(1)
   if (destinationError) throw new Error(`A chave não pertence ao KickHub staging: ${destinationError.message}`)
 
+  // O relatorio sai todo antes de escrever a primeira linha. Descobrir as
+  // colunas divergentes uma de cada vez custa uma execucao falhada por coluna.
+  const destinationColumns = await fetchDestinationColumns(TARGET_URL, columnsKey)
+  const drift = LEGACY_TABLES
+    .map((table) => [table.name, unknownColumns(
+      rowsForStaging(table.name, backup.tables[table.name].rows),
+      destinationColumns.get(table.name),
+    )])
+    .filter(([, columns]) => columns.length > 0)
+
+  if (drift.length > 0) {
+    process.stdout.write('\nColunas que a origem tem e o destino não conhece:\n')
+    for (const [name, columns] of drift) process.stdout.write(`  ${name}: ${columns.join(', ')}\n`)
+    process.stdout.write('Não são lidas pela projeção multi-pelada e ficam de fora da importação.\n\n')
+  }
+
   for (const table of LEGACY_TABLES) {
     await importTable(
       supabase, table, backup.tables[table.name].rows,
       args.includes('--resume'), args.includes('--overwrite'),
+      destinationColumns.get(table.name),
     )
   }
 

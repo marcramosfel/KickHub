@@ -98,3 +98,48 @@ export function chunksOf(rows, size = 100, maxBytes = MAX_CHUNK_BYTES) {
   if (current.length > 0) chunks.push(current)
   return chunks
 }
+
+/**
+ * Colunas que a exportação traz e o destino não conhece.
+ *
+ * O schema legado da Browns continuou a andar depois do baseline do KickHub —
+ * `matches.gk_mode_a` é uma delas. O PostgREST recusa a linha inteira quando vê
+ * uma coluna que não existe, portanto sem isto a importação morre na primeira
+ * tabela que divergiu e só revela uma coluna de cada vez.
+ */
+export function unknownColumns(rows, allowed) {
+  if (!allowed) return []
+  const unknown = new Set()
+  for (const row of rows) {
+    for (const column of Object.keys(row)) if (!allowed.has(column)) unknown.add(column)
+  }
+  return [...unknown].sort()
+}
+
+/** As linhas sem as colunas que o destino não tem. Não muda as originais. */
+export function withoutColumns(rows, columns) {
+  if (columns.length === 0) return rows
+  const dropped = new Set(columns)
+  return rows.map((row) => Object.fromEntries(
+    Object.entries(row).filter(([column]) => !dropped.has(column)),
+  ))
+}
+
+/**
+ * Colunas de cada tabela do destino, lidas do OpenAPI que o PostgREST publica
+ * na raiz. É a única descrição do schema que uma chave de API alcança —
+ * `information_schema` não é exposto.
+ */
+export async function fetchDestinationColumns(url, key) {
+  const response = await fetch(`${url}/rest/v1/`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/openapi+json' },
+  })
+  if (!response.ok) {
+    throw new Error(`Não foi possível ler o schema do destino (HTTP ${response.status}).`)
+  }
+  const spec = await response.json()
+  const definitions = spec.definitions ?? spec.components?.schemas ?? {}
+  return new Map(Object.entries(definitions).map(
+    ([table, definition]) => [table, new Set(Object.keys(definition?.properties ?? {}))],
+  ))
+}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
-import { chunksOf, rowsForStaging, validateStagingExport } from '../../scripts/lib/brownsStagingImport.mjs'
+import {
+  chunksOf, rowsForStaging, unknownColumns, validateStagingExport, withoutColumns,
+} from '../../scripts/lib/brownsStagingImport.mjs'
 import { LEGACY_TABLES } from '../../scripts/lib/brownsSnapshot.mjs'
 
 function validBackup(sanitization = {}, players = [{ id: 'player-1', name: 'Jogador Browns 001' }]) {
@@ -84,5 +86,38 @@ describe('importação Browns no staging', () => {
     // Uma linha maior do que o limite segue sozinha: parti-la não é opção.
     const huge = { photo: 'x'.repeat(5000) }
     expect(chunksOf([huge, huge], 100, 1400)).toEqual([[huge], [huge]])
+  })
+})
+
+describe('divergência de schema entre a Browns e o destino', () => {
+  /**
+   * O schema legado da Browns continuou a andar depois do baseline do KickHub:
+   * `matches.gk_mode_a` é uma coluna que a origem tem e o destino não conhece.
+   * O PostgREST recusa a linha inteira por causa dela.
+   */
+  it('nomeia todas as colunas que o destino não conhece, não só a primeira', () => {
+    const rows = [
+      { id: 1, gk_mode: 'FIXED', gk_mode_a: 'ROTATING' },
+      { id: 2, gk_mode: 'ROTATING', gk_mode_b: 'FIXED', gk_rotation_seconds: 300 },
+    ]
+    expect(unknownColumns(rows, new Set(['id', 'gk_mode'])))
+      .toEqual(['gk_mode_a', 'gk_mode_b', 'gk_rotation_seconds'])
+  })
+
+  it('não inventa divergência quando o destino conhece tudo', () => {
+    expect(unknownColumns([{ id: 1, gk_mode: 'FIXED' }], new Set(['id', 'gk_mode']))).toEqual([])
+  })
+
+  /** Sem descrição do destino não há juízo a fazer: nada se deita fora. */
+  it('deixa as linhas intactas quando não sabe o que o destino tem', () => {
+    expect(unknownColumns([{ id: 1, seja_o_que_for: 'x' }], undefined)).toEqual([])
+  })
+
+  it('remove as colunas divergentes sem tocar nas restantes', () => {
+    const rows = [{ id: 1, gk_mode: 'FIXED', gk_mode_a: 'X' }, { id: 2, gk_mode_b: 'Y' }]
+    expect(withoutColumns(rows, ['gk_mode_a', 'gk_mode_b']))
+      .toEqual([{ id: 1, gk_mode: 'FIXED' }, { id: 2 }])
+    // As originais não são mexidas: o relatório é impresso a partir delas.
+    expect(rows[0].gk_mode_a).toBe('X')
   })
 })
