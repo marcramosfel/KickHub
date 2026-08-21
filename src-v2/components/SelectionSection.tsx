@@ -1,19 +1,16 @@
 import { Crown, ShieldCheck, Sparkles, Trophy } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { explainSquadOverall } from '../domain/player-overall'
 import {
   buildSelections,
   DEFAULT_TEAM_SIZE,
   type Selection,
-  type SelectionPlayer,
   type SelectionPosition,
 } from '../domain/pelada-selection'
 import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
-import { usePeladaRanking } from '../lib/ranking'
+import { usePeladaPlayers } from '../lib/pelada-players'
 import { usePeladaSettings } from '../lib/pelada-settings'
-import { usePeladaSquad } from '../lib/squad'
 import { Avatar, Badge, Card, EmptyState } from './ui'
 
 const positionLabels: Record<SelectionPosition, TranslationKey> = {
@@ -21,54 +18,11 @@ const positionLabels: Record<SelectionPosition, TranslationKey> = {
   MID: 'selection.positionMID', ATT: 'selection.positionATT',
 }
 
-/**
- * O plantel e o ranking dizem coisas diferentes e ambas são precisas: as
- * posições vivem no plantel, o overall só existe depois de comparar toda a
- * gente. Quem está no plantel sem linha no ranking não tem overall — e sem
- * overall não entra em nenhuma das seleções.
- */
-function useSelectionPlayers(peladaId: string | undefined) {
-  const squad = usePeladaSquad(peladaId, true)
-  const ranking = usePeladaRanking(peladaId, true)
-
-  const players = useMemo<SelectionPlayer[]>(() => {
-    const rows = ranking.data ?? []
-    const overallByMember = explainSquadOverall(rows)
-    return (squad.data ?? []).map((member) => {
-      const breakdown = overallByMember.get(member.membershipId)
-      return {
-        membershipId: member.membershipId,
-        displayName: member.displayName,
-        playerType: member.playerType,
-        primaryPosition: member.primaryPosition,
-        secondaryPosition: member.secondaryPosition,
-        acceptsOtherPositions: member.acceptsOtherPositions,
-        overall: breakdown?.overall ?? null,
-        provisional: breakdown?.provisional ?? true,
-      }
-    })
-  }, [ranking.data, squad.data])
-
-  // As fotos vivem no plantel, não no ranking, e o campo mostra-as: assinar o
-  // plantel inteiro custa uma chamada — assinar por cartaz custava duas.
-  const avatarSources = useMemo(() => (squad.data ?? []).map((member) => ({
-    id: member.membershipId, path: member.avatarPath, bucket: member.avatarBucket,
-  })), [squad.data])
-
-  return {
-    players,
-    avatarSources,
-    isPending: squad.isPending || ranking.isPending,
-    isError: squad.isError || ranking.isError,
-    refetch: () => { void squad.refetch(); void ranking.refetch() },
-  }
-}
-
 export function SelectionSection() {
   const { t } = useI18n()
   const { pelada } = useCurrentPelada()
   const settings = usePeladaSettings(pelada?.id, true)
-  const { players, avatarSources, isPending, isError, refetch } = useSelectionPlayers(pelada?.id)
+  const { players, avatarSources, isPending, isError, refetch } = usePeladaPlayers(pelada?.id)
   // A anti-seleção começa fechada. É uma piada, mas é uma piada sobre pessoas
   // reais — quem a quiser ver, abre-a.
   const [showWorst, setShowWorst] = useState(false)
