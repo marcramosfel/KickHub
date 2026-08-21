@@ -143,3 +143,34 @@ export async function fetchDestinationColumns(url, key) {
     ([table, definition]) => [table, new Set(Object.keys(definition?.properties ?? {}))],
   ))
 }
+
+/**
+ * Colunas que trazem uma imagem embutida como `data:image/...`.
+ *
+ * Uma foto em base64 dentro de uma linha pode valer megabytes, e o corpo do
+ * pedido vai por PostgREST — que a certa altura deixa de o aceitar e a conexão
+ * cai com `TypeError: fetch failed`, sem resposta HTTP que explique nada.
+ *
+ * Os bytes não pertencem a uma linha de qualquer maneira: pertencem ao bucket
+ * privado. Saem daqui e sobem por Storage, que é o transporte feito para isso.
+ */
+export function dataUrlColumns(row) {
+  return Object.entries(row)
+    .filter(([, value]) => typeof value === 'string' && value.startsWith('data:image/'))
+    .map(([column]) => column)
+}
+
+/** As linhas sem as imagens embutidas, e a conta do que ficou para trás. */
+export function stripDataUrls(rows) {
+  let stripped = 0
+  const clean = rows.map((row) => {
+    const columns = dataUrlColumns(row)
+    if (columns.length === 0) return row
+    stripped += columns.length
+    const dropped = new Set(columns)
+    return Object.fromEntries(Object.entries(row).map(
+      ([column, value]) => [column, dropped.has(column) ? null : value],
+    ))
+  })
+  return { rows: clean, stripped }
+}

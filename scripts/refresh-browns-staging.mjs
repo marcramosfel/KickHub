@@ -3,7 +3,7 @@
  * ao fim: exporta da Browns, importa no staging, projeta o modelo multi-pelada e
  * põe as fotos no bucket privado.
  *
- * Existe porque os quatro passos têm de acontecer por esta ordem e nenhum deles
+ * Existe porque os cinco passos têm de acontecer por esta ordem e nenhum deles
  * faz sentido sozinho. Uma importação sem a migração de mídia deixa as fotos
  * como `data:image/...` dentro das linhas, e o plantel continua a mostrar
  * iniciais — que foi exatamente o que aconteceu da primeira vez.
@@ -43,13 +43,13 @@ const identities = process.env.BROWNS_STAGING_IDENTITIES ?? 'pseudonymized'
 /**
  * Os dois passos interativos pedem a chave por `readHidden`, e isso exige um TTY
  * que um processo filho não tem. Aqui elas têm de vir do ambiente — é a única
- * forma de encadear os quatro sem parar a meio a pedir uma senha.
+ * forma de encadear os cinco sem parar a meio a pedir uma senha.
  */
 function assertKeys() {
   if (!brownsKey || !stagingKey) {
     throw new Error(
       'Defina BROWNS_SERVICE_ROLE_KEY e KICKHUB_STAGING_SERVICE_ROLE_KEY no ambiente da sessão.\n'
-      + 'Este script encadeia quatro passos e não pode parar a meio a pedir uma senha.',
+      + 'Este script encadeia cinco passos e não pode parar a meio a pedir uma senha.',
     )
   }
   assertServiceRoleKey(brownsKey)
@@ -100,7 +100,7 @@ function run(script, args, env) {
 async function main() {
   assertKeys()
   process.stdout.write(`Destino: ${TARGET_URL}\nModo de identidade: ${identities}\n`)
-  process.stdout.write('\n[1/4] Conferindo se o staging já tem as migrations…\n')
+  process.stdout.write('\n[1/5] Conferindo se o staging já tem as migrations…\n')
   await assertMigrationsApplied()
   process.stdout.write('✓ migrations aplicadas\n')
 
@@ -111,17 +111,25 @@ async function main() {
   const exportPath = path.join(workDir, 'browns-staging-export.json')
 
   try {
-    process.stdout.write('\n[2/4] Exportando da Pelada Browns…\n')
+    process.stdout.write('\n[2/5] Exportando da Pelada Browns…\n')
     await run('export-browns-staging.mjs', ['--output', exportPath], {
       BROWNS_SERVICE_ROLE_KEY: brownsKey,
     })
 
-    process.stdout.write('\n[3/4] Importando no KickHub staging…\n')
+    process.stdout.write('\n[3/5] Importando no KickHub staging…\n')
     await run('import-browns-staging.mjs', ['--input', exportPath, '--overwrite'], {
       KICKHUB_STAGING_SERVICE_ROLE_KEY: stagingKey,
     })
 
-    process.stdout.write('\n[4/4] Migrando as fotos para o bucket privado…\n')
+    process.stdout.write('\n[4/5] Subindo as imagens para os buckets privados…\n')
+    await run('upload-browns-media.mjs', ['--input', exportPath], {
+      KICKHUB_STAGING_SERVICE_ROLE_KEY: stagingKey,
+    })
+
+    // O migrador da base fecha a projecao: em staging nao ha imagens nas linhas
+    // para ele levar, mas e ele que marca como `ready` o que ficou pendente e e
+    // o mesmo passo que corre no cutover de producao.
+    process.stdout.write('\n[5/5] Fechando a projeção de mídia…\n')
     await run('migrate-browns-media.mjs', [], {
       BROWNS_MEDIA_SUPABASE_URL: TARGET_URL,
       BROWNS_MEDIA_SERVICE_ROLE_KEY: stagingKey,

@@ -8,6 +8,7 @@ import {
   chunksOf,
   fetchDestinationColumns,
   rowsForStaging,
+  stripDataUrls,
   unknownColumns,
   validateStagingExport,
   withoutColumns,
@@ -100,7 +101,14 @@ async function importTable(supabase, table, rows, allowResume, overwrite, destin
   // As colunas que o destino nao conhece caem aqui: nao sao lidas pela projecao
   // multi-pelada, e o PostgREST recusaria a linha inteira por causa delas.
   const staged = rowsForStaging(table.name, rows)
-  const preparedRows = withoutColumns(staged, unknownColumns(staged, destinationColumns))
+  const known = withoutColumns(staged, unknownColumns(staged, destinationColumns))
+  // As imagens saem das linhas: em base64 fazem o corpo do pedido crescer ate o
+  // gateway o deixar cair, e sobem por Storage num passo proprio.
+  const { rows: preparedRows, stripped } = stripDataUrls(known)
+  if (stripped > 0) {
+    process.stdout.write(`~ ${table.name}: ${stripped} imagem(ns) fora das linhas, sobem por Storage\n`)
+  }
+
   for (const chunk of chunksOf(preparedRows)) {
     const query = table.name === 'match_activity'
       ? supabase.from(table.name).insert(chunk)

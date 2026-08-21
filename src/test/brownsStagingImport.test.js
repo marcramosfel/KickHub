@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
 import {
-  chunksOf, rowsForStaging, unknownColumns, validateStagingExport, withoutColumns,
+  chunksOf, dataUrlColumns, rowsForStaging, stripDataUrls, unknownColumns,
+  validateStagingExport, withoutColumns,
 } from '../../scripts/lib/brownsStagingImport.mjs'
 import { LEGACY_TABLES } from '../../scripts/lib/brownsSnapshot.mjs'
 
@@ -119,5 +120,42 @@ describe('divergência de schema entre a Browns e o destino', () => {
       .toEqual([{ id: 1, gk_mode: 'FIXED' }, { id: 2 }])
     // As originais não são mexidas: o relatório é impresso a partir delas.
     expect(rows[0].gk_mode_a).toBe('X')
+  })
+})
+
+describe('imagens fora das linhas', () => {
+  /**
+   * Uma foto em base64 dentro de uma linha faz o corpo do pedido crescer até o
+   * gateway o deixar cair, e o que chega é `TypeError: fetch failed` — sem
+   * resposta HTTP que explique nada. Foi assim que a importação real morreu em
+   * `players`, depois de a versão pseudonimizada ter passado sem tocar nisto.
+   */
+  it('encontra as colunas que trazem imagem embutida', () => {
+    const row = { id: 1, name: 'Ana', photo_url: 'data:image/png;base64,AAAA', map_url: 'https://exemplo.test' }
+    expect(dataUrlColumns(row)).toEqual(['photo_url'])
+  })
+
+  it('esvazia a imagem e deixa o resto da linha como estava', () => {
+    const rows = [
+      { id: 1, name: 'Ana', photo_url: 'data:image/jpeg;base64,AAAA' },
+      { id: 2, name: 'Bia', photo_url: null },
+    ]
+    const result = stripDataUrls(rows)
+    expect(result.stripped).toBe(1)
+    expect(result.rows).toEqual([
+      { id: 1, name: 'Ana', photo_url: null },
+      { id: 2, name: 'Bia', photo_url: null },
+    ])
+    // A original fica intacta: é dela que o passo seguinte tira os bytes.
+    expect(rows[0].photo_url).toBe('data:image/jpeg;base64,AAAA')
+  })
+
+  it('não conta nada quando não há imagem nenhuma embutida', () => {
+    const rows = [{ id: 1, name: 'Ana', photo_url: null }]
+    const result = stripDataUrls(rows)
+    expect(result.stripped).toBe(0)
+    expect(result.rows).toEqual(rows)
+    // A linha em si nem é copiada quando não há nada a tirar dela.
+    expect(result.rows[0]).toBe(rows[0])
   })
 })
