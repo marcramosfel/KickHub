@@ -35,6 +35,13 @@ O produto inclui:
 - notificações in-app de convocatória, cancelamento e resposta a pedidos;
 - tema claro/escuro, PWA, mobile navigation e i18n tipado para PT/EN/ES/FR/DE em toda a experiência
   global: landing, autenticação, convite, dashboard, criação, descoberta, perfil e contexto da pelada;
+- SEO e partilha: metadados por página, canónico, hreflang para os cinco idiomas, dados
+  estruturados, `robots.txt` e sitemap;
+- camada de analytics sem fornecedor ligado, com atribuição UTM e convite (§51–54);
+- conta e privacidade: cada opção fechada por omissão, exportação dos próprios dados e
+  apagamento que anonimiza sem reescrever a história de terceiros;
+- governação: papel de plataforma separado do papel de pelada, feature flags, denúncias,
+  arquivo em vez de apagar e limites por plano preparados sem paywall;
 - schema Supabase multi-tenant com Auth, roles, RLS, convites, pedidos, notificações e auditoria;
 - Browns modelada como tenant #1, com backfill idempotente do legado; o cutover dos dados reais
   continua condicionado aos gates operacionais e ao backup aprovado.
@@ -91,6 +98,8 @@ As migrations são append-only:
 23. `20260817000000_browns_history_backfill.sql` — projeção reconciliada do histórico Browns e perfil real do jogador.
 24. `20260822000000_geographic_discovery.sql` — PostGIS, filtros de descoberta, páginas por
     região e precisão da morada por pelada.
+25. `20260822010000_platform_governance.sql` — papéis de plataforma, flags, denúncias,
+    privacidade, GDPR, arquivo e planos.
 
 Com Docker disponível:
 
@@ -119,6 +128,8 @@ supabase/
 ```
 
 Decisões e limites da arquitetura: `docs/architecture-v2.md`.
+
+Tokens, componentes e acessibilidade: `docs/design-system.md`.
 
 Configuração e fluxo de autenticação: `docs/authentication.md`.
 

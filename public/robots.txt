@@ -1,0 +1,21 @@
+# KickHub — o que os motores de busca podem ver.
+#
+# As comunidades são privadas por omissão, e é isso que esta lista reflecte:
+# a landing, a descoberta e as páginas por região são públicas; tudo o que
+# vive dentro de uma pelada ou de uma conta não é.
+#
+# Isto não é a defesa — a defesa é o RLS no servidor. É a boa-educação que
+# evita que um endereço privado apareça num resultado de pesquisa.
+
+User-agent: *
+Allow: /$
+Allow: /descobrir
+Disallow: /app
+Disallow: /criar
+Disallow: /reclamar
+Disallow: /convite/
+Disallow: /entrar
+Disallow: /p/
+Disallow: /u/
+
+Sitemap: https://kickhub.app/sitemap.xml

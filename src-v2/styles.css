@@ -26,9 +26,32 @@
   --violet: #b7a0ff;
   --shadow: 0 18px 55px rgba(15, 35, 24, .09);
   --radius: 18px;
+
+  /* Tokens nomeados (§32). O `--radius` acima é o valor herdado e continua a
+     ser usado por dezenas de regras; os nomeados existem para o que se escrever
+     de novo, e para a identidade visual poder mudar sem tocar em componentes. */
+  --danger: #a03f2b;
+  --shadow-raised: 0 24px 70px rgba(15, 35, 24, .16);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 18px;
+  --space-5: 26px;
+  --space-6: 40px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --motion-fast: .12s;
+  --motion-base: .18s;
+  --motion-slow: .32s;
 }
 
 .dark {
+  /* Só o que muda com o tema. Espaçamento, raio e movimento são os mesmos no
+     claro e no escuro — redefini-los aqui era abrir a porta a dois sistemas. */
+  --danger: #d98169;
+  --shadow-raised: 0 26px 70px rgba(0, 0, 0, .42);
   --bg: #07100b;
   --surface: #101c15;
   --surface-2: #18251d;
@@ -225,3 +248,9 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 .region-links{margin-top:34px}.region-links h2{font-size:16px;margin:0 0 12px}.region-links ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}.region-links a{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 13px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-size:11px;font-weight:700}.region-links a b{font-family:var(--font-display);font-size:11px;color:#5d8a12}
 
 @media (max-width:760px){.filter-panel{padding:14px}.discovery-map-plot{height:340px}.discovery-pin-label{max-width:84px;font-size:9px}}
+
+.account-page{max-width:900px;margin:0 auto}.account-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}.privacy-panel,.data-panel{display:grid;gap:16px;padding:20px}.privacy-panel>header,.data-panel>header,.discovery-settings>header{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}.privacy-panel>header>svg,.data-panel>header>svg,.discovery-settings>header>svg{width:22px;color:#628b18}.privacy-panel h2,.data-panel h2,.discovery-settings h2{font-size:18px;margin:4px 0 0}.privacy-panel>header p:last-child,.data-panel>header p:last-child,.discovery-settings>header p:last-child{margin:6px 0 0;font-size:11px;line-height:1.65;color:var(--muted)}.privacy-fields{display:grid;gap:12px}.privacy-fields label:not(.filter-toggle){display:grid;gap:5px;font-size:11px;font-weight:800;color:var(--muted)}.privacy-fields select{min-height:42px;padding:0 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:700}
+.danger-zone{display:grid;gap:10px;justify-items:start;padding:16px;border-radius:12px;border:1px solid color-mix(in srgb,#a03f2b 40%,var(--border));background:color-mix(in srgb,#ff8758 8%,var(--surface))}.danger-zone h3{display:flex;align-items:center;gap:8px;margin:0;font-size:14px}.danger-zone h3 svg{width:17px;color:#9a3d2b}.danger-zone p{margin:0;font-size:11px;line-height:1.65;color:var(--muted)}.danger-zone label{display:grid;gap:5px;width:100%;font-size:11px;font-weight:800;color:var(--muted)}.danger-zone input{min-height:42px;padding:0 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:800;letter-spacing:.06em}
+.discovery-settings{display:grid;gap:16px;padding:20px;margin-top:14px}.discovery-settings form{display:grid;gap:12px}.discovery-settings label{display:grid;gap:5px;font-size:11px;font-weight:800;color:var(--muted)}.discovery-settings input,.discovery-settings select{min-height:42px;padding:0 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:700}.discovery-settings small{font-weight:500;line-height:1.55;color:var(--muted)}
+
+@media (max-width:900px){.account-grid{grid-template-columns:1fr}}

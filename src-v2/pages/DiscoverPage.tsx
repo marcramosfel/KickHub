@@ -9,6 +9,7 @@ import {
   type DiscoveredPelada, type DiscoveryFilters, type SkillLevel,
 } from '../lib/discovery'
 import { useI18n, type TranslationKey } from '../lib/i18n'
+import { useSeo } from '../lib/seo'
 import type { Pelada } from '../lib/pelada-types'
 import { useOnboarding } from '../lib/onboarding'
 
@@ -62,6 +63,14 @@ export function DiscoverPage() {
     query, countryCode: country?.toUpperCase(), region,
     centre, radiusKm, weekday, format, skillLevel, onlyWithRoom,
   }), [centre, country, format, onlyWithRoom, query, radiusKm, region, skillLevel, weekday])
+
+  // Indexável: a descoberta e as páginas por região existem para ser
+  // encontradas (§24, §49). O que está dentro de uma pelada é que não.
+  useSeo({
+    title: region ? t('discover.regionTitle', { region }) : t('discover.seoTitle'),
+    description: t('discover.seoDescription'),
+    indexable: true,
+  })
 
   const discovery = useDiscovery(filters)
   const results = discovery.data ?? []

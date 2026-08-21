@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card } from '../components/ui'
 import { useAuth } from '../lib/auth'
+import { track } from '../lib/analytics'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { createPelada, createPeladaSlug, type CreatePeladaInput } from '../lib/peladas'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -72,6 +73,10 @@ export function CreatePeladaPage() {
         visibility: form.visibility, joinMode: form.joinMode, defaultFormat: form.format, frequency: form.frequency,
       })
       createdName = created.name
+      track('pelada_created', {
+        pelada_id: created.id, visibility: form.visibility,
+        join_mode: form.joinMode, format: form.format,
+      })
       await queryClient.invalidateQueries({ queryKey: ['my-peladas', user.id] })
       const params = new URLSearchParams({ created: createdName })
       navigate(`/app?${params.toString()}`)

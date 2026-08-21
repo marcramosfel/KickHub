@@ -6,6 +6,7 @@ const pt = {
   'common.discover': 'Descobrir',
   'common.createPelada': 'Criar pelada',
   'common.profile': 'Perfil',
+  'common.account': 'Conta',
   'common.signIn': 'Entrar',
   'common.player': 'Jogador',
   'common.skipToContent': 'Saltar para o conteúdo',
@@ -25,7 +26,7 @@ const pt = {
 type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
-  'common.home': 'Home', 'common.brandHome': 'KickHub — home', 'common.discover': 'Discover', 'common.createPelada': 'Create group', 'common.profile': 'Profile',
+  'common.home': 'Home', 'common.brandHome': 'KickHub — home', 'common.discover': 'Discover', 'common.createPelada': 'Create group', 'common.profile': 'Profile', 'common.account': 'Account',
   'common.signIn': 'Sign in', 'common.player': 'Player', 'common.skipToContent': 'Skip to content',
   'common.mainNavigation': 'Main navigation', 'common.mobileNavigation': 'Mobile navigation',
   'common.signOutAccount': 'Sign out of your account', 'common.signOut': 'Sign out',
@@ -35,7 +36,7 @@ const en: Record<Key, TranslationValue> = {
 }
 
 const es: Record<Key, TranslationValue> = {
-  'common.home': 'Inicio', 'common.brandHome': 'KickHub — inicio', 'common.discover': 'Descubrir', 'common.createPelada': 'Crear grupo', 'common.profile': 'Perfil',
+  'common.home': 'Inicio', 'common.brandHome': 'KickHub — inicio', 'common.discover': 'Descubrir', 'common.createPelada': 'Crear grupo', 'common.profile': 'Perfil', 'common.account': 'Cuenta',
   'common.signIn': 'Entrar', 'common.player': 'Jugador', 'common.skipToContent': 'Saltar al contenido',
   'common.mainNavigation': 'Navegación principal', 'common.mobileNavigation': 'Navegación móvil',
   'common.signOutAccount': 'Cerrar sesión', 'common.signOut': 'Salir',
@@ -45,7 +46,7 @@ const es: Record<Key, TranslationValue> = {
 }
 
 const fr: Record<Key, TranslationValue> = {
-  'common.home': 'Accueil', 'common.brandHome': 'KickHub — accueil', 'common.discover': 'Découvrir', 'common.createPelada': 'Créer un groupe', 'common.profile': 'Profil',
+  'common.home': 'Accueil', 'common.brandHome': 'KickHub — accueil', 'common.discover': 'Découvrir', 'common.createPelada': 'Créer un groupe', 'common.profile': 'Profil', 'common.account': 'Compte',
   'common.signIn': 'Connexion', 'common.player': 'Joueur', 'common.skipToContent': 'Aller au contenu',
   'common.mainNavigation': 'Navigation principale', 'common.mobileNavigation': 'Navigation mobile',
   'common.signOutAccount': 'Se déconnecter du compte', 'common.signOut': 'Déconnexion',
@@ -55,7 +56,7 @@ const fr: Record<Key, TranslationValue> = {
 }
 
 const de: Record<Key, TranslationValue> = {
-  'common.home': 'Start', 'common.brandHome': 'KickHub — Startseite', 'common.discover': 'Entdecken', 'common.createPelada': 'Gruppe erstellen', 'common.profile': 'Profil',
+  'common.home': 'Start', 'common.brandHome': 'KickHub — Startseite', 'common.discover': 'Entdecken', 'common.createPelada': 'Gruppe erstellen', 'common.profile': 'Profil', 'common.account': 'Konto',
   'common.signIn': 'Anmelden', 'common.player': 'Spieler', 'common.skipToContent': 'Zum Inhalt springen',
   'common.mainNavigation': 'Hauptnavigation', 'common.mobileNavigation': 'Mobile Navigation',
   'common.signOutAccount': 'Vom Konto abmelden', 'common.signOut': 'Abmelden',

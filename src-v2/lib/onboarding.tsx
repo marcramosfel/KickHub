@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { track } from './analytics'
 import type { Pelada } from './pelada-types'
 import { acceptPeladaInvite, createPeladaInvite, listPendingJoinRequests, requestPeladaMembership, reviewJoinRequest, type JoinRequestRecord } from './onboarding-api'
 
@@ -29,6 +30,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       const result = await requestPeladaMembership(pelada.id, message)
       const next: JoinState = result.status
       setJoinStates((current) => ({ ...current, [pelada.id]: next }))
+      // 'active' é entrada aberta e não um pedido: o funil distingue-os porque
+      // são degraus diferentes — um espera aprovação, o outro já entrou.
+      track(next === 'active' ? 'join_request_approved' : 'join_request_sent', {
+        pelada_id: pelada.id, join_mode: pelada.joinMode,
+      })
       return next
   }, [joinStates])
 
@@ -40,6 +46,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const reviewRequest = useCallback(async (requestId: string, decision: 'approved' | 'rejected') => {
       await reviewJoinRequest(requestId, decision)
       setRequests((current) => current.map((request) => request.id === requestId ? { ...request, status: decision } : request))
+      if (decision === 'approved') track('join_request_approved', { request_id: requestId })
   }, [])
 
   const createInvite = useCallback(async (peladaId: string) => {

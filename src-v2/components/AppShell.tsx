@@ -1,4 +1,4 @@
-import { Compass, House, LogOut, Plus, UserRound } from 'lucide-react'
+import { Compass, House, LogOut, Plus, Settings, UserRound } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { getAuthAvatarObject, getAuthAvatarUrl, getAuthDisplayName, useAuth } from '../lib/auth'
 import { useSignedAvatars } from '../lib/avatars'
@@ -18,12 +18,16 @@ export function AppShell() {
   const storedAvatar = useSignedAvatars([getAuthAvatarObject(profile)])
   // A foto do Storage manda; a do OAuth fica como recurso quando nao ha nenhuma.
   const avatarUrl = storedAvatar.get(profile?.id ?? 'me') ?? getAuthAvatarUrl(user, profile)
+  // A barra de baixo tem quatro lugares e é o que cabe num telemóvel; a conta
+  // fica só na lateral, porque é um sítio onde se entra de propósito e não uma
+  // secção por onde se passa.
   const links = [
     { to: '/app', label: t('common.home'), icon: House },
     { to: '/descobrir', label: t('common.discover'), icon: Compass },
     { to: '/criar', label: t('common.createPelada'), icon: Plus },
     { to: `/u/${profileSlug}`, label: t('common.profile'), icon: UserRound },
   ]
+  const sideLinks = [...links, { to: '/conta', label: t('common.account'), icon: Settings }]
 
   const handleSignOut = async () => {
     await signOut()
@@ -36,7 +40,7 @@ export function AppShell() {
       <aside className="sidebar">
         <Brand ariaLabel={t('common.brandHome')} />
         <nav aria-label={t('common.mainNavigation')}>
-          {links.map(({ to, label, icon: Icon }) => (
+          {sideLinks.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'side-link active' : 'side-link'}>
               <Icon size={20} aria-hidden="true"/><span>{label}</span>
             </NavLink>

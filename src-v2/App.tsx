@@ -5,6 +5,7 @@ import { CurrentPeladaProvider } from './lib/current-pelada'
 import { AuthPage } from './pages/AuthPage'
 import { ClaimPage } from './pages/ClaimPage'
 import { CreatePeladaPage } from './pages/CreatePeladaPage'
+import { AccountPage } from './pages/AccountPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiscoverPage } from './pages/DiscoverPage'
 import { LandingPage } from './pages/LandingPage'
@@ -29,6 +30,7 @@ export function App() {
         <Route path="/criar" element={<CreatePeladaPage/>}/>
         <Route path="/reclamar" element={<ClaimPage/>}/>
         <Route path="/u/:username" element={<ProfilePage/>}/>
+        <Route path="/conta" element={<AccountPage/>}/>
       </Route>
       <Route path="/p/:slug/:section?" element={<CurrentPeladaProvider><PeladaPage/></CurrentPeladaProvider>}/>
     </Route>

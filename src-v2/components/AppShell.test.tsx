@@ -58,14 +58,27 @@ describe('AppShell', () => {
     }
   })
 
-  it('mostra a navegação principal e a móvel com os mesmos destinos', () => {
+  it('não deixa nenhum destino móvel fora da navegação principal', () => {
     renderShell()
     const principal = screen.getByRole('navigation', { name: 'Navegação principal' })
     const movel = screen.getByRole('navigation', { name: 'Navegação móvel' })
 
     const destinos = (root: HTMLElement) => [...root.querySelectorAll('a')].map((a) => a.getAttribute('href'))
-    expect(destinos(principal)).toEqual(destinos(movel))
-    expect(destinos(principal)).toContain('/descobrir')
+    // A barra de baixo é um subconjunto, e não uma cópia: cabem-lhe quatro
+    // lugares. O que não pode acontecer é o contrário — algo alcançável no
+    // telemóvel e desaparecido no ecrã grande.
+    expect(destinos(principal)).toEqual(expect.arrayContaining(destinos(movel)))
+    expect(destinos(movel)).toContain('/descobrir')
+  })
+
+  it('a conta vive na navegação principal, onde se entra de propósito', () => {
+    renderShell()
+    const principal = screen.getByRole('navigation', { name: 'Navegação principal' })
+    const movel = screen.getByRole('navigation', { name: 'Navegação móvel' })
+    const destinos = (root: HTMLElement) => [...root.querySelectorAll('a')].map((a) => a.getAttribute('href'))
+
+    expect(destinos(principal)).toContain('/conta')
+    expect(destinos(movel)).not.toContain('/conta')
   })
 
   it('mantém a ligação para saltar directamente ao conteúdo', () => {

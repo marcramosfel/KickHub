@@ -3,10 +3,15 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
+import { captureAttribution } from './lib/analytics'
 import { AuthProvider } from './lib/auth'
 import { I18nProvider } from './lib/i18n'
 import { OnboardingProvider } from './lib/onboarding'
 import './styles.css'
+
+// Antes de renderizar: quem chega por uma campanha traz a origem no endereço,
+// e o primeiro `navigate` do router apaga-a da barra. Ler depois era ler tarde.
+captureAttribution(window.location.href, document.referrer)
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },

@@ -2,9 +2,18 @@ import { ArrowRight, BarChart3, CalendarDays, ShieldCheck, Sparkles, UsersRound 
 import { Link } from 'react-router-dom'
 import { Brand } from '../components/Brand'
 import { LocaleSelect, useI18n } from '../lib/i18n'
+import { useSeo } from '../lib/seo'
 
 export function LandingPage() {
   const { t, formatNumber } = useI18n()
+  // A única página que se quer mesmo indexada, e a única que não fala de
+  // ninguém em particular.
+  useSeo({
+    title: t('landing.seoTitle'),
+    description: t('landing.seoDescription'),
+    path: '/',
+    indexable: true,
+  })
   return (
     <div className="landing">
       <header className="landing-nav">

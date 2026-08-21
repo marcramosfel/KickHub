@@ -1,5 +1,6 @@
 import { Check, Share2 } from 'lucide-react'
 import { useState } from 'react'
+import { track } from '../lib/analytics'
 import { useI18n } from '../lib/i18n'
 
 /**
@@ -62,8 +63,14 @@ export function ShareButton({ content, label, variant = 'outline', size = 'sm' }
   const click = async () => {
     setBusy(true)
     setNotice('')
-    const outcome = await shareContent(content())
+    const payload = content()
+    const outcome = await shareContent(payload)
     setBusy(false)
+    // Só conta quem chegou ao fim. Contar a intenção inflaciona o funil com
+    // partilhas que ninguém recebeu.
+    if (outcome === 'shared' || outcome === 'copied') {
+      track('share_clicked', { title: payload.title, outcome })
+    }
     // Cancelar não deixa recado: não aconteceu nada que valha a pena contar.
     setNotice(outcome === 'cancelled' ? '' : outcome)
   }
