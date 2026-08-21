@@ -34,6 +34,16 @@ describe('migrador de mídia Browns', () => {
     expect(avatarObjectPath(profileId, 'image/webp')).toBe(`${profileId}/avatar.webp`)
   })
 
+  /**
+   * Os perfis da Browns sao `md5('kickhub:browns:profile:' || id)::uuid`: um
+   * hash reinterpretado como UUID, sem bits de versao nem de variante. Exigir um
+   * v1-v5 recusava 29 dos 30 jogadores, e o unico que passava passava por acaso.
+   */
+  it('aceita o UUID derivado de md5 que os perfis Browns tem', () => {
+    const derivado = '030ae4d8-36ed-0b5b-e2cf-bdb541e948ca'
+    expect(avatarObjectPath(derivado, 'image/jpeg')).toBe(`${derivado}/avatar.jpg`)
+  })
+
   it('recusa avatar sem perfil valido ou com formato fora da lista', () => {
     expect(() => avatarObjectPath('nao-e-uuid', 'image/png')).toThrow(/perfil/i)
     expect(() => avatarObjectPath(null, 'image/png')).toThrow(/perfil/i)

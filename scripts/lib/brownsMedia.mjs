@@ -30,7 +30,10 @@ const AVATAR_EXTENSIONS = new Map([
 export function avatarObjectPath(profileId, mimeType) {
   const extension = AVATAR_EXTENSIONS.get(mimeType)
   if (!extension) throw new Error('Formato de avatar nao permitido.')
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId ?? '')) {
+  // Qualquer UUID serve, e nao so um v1-v5: os perfis da Browns sao
+  // `md5('kickhub:browns:profile:' || id)::uuid`, e um md5 nao traz os bits de
+  // versao nem de variante. Exigi-los recusava 29 dos 30 jogadores.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profileId ?? '')) {
     throw new Error('Avatar sem perfil de destino valido.')
   }
   return `${profileId}/avatar.${extension}`
