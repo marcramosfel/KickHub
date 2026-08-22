@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { attributesWithData } from '../../domain/player-attributes'
 import { unlockedCards, type PlayerCard } from '../../domain/player-cards'
+import { ShareImageButton } from '../ShareImageButton'
 import { useI18n, type TranslationKey } from '../../lib/i18n'
 import { Card, type CardPlayer } from './Card'
 import { prefersReducedMotion } from './useCountUp'
@@ -217,7 +218,31 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
           ))}
         </nav>
 
-        <p className="card-hint">{formatNumber(index + 1)}/{formatNumber(entries.length)}</p>
+        {/* Partilhar o card é metade da razão de ele existir: o jogador vê o
+            número e quer mostrá-lo. Fica junto às abas, e não escondido no fim
+            de uma delas. */}
+        <div className="card-share">
+          <ShareImageButton
+            size="sm"
+            filename={`kickhub-${entry.card.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`}
+            text={entry.card.name}
+            spec={() => ({
+              eyebrow: t('card.shareEyebrow'),
+              title: entry.card.name,
+              subtitle: entry.card.position,
+              photo: entry.card.photo ?? undefined,
+              // Um overall por apurar não vira zero na imagem, tal como não
+              // vira zero no card: sai o mesmo travessão.
+              highlight: entry.card.overall === null ? '—' : String(entry.card.overall),
+              stats: [
+                { label: t('card.games'), value: formatNumber(entry.stats.gamesPlayed) },
+                { label: t('card.goals'), value: formatNumber(entry.stats.goals) },
+                { label: t('card.assists'), value: formatNumber(entry.stats.assists) },
+              ],
+            })}
+          />
+          <p className="card-hint">{formatNumber(index + 1)}/{formatNumber(entries.length)}</p>
+        </div>
       </div>
     </div>
   )

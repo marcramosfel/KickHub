@@ -424,3 +424,7 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 /* Um aviso que ocupa a linha inteira dentro de uma grelha de dois campos. */
 .settings-hint{grid-column:1/-1;margin:0;font-size:11px;line-height:1.6;color:#8a5a00;
   background:rgba(255,183,77,.14);border-radius:10px;padding:8px 11px}
+
+/* O botão de imagem e o contador, na mesma linha e sem se empurrarem. */
+.card-share{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.card-share .card-hint{margin:0}
