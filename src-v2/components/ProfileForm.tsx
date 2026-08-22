@@ -72,18 +72,41 @@ function errorKey(cause: unknown): TranslationKey {
   return 'profileForm.errorGeneric'
 }
 
+type MaybeProfile = {
+  id?: string
+  display_name?: string | null
+  username?: string | null
+  locale?: string | null
+  bio?: string | null
+  city?: string | null
+  country_code?: string | null
+} | null
+
+function stateFrom(profile: MaybeProfile): ProfileFormState {
+  return {
+    displayName: profile?.display_name ?? '',
+    username: profile?.username ?? '',
+    bio: profile?.bio ?? '',
+    city: profile?.city ?? '',
+    countryCode: profile?.country_code ?? '',
+    locale: (locales.includes(profile?.locale as Locale) ? profile?.locale : 'pt') as Locale,
+  }
+}
+
 export function ProfileForm() {
   const { t, setLocale } = useI18n()
   const { profile } = useAuth()
   const client = useQueryClient()
-  const [form, setForm] = useState<ProfileFormState>(() => ({
-    displayName: profile?.display_name ?? '',
-    username: profile?.username ?? '',
-    bio: (profile as { bio?: string | null } | null)?.bio ?? '',
-    city: (profile as { city?: string | null } | null)?.city ?? '',
-    countryCode: (profile as { country_code?: string | null } | null)?.country_code ?? '',
-    locale: (locales.includes(profile?.locale as Locale) ? profile?.locale : 'pt') as Locale,
-  }))
+  const [form, setForm] = useState<ProfileFormState>(() => stateFrom(profile))
+  // O perfil chega depois do primeiro desenho. Sem isto, o formulário nascia
+  // vazio e ficava vazio para sempre — os campos existiam e não tinham nada
+  // dentro, que era o mesmo que as definições não funcionarem. A marca é o id:
+  // enquanto for o mesmo perfil, o que a pessoa escreveu não se toca.
+  const [seen, setSeen] = useState<string | null>(profile?.id ?? null)
+  if ((profile?.id ?? null) !== seen) {
+    setSeen(profile?.id ?? null)
+    setForm(stateFrom(profile))
+  }
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
