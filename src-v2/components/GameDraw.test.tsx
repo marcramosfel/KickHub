@@ -182,9 +182,11 @@ describe('GameDraw', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Sortear equipas/ }))
     await screen.findByText('Equipa A')
 
-    const equipas = document.querySelectorAll('.draw-team')
-    const comGk = [...equipas].filter((equipa) => equipa.textContent?.includes('GR'))
-    expect(comGk).toHaveLength(2)
+    // Um guarda-redes por equipa, lido no campo: quem foi escalado à baliza
+    // aparece na linha GOL, seja qual for a posição que tenha na ficha.
+    const equipas = document.querySelectorAll('.field-team')
+    const ladosComBaliza = [...equipas].filter((equipa) => equipa.textContent?.includes('GOL'))
+    expect(ladosComBaliza).toHaveLength(2)
   })
 
   it('permite descartar o sorteio sem gravar', async () => {
@@ -207,8 +209,11 @@ describe('GameDraw', () => {
     renderDraw()
 
     expect(await screen.findByText('Joana')).toBeInTheDocument()
-    expect(screen.getByText('GR')).toBeInTheDocument()
-    expect(screen.getByText('66*')).toBeInTheDocument()
+    expect(screen.getByText('GOL')).toBeInTheDocument()
+    // O overall do Malik era estimado, e um palpite não é uma avaliação: no
+    // campo lê-se "—", como em todo o resto da app, e não um número inventado.
+    expect(screen.getByText('Malik')).toBeInTheDocument()
+    expect(screen.queryByText('66*')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Sortear/ })).not.toBeInTheDocument()
   })
 

@@ -1,7 +1,7 @@
 import { Check, Shuffle } from 'lucide-react'
-import { useState } from 'react'
-import { Badge, Button, Card } from '../components/ui'
-import { PlayerPhoto } from './PlayerPhoto'
+import { useMemo, useState } from 'react'
+import { Button } from '../components/ui'
+import { MatchField, type FieldTeam } from './MatchField'
 import { explainSquadOverall } from '../domain/player-overall'
 import { DrawError, generateBalancedTeams, type DrawResult } from '../domain/team-draw'
 import { useSignedAvatars, type AvatarSource } from '../lib/avatars'
@@ -9,6 +9,7 @@ import { useCurrentPelada } from '../lib/current-pelada'
 import type { Game } from '../lib/games'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { listConfirmedPlayers, useGameLineup, useLineupMutations, type LineupEntry } from '../lib/lineups'
+import { usePeladaPlayers } from '../lib/pelada-players'
 import { getPeladaSettings } from '../lib/pelada-settings'
 import { getPeladaRanking } from '../lib/ranking'
 
@@ -116,28 +117,24 @@ export function GameDraw({ game }: { game: Game }) {
 
       {preview ? (
         <>
-          <div className="draw-teams">
-            {preview.teams.map((team) => (
-              <Card key={team.key} className="draw-team">
-                <header>
-                  <strong>{t(team.key === 'A' ? 'games.teamA' : 'games.teamB')}</strong>
-                  <span>{t('games.teamStrength', { value: formatNumber(team.strength) })}</span>
-                </header>
-                <ol>
-                  {team.players.map((player) => (
-                    <li key={player.id}>
-                      <PlayerPhoto membershipId={player.id} name={player.name} size="sm" src={avatars.get(player.id)}/>
-                      <span>{player.name}</span>
-                      {player.isGoalkeeper ? <Badge tone="blue">{t('games.goalkeeperShort')}</Badge> : null}
-                      <b title={player.estimatedOverall ? t('games.estimatedOverall') : undefined}>
-                        {formatNumber(player.effectiveOverall)}{player.estimatedOverall ? '*' : ''}
-                      </b>
-                    </li>
-                  ))}
-                </ol>
-              </Card>
-            ))}
-          </div>
+          {/* O campo **em vez** das listas, e não por cima delas. Repetir os
+              mesmos trinta nomes logo a seguir duplicava a altura da página no
+              telemóvel e não acrescentava nada: a posição, o overall e quem vai
+              à baliza já estão todos no campo. */}
+          <MatchField
+            teams={[
+              {
+                key: 'A', label: t('games.teamA'),
+                players: preview.teams[0].players.map((p) => ({ ...p, photo: avatars.get(p.id) })),
+                meta: t('games.teamStrength', { value: formatNumber(preview.teams[0].strength) }),
+              },
+              {
+                key: 'B', label: t('games.teamB'),
+                players: preview.teams[1].players.map((p) => ({ ...p, photo: avatars.get(p.id) })),
+                meta: t('games.teamStrength', { value: formatNumber(preview.teams[1].strength) }),
+              },
+            ]}
+          />
           <p className={`draw-balance draw-balance-${preview.balance.level}`}>
             {t('games.balancePrefix')}: {t(balanceKey(preview.balance.level))}
             {' · '}{formatNumber(preview.balance.percentage / 100, { style: 'percent', maximumFractionDigits: 1 })}
@@ -158,34 +155,38 @@ export function GameDraw({ game }: { game: Game }) {
 }
 
 function SavedTeams({ entries, avatars }: { entries: LineupEntry[]; avatars: Map<string, string> }) {
-  const { t, formatNumber } = useI18n()
-  const teams: Array<'A' | 'B'> = ['A', 'B']
+  const { t } = useI18n()
+  const { pelada } = useCurrentPelada()
+  // A escalação guardada não traz a posição de cada um — guarda quem jogou e de
+  // que lado. A posição vem do plantel, que já está em memória para o card do
+  // jogador: procurá-la aqui não custa um pedido, e inventá-la custava a
+  // credibilidade do campo inteiro.
+  const { players: squad } = usePeladaPlayers(pelada?.id)
+  const positionOf = useMemo(
+    () => new Map(squad.map((player) => [player.membershipId, player.primaryPosition])),
+    [squad],
+  )
+  const fieldTeams = useMemo<[FieldTeam, FieldTeam]>(() => {
+    const build = (key: 'A' | 'B'): FieldTeam => ({
+      key,
+      label: key === 'A' ? t('games.teamA') : t('games.teamB'),
+      players: entries.filter((entry) => entry.team === key).map((entry) => ({
+        id: entry.membershipId,
+        name: entry.displayName,
+        photo: avatars.get(entry.membershipId),
+        // Um overall estimado não é um overall: no campo aparece "—", como em
+        // todo o resto da app, em vez de um número que ninguém votou.
+        overall: entry.overallEstimated ? null : entry.overallAtDraw,
+        isGoalkeeper: entry.isGoalkeeper,
+        primaryPosition: positionOf.get(entry.membershipId) ?? null,
+      })),
+    })
+    return [build('A'), build('B')]
+  }, [avatars, entries, positionOf, t])
+
   return (
-    <div className="draw-teams">
-      {teams.map((key) => {
-        const players = entries.filter((entry) => entry.team === key)
-        const strength = players.reduce((total, entry) => total + entry.overallAtDraw, 0)
-        return (
-          <Card key={key} className="draw-team">
-            <header>
-              <strong>{t(key === 'A' ? 'games.teamA' : 'games.teamB')}</strong>
-              <span>{t('games.teamStrength', { value: formatNumber(strength) })}</span>
-            </header>
-            <ol>
-              {players.map((entry) => (
-                <li key={entry.membershipId}>
-                  <PlayerPhoto membershipId={entry.membershipId} name={entry.displayName} size="sm" src={avatars.get(entry.membershipId)}/>
-                  <span>{entry.displayName}</span>
-                  {entry.isGoalkeeper ? <Badge tone="blue">{t('games.goalkeeperShort')}</Badge> : null}
-                  <b title={entry.overallEstimated ? t('games.estimatedOverall') : undefined}>
-                    {formatNumber(entry.overallAtDraw)}{entry.overallEstimated ? '*' : ''}
-                  </b>
-                </li>
-              ))}
-            </ol>
-          </Card>
-        )
-      })}
-    </div>
+    <>
+    <MatchField teams={fieldTeams}/>
+    </>
   )
 }

@@ -105,8 +105,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -.035em; }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 21px; font-weight: 700; letter-spacing: -.045em; }
 .brand > span:last-child > span { color: #74a713; }
 .brand[data-inverse="true"] { color: #fff; }.brand[data-inverse="true"] > span:last-child > span { color: var(--brand); }
-.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; background: var(--brand); color: #0d1b11; border-radius: 9px 9px 9px 3px; transform: rotate(-5deg); }
-.brand-mark i { font-style: normal; transform: rotate(5deg); font-size: 18px; }
+.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; background: var(--dark); border-radius: 10px 10px 10px 3px; }
 .locale-select select { appearance: none; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 9px; min-height: 36px; padding: 0 12px; font-size: 11px; font-weight: 800; cursor: pointer; }
 
 /* Landing */
@@ -350,3 +349,48 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 .card-breakdown b{font-family:var(--font-display);font-size:14px;color:#f2f7ee}
 .card-breakdown small{font-size:10px;color:rgba(242,247,238,.55)}
 @media (prefers-reduced-motion: reduce){.card-backdrop-closing,.card-backdrop-closing .card-dialog{animation:none!important}}
+
+/* ------------------------------------------------------------------ campo */
+/* Uma orientação por omissão — ao alto, porque o telemóvel manda — e o ecrã
+   largo vira-a de lado. As coordenadas vêm do domínio em 0–1; aqui só se
+   decide qual eixo é a profundidade. */
+.match-field{display:grid;gap:12px;margin:0}
+.match-field-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.match-field-team{display:grid;gap:2px;min-width:0}
+.match-field-team[data-side="B"]{text-align:right}
+.match-field-team strong{font-size:13px;font-weight:800;overflow-wrap:anywhere}
+.match-field-team span{font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.field-pitch{position:relative;width:100%;aspect-ratio:3/4;border-radius:18px;overflow:hidden;
+  background:
+    repeating-linear-gradient(180deg,#143d27 0 8%,#123825 8% 16%);
+  border:2px solid rgba(255,255,255,.14)}
+.field-halfway{position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.22)}
+.field-circle{position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;translate:-50% -50%;
+  border:2px solid rgba(255,255,255,.22);border-radius:50%}
+.field-box{position:absolute;left:22%;right:22%;height:12%;border:2px solid rgba(255,255,255,.18)}
+.field-box-a{top:0;border-top:0}
+.field-box-b{bottom:0;border-bottom:0}
+.field-team{list-style:none;margin:0;padding:0}
+/* `--along` é a profundidade e `--across` a faixa. Ao alto, a profundidade é o
+   eixo vertical; ao comprido, troca — e é a única coisa que troca. */
+.field-spot{position:absolute;top:var(--along);left:var(--across);translate:-50% -50%;
+  display:grid;justify-items:center;gap:2px;width:74px;text-align:center}
+.field-spot-name{font-size:10px;font-weight:800;color:#fff;line-height:1.2;
+  text-shadow:0 1px 3px rgba(0,0,0,.75);overflow-wrap:anywhere;max-width:100%}
+.field-spot-meta{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;
+  color:#0b1711;background:var(--brand);border-radius:999px;padding:1px 6px;line-height:1.6}
+.field-spot-meta b{font-size:10px}
+.field-spot[data-inferred] .field-spot-meta{background:rgba(255,255,255,.72)}
+.match-field figcaption{font-size:11px;color:var(--muted);text-align:center;margin:0}
+
+@media (min-width:761px){
+  .field-pitch{aspect-ratio:16/10}
+  /* Deitado: a profundidade passa a ser horizontal e a faixa vertical. */
+  .field-spot{top:var(--across);left:var(--along)}
+  .field-halfway{left:50%;right:auto;top:0;bottom:0;width:2px;height:auto}
+  .field-box{left:auto;right:auto;top:22%;bottom:22%;height:auto;width:10%}
+  .field-box-a{left:0;top:22%;border-left:0;border-top:2px solid rgba(255,255,255,.18)}
+  .field-box-b{right:0;left:auto;top:22%;border-right:0;border-top:2px solid rgba(255,255,255,.18)}
+  .field-spot{width:86px}
+  .field-spot-name{font-size:11px}
+}

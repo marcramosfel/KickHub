@@ -1,6 +1,9 @@
 import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
+  'field.formation': 'Formação {formation}',
+  'field.inferredPosition': 'Posição não declarada — colocado no meio-campo.',
+  'field.loadingCards': 'A carregar os cards dos jogadores.',
   'games.title': 'Calendário',
   'games.eyebrow': 'PRÓXIMOS JOGOS',
   'games.subtitle': 'Marca o jogo, chama a malta e vê quem confirma.',
@@ -93,6 +96,9 @@ const pt = {
 type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
+  'field.formation': 'Formation {formation}',
+  'field.inferredPosition': 'No position on file — placed in midfield.',
+  'field.loadingCards': 'Loading the player cards.',
   'games.title': 'Calendar',
   'games.eyebrow': 'UPCOMING MATCHES',
   'games.subtitle': 'Schedule the match, call everyone up and watch the replies come in.',
@@ -183,6 +189,9 @@ const en: Record<Key, TranslationValue> = {
 }
 
 const es: Record<Key, TranslationValue> = {
+  'field.formation': 'Formación {formation}',
+  'field.inferredPosition': 'Sin posición declarada — colocado en el mediocampo.',
+  'field.loadingCards': 'Cargando las cartas de los jugadores.',
   'games.title': 'Calendario',
   'games.eyebrow': 'PRÓXIMOS PARTIDOS',
   'games.subtitle': 'Programa el partido, convoca al grupo y mira quién confirma.',
@@ -273,6 +282,9 @@ const es: Record<Key, TranslationValue> = {
 }
 
 const fr: Record<Key, TranslationValue> = {
+  'field.formation': 'Formation {formation}',
+  'field.inferredPosition': 'Poste non déclaré — placé au milieu.',
+  'field.loadingCards': 'Chargement des cartes des joueurs.',
   'games.title': 'Calendrier',
   'games.eyebrow': 'PROCHAINS MATCHS',
   'games.subtitle': 'Programme le match, convoque le groupe et vois qui répond.',
@@ -363,6 +375,9 @@ const fr: Record<Key, TranslationValue> = {
 }
 
 const de: Record<Key, TranslationValue> = {
+  'field.formation': 'Formation {formation}',
+  'field.inferredPosition': 'Keine Position hinterlegt — ins Mittelfeld gestellt.',
+  'field.loadingCards': 'Spielerkarten werden geladen.',
   'games.title': 'Kalender',
   'games.eyebrow': 'NÄCHSTE SPIELE',
   'games.subtitle': 'Spiel ansetzen, alle einladen und die Zusagen verfolgen.',
