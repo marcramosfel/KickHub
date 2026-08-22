@@ -258,9 +258,13 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 /* O caminho de volta ao global. O AppShell já dá a barra lateral e a barra de
    baixo; isto é o atalho explícito para quem entrou numa pelada a partir do
    painel e espera um "voltar" onde está a olhar. */
-.pelada-back{display:inline-flex;align-items:center;gap:7px;max-width:1200px;margin:0 auto 14px;padding:6px 0;color:rgba(233,244,228,.72);font-size:11px;font-weight:800;letter-spacing:.04em}.pelada-back:hover{color:#fff}.pelada-back svg{width:15px}
-.pelada-hero{display:flex;flex-direction:column}.pelada-hero>.pelada-back{width:100%}
-@media (max-width:760px){.pelada-back{margin-bottom:10px}}
+/* O `display:flex` que isto tinha fazia da <nav> um item flex, e um item flex
+   nasce com `min-width:auto` — deixava de encolher e esticava o cabeçalho para
+   lá da largura do ecrã, pondo a PÁGINA INTEIRA a deslizar de lado em vez de
+   ser só o menu a rolar. O invólucro faz o alinhamento sem tocar no fluxo. */
+.pelada-hero-top{max-width:1200px;margin:0 auto 14px}
+.pelada-back{display:inline-flex;align-items:center;gap:7px;padding:6px 0;color:rgba(233,244,228,.72);font-size:11px;font-weight:800;letter-spacing:.04em}.pelada-back:hover{color:#fff}.pelada-back svg{width:15px}
+@media (max-width:760px){.pelada-hero-top{margin-bottom:10px}}
 
 .profile-form{display:grid;gap:16px;padding:20px}.profile-form>header{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}.profile-form>header>svg{width:22px;color:#628b18}.profile-form h2{font-size:18px;margin:4px 0 0}.profile-form>header p:last-child{margin:6px 0 0;font-size:11px;line-height:1.65;color:var(--muted)}.profile-form form{display:grid;gap:12px}.profile-form label{display:grid;gap:5px;font-size:11px;font-weight:800;color:var(--muted)}.profile-form input,.profile-form select,.profile-form textarea{min-height:42px;padding:10px 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:700;font-family:inherit}.profile-form textarea{min-height:76px;resize:vertical;font-weight:500;line-height:1.6}.profile-form small{font-weight:500;line-height:1.5;color:var(--muted)}
 
