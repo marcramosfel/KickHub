@@ -79,7 +79,7 @@ export function AchievementsSection() {
         <Badge tone="neutral">{standings.filter((s) => s.holders.length > 0).length}/{standings.length}</Badge>
       </div>
 
-      <ul className="achievement-grid">
+      <ul className="achievement-catalogue">
         {standings.map((standing) => {
           const holders = standing.holders.map((id) => byId.get(id)).filter(Boolean) as PeladaPlayer[]
           const gap = mine ? distanceToTitle(standing, mine.membershipId) : null
