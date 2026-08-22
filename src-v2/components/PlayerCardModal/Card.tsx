@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { bandOf, type PlayerAttribute } from '../../domain/player-attributes'
 import type { Rarity } from '../../domain/player-cards'
 import { useI18n, type TranslationKey } from '../../lib/i18n'
+import { Particles } from './Particles'
 import { rarityVars, themeOf } from './rarity'
 import { prefersReducedMotion, useCountUp } from './useCountUp'
 import { useCardTilt } from './useCardTilt'
+import { useGyroTilt } from './useGyroTilt'
 
 /**
  * O card do jogador.
@@ -46,6 +48,7 @@ export function Card({ player, size = 'md', interactive = true, animate = true }
   const theme = themeOf(player.rarity)
   const reduced = prefersReducedMotion()
   const tilt = useCardTilt<HTMLDivElement>({ enabled: interactive })
+  const gyro = useGyroTilt<HTMLDivElement>(tilt)
   const overall = useCountUp(player.overall, { delay: 320, duration: 900, enabled: animate })
   // Só depois do remate é que o número toma a cor da raridade; durante a
   // contagem fica branco, e é a mudança que faz o fim parecer um fim.
@@ -116,9 +119,16 @@ export function Card({ player, size = 'md', interactive = true, animate = true }
         {/* Só decoração: nada aqui recebe eventos. */}
         <span className="fifa-card-shine" aria-hidden="true"/>
         {theme.holographic && <span className="fifa-card-holo" aria-hidden="true"/>}
+        {theme.particles && !reduced && <Particles color={theme.accent}/>}
         <span className="fifa-card-grain" aria-hidden="true"/>
         <span className="fifa-card-vignette" aria-hidden="true"/>
       </div>
+      {/* A permissão do giroscópio pede-se com um gesto e nunca sozinha. */}
+      {interactive && gyro.permission === 'idle' && (
+        <button type="button" className="fifa-card-gyro" onClick={() => void gyro.enable()}>
+          {t('card.enable3d')}
+        </button>
+      )}
     </div>
   )
 }

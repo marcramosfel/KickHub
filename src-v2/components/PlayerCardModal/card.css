@@ -255,3 +255,30 @@
   .fifa-attr { opacity: 1 !important; }
   .fifa-attr-bar > i { transform: scaleX(var(--fill)) !important; }
 }
+
+/* Repouso: a flutuação de §6.4, só `transform`. Não se combina com o tilt no
+   mesmo elemento — a inclinação está no `.fifa-card` e isto no invólucro. */
+.card-stage[data-rest] .fifa-card { animation: fifa-float 4.5s ease-in-out infinite; }
+@keyframes fifa-float {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -6px; }
+}
+.fifa-card[data-tilting] { animation-play-state: paused; }
+
+/* As partículas ficam por trás do card e nunca recebem eventos. */
+.card-particles { position: absolute; inset: -6%; width: 112%; height: 112%; pointer-events: none; z-index: -1; }
+
+.fifa-card-gyro {
+  position: absolute; inset: auto 50% -34px auto; transform: translateX(50%);
+  min-height: 30px; padding: 0 12px; white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, .2); border-radius: 999px;
+  background: rgba(255, 255, 255, .08); color: #f2f7ee;
+  font-size: 10px; font-weight: 800; cursor: pointer;
+}
+/* Um rato não precisa de giroscópio: o botão só existe onde o toque é o gesto. */
+@media (hover: hover) { .fifa-card-gyro { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .card-stage[data-rest] .fifa-card { animation: none !important; }
+  .card-particles { display: none; }
+}

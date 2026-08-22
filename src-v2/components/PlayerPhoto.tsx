@@ -25,7 +25,7 @@ export function PlayerPhoto({ membershipId, name, src, size = 'sm', className }:
   className?: string
 }) {
   const { t } = useI18n()
-  const { open, ready } = usePlayerCard()
+  const { open, ready, prefetch } = usePlayerCard()
 
   if (!ready) return <Avatar name={name} size={size} src={src}/>
 
@@ -33,7 +33,13 @@ export function PlayerPhoto({ membershipId, name, src, size = 'sm', className }:
     <button
       type="button"
       className={className ? `player-photo ${className}` : 'player-photo'}
-      onClick={() => open(membershipId)}
+      onClick={(event) => {
+        // O rectângulo da foto é de onde o card cresce (§6.1). Medir aqui, no
+        // clique, é o único momento em que ele é o verdadeiro.
+        const rect = event.currentTarget.getBoundingClientRect()
+        open(membershipId, { top: rect.top, left: rect.left, width: rect.width, height: rect.height })
+      }}
+      onPointerEnter={() => prefetch(membershipId)}
       aria-label={t('card.openFor', { name })}
       data-player={membershipId}
     >

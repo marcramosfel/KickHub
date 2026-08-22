@@ -5,6 +5,7 @@ import { unlockedCards, type PlayerCard } from '../../domain/player-cards'
 import { useI18n, type TranslationKey } from '../../lib/i18n'
 import { Card, type CardPlayer } from './Card'
 import { prefersReducedMotion } from './useCountUp'
+import { useFlip, type OriginRect } from './useFlip'
 import './card.css'
 
 /**
@@ -32,8 +33,12 @@ export type PlayerCardStats = {
   postRating: number | null
 }
 
+export type OverallPartRow = { key: string; value: number; weight: number }
+
 export type PlayerCardEntry = {
   card: CardPlayer
+  /** A decomposição do overall, quando o servidor a manda. Sem ela, some. */
+  breakdown?: readonly OverallPartRow[]
   stats: PlayerCardStats
   /** As conquistas desta pelada, para a terceira aba. */
   achievements: readonly PlayerCard[]
@@ -59,9 +64,11 @@ function lockScroll() {
   }
 }
 
-export function PlayerCardModal({ entries, index, onIndex, onClose }: {
+export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
   entries: readonly PlayerCardEntry[]
   index: number
+  /** De onde o card cresce: o rectângulo da foto clicada. */
+  origin?: OriginRect | null
   onIndex: (next: number) => void
   onClose: () => void
 }) {
@@ -70,7 +77,23 @@ export function PlayerCardModal({ entries, index, onIndex, onClose }: {
   const closeButton = useRef<HTMLButtonElement>(null)
   const [tab, setTab] = useState<Tab>('card')
   const touchStart = useRef<number | null>(null)
+  const stage = useRef<HTMLDivElement>(null)
+  const [closing, setClosing] = useState(false)
+  // A flutuação só começa depois da coreografia de entrada; a sobrepor-se a ela
+  // as duas transformações lutavam pelo mesmo eixo.
+  const [resting, setResting] = useState(prefersReducedMotion())
   const entry = entries[index]
+  useFlip(stage, origin ?? null)
+
+  /**
+   * O fecho é o inverso e mais rápido (§6.5). A foto de origem só volta a
+   * aparecer no último frame — antes disso via-se a duplicar.
+   */
+  const close = useCallback(() => {
+    if (prefersReducedMotion()) { onClose(); return }
+    setClosing(true)
+    window.setTimeout(onClose, 220)
+  }, [onClose])
 
   const go = useCallback((step: number) => {
     if (entries.length < 2) return
@@ -79,6 +102,11 @@ export function PlayerCardModal({ entries, index, onIndex, onClose }: {
   }, [entries.length, index, onIndex])
 
   useEffect(() => { closeButton.current?.focus() }, [])
+  useEffect(() => {
+    if (prefersReducedMotion()) return
+    const timer = window.setTimeout(() => setResting(true), 1400)
+    return () => window.clearTimeout(timer)
+  }, [index])
   useEffect(lockScroll, [])
 
   // O botão "voltar" do telemóvel fecha o card em vez de sair do ecrã.
@@ -94,7 +122,7 @@ export function PlayerCardModal({ entries, index, onIndex, onClose }: {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { onClose(); return }
+      if (event.key === 'Escape') { close(); return }
       if (event.key === 'ArrowLeft') { go(-1); return }
       if (event.key === 'ArrowRight') { go(1); return }
       if (event.key !== 'Tab' || !dialog.current) return
@@ -110,7 +138,7 @@ export function PlayerCardModal({ entries, index, onIndex, onClose }: {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [go, onClose])
+  }, [close, go])
 
   if (!entry) return null
 
@@ -118,24 +146,24 @@ export function PlayerCardModal({ entries, index, onIndex, onClose }: {
     if (touchStart.current === null) return
     const delta = event.changedTouches[0].clientY - touchStart.current
     touchStart.current = null
-    if (delta > 80) onClose()
+    if (delta > 80) close()
   }
 
   return (
     <div
-      className="card-backdrop"
+      className={closing ? 'card-backdrop card-backdrop-closing' : 'card-backdrop'}
       role="presentation"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      onMouseDown={(event) => event.target === event.currentTarget && close()}
       onTouchStart={(event) => { touchStart.current = event.touches[0].clientY }}
       onTouchEnd={onTouchEnd}
     >
       <div className="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-name" ref={dialog}>
-        <button ref={closeButton} className="card-close" type="button" onClick={onClose} aria-label={t('discover.close')}>
+        <button ref={closeButton} className="card-close" type="button" onClick={close} aria-label={t('discover.close')}>
           <X/>
         </button>
         <h2 id="card-name" className="sr-only">{entry.card.name}</h2>
 
-        <div className="card-stage">
+        <div className="card-stage" ref={stage} data-rest={resting ? 'true' : undefined}>
           {entries.length > 1 && (
             <button className="card-arrow card-arrow-prev" type="button" onClick={() => go(-1)} aria-label={t('card.previous')}>
               <ChevronLeft/>
@@ -210,6 +238,22 @@ function StatsPanel({ entry }: { entry: PlayerCardEntry }) {
         <div><dt>{t('card.groupRating')}</dt><dd>{stats.groupRating === null ? '—' : formatNumber(stats.groupRating)}</dd></div>
         <div><dt>{t('card.postRating')}</dt><dd>{stats.postRating === null ? '—' : formatNumber(stats.postRating, { maximumFractionDigits: 1 })}</dd></div>
       </dl>
+      {/* Sem decomposição a secção some inteira. Inventar parcelas para ter uma
+          lista bonita era mentir sobre como o número foi feito. */}
+      {entry.breakdown && entry.breakdown.length > 0 && (
+        <section className="card-breakdown">
+          <h3>{t('card.howOverall')}</h3>
+          <ul>
+            {entry.breakdown.map((part) => (
+              <li key={part.key}>
+                <span>{t(`card.part${part.key}` as TranslationKey)}</span>
+                <b>{formatNumber(Math.round(part.value))}</b>
+                <small>{formatNumber(Math.round(part.weight * 100))}%</small>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

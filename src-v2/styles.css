@@ -335,3 +335,18 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 }
 @keyframes card-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media (prefers-reduced-motion: reduce){.card-halo,.card-dialog{animation:none!important}}
+
+/* Fecho do card (§6.5): o inverso e mais rápido. */
+.card-backdrop-closing{animation:card-backdrop-out 220ms ease-in both}
+.card-backdrop-closing .card-dialog{animation:card-dialog-out 200ms ease-in both}
+@keyframes card-backdrop-out{to{opacity:0}}
+@keyframes card-dialog-out{to{opacity:0;transform:scale(.92) translateY(12px)}}
+/* Anel na cor da raridade ao passar por cima da foto (§1). */
+.player-photo:hover{box-shadow:0 0 0 2px var(--card-accent,var(--brand))}
+.card-breakdown{margin:0}
+.card-breakdown h3{margin:0 0 8px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(242,247,238,.6)}
+.card-breakdown ul{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.card-breakdown li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:7px 10px;border-radius:9px;background:rgba(0,0,0,.22);font-size:11px}
+.card-breakdown b{font-family:var(--font-display);font-size:14px;color:#f2f7ee}
+.card-breakdown small{font-size:10px;color:rgba(242,247,238,.55)}
+@media (prefers-reduced-motion: reduce){.card-backdrop-closing,.card-backdrop-closing .card-dialog{animation:none!important}}

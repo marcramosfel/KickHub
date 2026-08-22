@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { computeTitles, explainSquadOverall, type TitleKey } from '../domain/player-overall'
+import { computeTitles, explainSquadOverall, type OverallPart, type TitleKey } from '../domain/player-overall'
 import { usePeladaRanking } from './ranking'
 import { usePeladaSquad, type PlayerType, type Position } from './squad'
 
@@ -26,6 +26,8 @@ export type PeladaPlayer = {
   overall: number | null
   /** O número ainda é um palpite que a própria app diz não ser de confiança. */
   provisional: boolean
+  /** As parcelas que fizeram o overall. Vazio quando ele ainda não existe. */
+  overallParts: OverallPart[]
   /** Os títulos que o plantel lhe deu. Só existem comparando toda a gente. */
   titles: TitleKey[]
   gamesPlayed: number
@@ -70,6 +72,7 @@ export function usePeladaPlayers(peladaId: string | undefined, enabled = true) {
         acceptsOtherPositions: member.acceptsOtherPositions,
         overall: breakdown?.overall ?? null,
         provisional: breakdown?.provisional ?? true,
+        overallParts: breakdown?.parts ?? [],
         titles: titlesByMember.get(member.membershipId) ?? [],
         gamesPlayed: stats?.gamesPlayed ?? 0,
         goals: stats?.goals ?? 0,

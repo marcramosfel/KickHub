@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 import { computeAttributes, savePercentage } from '../domain/player-attributes'
 import { computeCards, mainCard, RARITY_ACCENT, type CardKey, type Rarity } from '../domain/player-cards'
 import { PlayerCardModal, type PlayerCardEntry } from '../components/PlayerCardModal'
+import type { OriginRect } from '../components/PlayerCardModal/useFlip'
 import { CARD_ICON, cardTitleKey } from '../components/PlayerCards'
 import { useSignedAvatars } from './avatars'
 import { useCurrentPelada } from './current-pelada'
@@ -22,12 +23,16 @@ import { usePeladaTotals } from './ranking'
  * podem divergir.
  */
 type PlayerCardValue = {
-  open: (membershipId: string) => void
+  open: (membershipId: string, origin?: OriginRect) => void
+  /** Puxa a foto antes de o card abrir; ele nunca deve abrir a carregá-la. */
+  prefetch: (membershipId: string) => void
   /** `false` enquanto o plantel não chegou: a foto não deve fingir que abre. */
   ready: boolean
 }
 
-const PlayerCardContext = createContext<PlayerCardValue>({ open: () => {}, ready: false })
+const PlayerCardContext = createContext<PlayerCardValue>({
+  open: () => {}, prefetch: () => {}, ready: false,
+})
 
 /** Todas as conquistas do catálogo, para as bloqueadas aparecerem a cinzento. */
 const CATALOGUE: CardKey[] = [
@@ -109,6 +114,10 @@ function toEntry(
       groupRating: player.overall,
       postRating: player.postRatingAvg,
     },
+    // Sem parcelas a secção some. É a regra de §8.2: não inventar decomposição.
+    breakdown: player.overallParts.map((part) => ({
+      key: part.key, value: part.value, weight: part.weight,
+    })),
     achievements: list,
     locked: CATALOGUE.map((key) => ({
       key,
@@ -124,6 +133,7 @@ export function PlayerCardProvider({ children }: { children: ReactNode }) {
   const totals = usePeladaTotals(pelada?.id, true)
   const avatars = useSignedAvatars(avatarSources)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [origin, setOrigin] = useState<OriginRect | null>(null)
 
   const cardsByMember = useMemo(() => computeCards({
     rows: players.map((player) => ({
@@ -161,9 +171,18 @@ export function PlayerCardProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<PlayerCardValue>(() => ({
-    open: (membershipId: string) => setOpenId(membershipId),
+    open: (membershipId: string, from?: OriginRect) => {
+      setOrigin(from ?? null)
+      setOpenId(membershipId)
+    },
+    prefetch: (membershipId: string) => {
+      const url = avatars.get(membershipId)
+      // Descarregar a foto ao passar por cima: o card não deve abrir com ela
+      // ainda a chegar. O browser guarda-a e a abertura já a encontra.
+      if (url) { const image = new Image(); image.src = url }
+    },
     ready: players.length > 0,
-  }), [players.length])
+  }), [avatars, players.length])
 
   const index = openId ? entries.findIndex((entry) => entry.card.id === openId) : -1
 
@@ -174,8 +193,9 @@ export function PlayerCardProvider({ children }: { children: ReactNode }) {
         <PlayerCardModal
           entries={entries}
           index={index}
+          origin={origin}
           onIndex={(next) => setOpenId(entries[next]?.card.id ?? null)}
-          onClose={() => setOpenId(null)}
+          onClose={() => { setOpenId(null); setOrigin(null) }}
         />
       )}
     </PlayerCardContext.Provider>
