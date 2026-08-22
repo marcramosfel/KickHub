@@ -23,6 +23,12 @@ const pt = {
   'claim.errorSAME_PROFILE': 'Esse histórico já é o teu.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Esse jogador já não está nessa pelada.',
   'claim.errorMEMBERSHIP_HAS_HISTORY': 'Já jogaste nessa pelada com esta conta. Duas carreiras na mesma pelada não se somam — fala com quem gere a pelada.',
+  'claim.linkChecking': 'A verificar o link…',
+  'claim.linkTitle': 'É este o teu histórico?',
+  'claim.linkBody': 'Ao continuares, {player} passa a ser o teu perfil na {pelada} — com os jogos, os golos e as avaliações todas. Só acontece se carregares.',
+  'claim.linkConfirm': 'Sou eu — ligar à minha conta',
+  'claim.linkMergeNote': 'Esta conta já é de um jogador. Os dois vão ser juntos num só, e nada se perde.',
+  'claim.linkExpiry': 'Este link é válido até {date} e só pode ser usado uma vez.',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -50,6 +56,12 @@ const en: Record<Key, TranslationValue> = {
   'claim.errorSAME_PROFILE': 'That history is already yours.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'That player is no longer in that pelada.',
   'claim.errorMEMBERSHIP_HAS_HISTORY': 'You have already played in that pelada with this account. Two careers in one pelada cannot be added together — talk to whoever runs it.',
+  'claim.linkChecking': 'Checking the link…',
+  'claim.linkTitle': 'Is this your history?',
+  'claim.linkBody': 'If you go on, {player} becomes your profile at {pelada} — with every match, goal and rating. It only happens if you press.',
+  'claim.linkConfirm': 'That is me — link my account',
+  'claim.linkMergeNote': 'This account already belongs to a player. The two will be merged into one, and nothing is lost.',
+  'claim.linkExpiry': 'This link is valid until {date} and can only be used once.',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -75,6 +87,12 @@ const es: Record<Key, TranslationValue> = {
   'claim.errorSAME_PROFILE': 'Ese historial ya es tuyo.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Ese jugador ya no está en esa pelada.',
   'claim.errorMEMBERSHIP_HAS_HISTORY': 'Ya has jugado en esa pelada con esta cuenta. Dos trayectorias en la misma pelada no se suman — habla con quien la gestiona.',
+  'claim.linkChecking': 'Comprobando el enlace…',
+  'claim.linkTitle': '¿Es este tu historial?',
+  'claim.linkBody': 'Si continúas, {player} pasa a ser tu perfil en {pelada} — con todos los partidos, goles y valoraciones. Solo ocurre si pulsas.',
+  'claim.linkConfirm': 'Soy yo — vincular mi cuenta',
+  'claim.linkMergeNote': 'Esta cuenta ya es de un jugador. Se unirán en una sola y no se pierde nada.',
+  'claim.linkExpiry': 'Este enlace vale hasta el {date} y solo puede usarse una vez.',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -100,6 +118,12 @@ const fr: Record<Key, TranslationValue> = {
   'claim.errorSAME_PROFILE': 'Cet historique est déjà le tien.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Ce joueur n’est plus dans cette pelada.',
   'claim.errorMEMBERSHIP_HAS_HISTORY': 'Tu as déjà joué dans cette pelada avec ce compte. Deux parcours dans une même pelada ne s’additionnent pas — parles-en à qui la gère.',
+  'claim.linkChecking': 'Vérification du lien…',
+  'claim.linkTitle': 'Est-ce bien ton historique ?',
+  'claim.linkBody': 'Si tu continues, {player} devient ton profil à {pelada} — avec tous les matchs, buts et notes. Cela n’arrive que si tu appuies.',
+  'claim.linkConfirm': 'C’est moi — lier mon compte',
+  'claim.linkMergeNote': 'Ce compte appartient déjà à un joueur. Les deux seront fusionnés et rien ne se perd.',
+  'claim.linkExpiry': 'Ce lien est valable jusqu’au {date} et ne sert qu’une fois.',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -125,6 +149,12 @@ const de: Record<Key, TranslationValue> = {
   'claim.errorSAME_PROFILE': 'Dieser Verlauf gehört dir bereits.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Dieser Spieler ist nicht mehr in dieser Pelada.',
   'claim.errorMEMBERSHIP_HAS_HISTORY': 'Du hast in dieser Pelada mit diesem Konto bereits gespielt. Zwei Laufbahnen in derselben Pelada lassen sich nicht addieren — sprich mit der Leitung.',
+  'claim.linkChecking': 'Link wird geprüft…',
+  'claim.linkTitle': 'Ist das dein Verlauf?',
+  'claim.linkBody': 'Wenn du weitermachst, wird {player} dein Profil bei {pelada} — mit allen Spielen, Toren und Bewertungen. Es passiert nur, wenn du drückst.',
+  'claim.linkConfirm': 'Das bin ich — Konto verknüpfen',
+  'claim.linkMergeNote': 'Dieses Konto gehört bereits zu einem Spieler. Beide werden zu einem zusammengeführt, nichts geht verloren.',
+  'claim.linkExpiry': 'Dieser Link gilt bis {date} und kann nur einmal verwendet werden.',
 }
 
 export const claimCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }

@@ -29,6 +29,9 @@ export function App() {
         <Route path="/descobrir/:country/:region" element={<DiscoverPage/>}/>
         <Route path="/criar" element={<CreatePeladaPage/>}/>
         <Route path="/reclamar" element={<ClaimPage/>}/>
+        {/* O mesmo ecra com o codigo ja no endereco: e o link que se
+            envia a cada jogador, e poupa-lhe colar o que quer que seja. */}
+        <Route path="/reclamar/:code" element={<ClaimPage/>}/>
         <Route path="/u/:username" element={<ProfilePage/>}/>
         <Route path="/conta" element={<AccountPage/>}/>
         {/* Dentro do AppShell, e não ao lado dele. Fora, a página de uma pelada

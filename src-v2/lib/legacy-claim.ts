@@ -61,13 +61,65 @@ export async function absorbLegacyClaim(code: string) {
   return data as { membership_id: string; pelada_id: string; role: string; merged: boolean }
 }
 
+/** Sete dias: um código que se envia por escrito precisa de tempo de resposta. */
+export const CLAIM_TTL_HOURS = 168
+
 export async function issueLegacyClaim(membershipId: string, reason: string) {
   const { data, error } = await supabase.rpc('issue_legacy_claim', {
     p_membership_id: membershipId,
     p_reason: reason,
+    p_expires_in_hours: CLAIM_TTL_HOURS,
   })
   if (error) throw error
   return String(data ?? '')
+}
+
+export type IssuedClaim = { membershipId: string; displayName: string; url: string }
+
+/**
+ * Emite para todo o plantel de uma vez e devolve já os links prontos a enviar.
+ *
+ * O link é montado aqui e não no servidor: o servidor não sabe em que endereço
+ * a app está a ser servida, e adivinhá-lo dava links que não abrem.
+ */
+export async function issueLegacyClaimsForPelada(peladaId: string, reason: string) {
+  const { data, error } = await supabase.rpc('issue_legacy_claims_for_pelada', {
+    p_pelada_id: peladaId,
+    p_reason: reason,
+    p_expires_in_hours: CLAIM_TTL_HOURS,
+  })
+  if (error) throw error
+  return ((data ?? []) as { membership_id: string; display_name: string; code: string }[])
+    .map((row) => ({
+      membershipId: row.membership_id,
+      displayName: row.display_name,
+      url: claimUrl(row.code),
+    }))
+}
+
+export function claimUrl(code: string) {
+  return `${window.location.origin}/reclamar/${normalizeClaimCode(code)}`
+}
+
+export type ClaimPreview = {
+  playerName: string
+  peladaName: string
+  expiresAt: string
+  /** A conta já tem histórico próprio: o caminho é fundir, não substituir. */
+  needsMerge: boolean
+}
+
+/** Diz de quem é o histórico sem gastar o código. */
+export async function peekLegacyClaim(code: string): Promise<ClaimPreview> {
+  const { data, error } = await supabase.rpc('peek_legacy_claim', { p_code: normalizeClaimCode(code) })
+  if (error) throw error
+  const row = data as { player_name: string; pelada_name: string; expires_at: string; needs_merge: boolean }
+  return {
+    playerName: row.player_name,
+    peladaName: row.pelada_name,
+    expiresAt: row.expires_at,
+    needsMerge: Boolean(row.needs_merge),
+  }
 }
 
 export type LegacyClaimState = 'none' | 'active' | 'expired' | 'revoked' | 'claimed'
@@ -151,6 +203,25 @@ export function useLegacyClaimCandidates(peladaId: string, enabled = true) {
     queryFn: () => listLegacyClaimCandidates(peladaId),
     enabled: Boolean(peladaId) && enabled && isSupabaseConfigured,
     staleTime: 10_000,
+  })
+}
+
+export function usePeekLegacyClaim(code: string) {
+  return useQuery({
+    queryKey: ['legacy-claim-peek', normalizeClaimCode(code)],
+    queryFn: () => peekLegacyClaim(code),
+    enabled: Boolean(code) && isSupabaseConfigured,
+    // Um código gasta-se uma vez: não vale a pena voltar a perguntar sozinho.
+    retry: false,
+    staleTime: Infinity,
+  })
+}
+
+export function useIssueLegacyClaimsForPelada(peladaId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (reason: string) => issueLegacyClaimsForPelada(peladaId, reason),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['legacy-claim-candidates', peladaId] }),
   })
 }
 

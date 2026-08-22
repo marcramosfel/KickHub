@@ -3,7 +3,10 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import {
   useLegacyClaimCandidates,
+  claimUrl,
   useIssueLegacyClaim,
+  useIssueLegacyClaimsForPelada,
+  type IssuedClaim,
   useRevokeLegacyClaim,
   type LegacyClaimCandidate,
   type LegacyClaimState,
@@ -28,6 +31,8 @@ export function LegacyClaimsPanel({ peladaId }: { peladaId: string }) {
   const { t, formatDate } = useI18n()
   const candidates = useLegacyClaimCandidates(peladaId)
   const issue = useIssueLegacyClaim(peladaId)
+  const issueAll = useIssueLegacyClaimsForPelada(peladaId)
+  const [links, setLinks] = useState<IssuedClaim[]>([])
   const revoke = useRevokeLegacyClaim(peladaId)
   const [membershipId, setMembershipId] = useState('')
   const [reason, setReason] = useState('')
@@ -66,8 +71,26 @@ export function LegacyClaimsPanel({ peladaId }: { peladaId: string }) {
   }
 
   const copyCode = async () => {
-    await navigator.clipboard.writeText(issuedCode)
+    // O link, e não o código: é o link que se envia, e colar o código é
+    // exactamente o passo que este ecrã existe para poupar a quem o recebe.
+    await navigator.clipboard.writeText(claimUrl(issuedCode))
     setNotice(t('legacyClaims.copiedNotice'))
+  }
+
+  const submitBulk = async () => {
+    setError(''); setNotice(''); setIssuedCode('')
+    try {
+      const issued = await issueAll.mutateAsync(t('legacyClaims.bulkTitle'))
+      setLinks(issued)
+      setNotice(t('legacyClaims.bulkDone', { count: issued.length }))
+    } catch { setError(t('legacyClaims.issueError')) }
+  }
+
+  const copyAll = async () => {
+    // Uma linha por pessoa, para se cortar e colar à vontade. Sem cabeçalhos
+    // nem separadores: isto vai parar a uma janela de conversa, não a um Excel.
+    await navigator.clipboard.writeText(links.map((row) => `${row.displayName}: ${row.url}`).join('\n'))
+    setNotice(t('legacyClaims.copiedAll'))
   }
 
   const submitRevoke = async (event: FormEvent) => {
@@ -97,7 +120,22 @@ export function LegacyClaimsPanel({ peladaId }: { peladaId: string }) {
         <input id="legacy-reason" value={reason} maxLength={240} minLength={8} onChange={(event) => setReason(event.target.value)} placeholder={t('legacyClaims.reasonPlaceholder')} required/>
         <Button disabled={issue.isPending || !unclaimed.length}><KeyRound/> {issue.isPending ? t('legacyClaims.issuing') : t('legacyClaims.issue')}</Button>
       </form>
-      {issuedCode && <div className="claim-code" role="status"><div><strong>{t('legacyClaims.codeLabel')}</strong><code>{issuedCode}</code><small>{t('legacyClaims.codeWarning')}</small></div><Button size="icon" variant="outline" onClick={copyCode} aria-label={t('legacyClaims.copyCode')}><Copy/></Button></div>}
+      {issuedCode && <div className="claim-code" role="status"><div><strong>{t('legacyClaims.linkLabel')}</strong><code>{claimUrl(issuedCode)}</code><small>{t('legacyClaims.codeWarning')}</small></div><Button size="icon" variant="outline" onClick={copyCode} aria-label={t('legacyClaims.copyCode')}><Copy/></Button></div>}
+    </Card>
+
+    <Card className="claim-bulk">
+      <div><h3>{t('legacyClaims.bulkTitle')}</h3><p>{t('legacyClaims.bulkBody')}</p></div>
+      {links.length === 0
+        ? <Button variant="secondary" onClick={submitBulk} disabled={issueAll.isPending || !unclaimed.length}>
+            <KeyRound/> {issueAll.isPending ? t('legacyClaims.bulkIssuing') : t('legacyClaims.bulkIssue')}
+          </Button>
+        : <>
+            <p className="claim-bulk-warning"><ShieldAlert/> {t('legacyClaims.bulkWarning')}</p>
+            <ul className="claim-bulk-list">
+              {links.map((row) => <li key={row.membershipId}><strong>{row.displayName}</strong><code>{row.url}</code></li>)}
+            </ul>
+            <Button variant="outline" onClick={copyAll}><Copy/> {t('legacyClaims.copyAll')}</Button>
+          </>}
     </Card>
     <div className="claim-candidate-list">
       {candidates.data.map((candidate) => <Card className="claim-candidate" key={candidate.membershipId}>
