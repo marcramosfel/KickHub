@@ -8,6 +8,18 @@ import {
 } from '../lib/pelada-admin'
 import { Button, Card } from './ui'
 
+/**
+ * Os fusos que aparecem na lista. Não são todos os do mundo — são os que uma
+ * pelada destas usa, mais o do próprio navegador, que é quase sempre o certo
+ * para quem está a preencher. Escrever outro continua a ser possível.
+ */
+const TIMEZONES = [...new Set([
+  Intl.DateTimeFormat().resolvedOptions().timeZone,
+  'Europe/Lisbon', 'Atlantic/Madeira', 'Atlantic/Azores',
+  'Europe/Madrid', 'Europe/Zurich', 'Europe/London', 'Europe/Paris', 'Europe/Berlin',
+  'America/Sao_Paulo', 'America/New_York', 'UTC',
+].filter(Boolean))]
+
 const capitalise = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
 const visibilityKey = (value: string) => `peladaAdmin.visibility${capitalise(value)}` as TranslationKey
 const joinModeKey = (value: string) => `peladaAdmin.joinMode${capitalise(value)}` as TranslationKey
@@ -91,6 +103,34 @@ function SettingsFields({ initial, peladaId }: { initial: PeladaAdminSettings; p
           </label>
           <small id="pelada-slug-hint">{t('peladaAdmin.linkHint')}</small>
         </div>
+
+        {/* Onde se joga. A pelada tinha coordenadas e não tinha morada: dava
+            para pôr o ponto no mapa certo e continuava a dizer a cidade errada
+            no cabeçalho, porque nenhum campo lhe chegava. */}
+        <div className="field-grid">
+          <label htmlFor="pelada-city">{t('peladaAdmin.city')}
+            <input id="pelada-city" value={form.city} maxLength={80}
+              onChange={(event) => update('city', event.target.value)}/>
+          </label>
+          <label htmlFor="pelada-country">{t('peladaAdmin.country')}
+            <input id="pelada-country" value={form.countryCode} maxLength={2}
+              placeholder="PT" autoCapitalize="characters" spellCheck={false}
+              onChange={(event) => update('countryCode', event.target.value.toUpperCase())}/>
+          </label>
+        </div>
+
+        <label htmlFor="pelada-timezone">{t('peladaAdmin.timezone')}
+          <input id="pelada-timezone" value={form.timezone} list="pelada-timezones"
+            spellCheck={false} aria-describedby="pelada-timezone-hint"
+            onChange={(event) => update('timezone', event.target.value)}/>
+        </label>
+        {/* Uma lista curta com os fusos plausíveis, e o campo continua livre:
+            o servidor recusa o que não existir, e adivinhar os 400 do mundo
+            numa caixa era pior do que deixar escrever. */}
+        <datalist id="pelada-timezones">
+          {TIMEZONES.map((zone) => <option key={zone} value={zone}/>)}
+        </datalist>
+        <small id="pelada-timezone-hint">{t('peladaAdmin.timezoneHint')}</small>
 
         <div className="field-grid">
           <label htmlFor="pelada-visibility">{t('peladaAdmin.visibility')}

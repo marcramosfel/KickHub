@@ -2,6 +2,7 @@ import { Check, Globe2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCurrentPelada } from '../lib/current-pelada'
+import { usePeladaAdminSettings } from '../lib/pelada-admin'
 import { SKILL_LEVELS, type LocationPrecision, type SkillLevel } from '../lib/discovery'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
@@ -33,11 +34,6 @@ export type DiscoverySettings = {
   maxPlayers: string
 }
 
-const empty: DiscoverySettings = {
-  region: '', latitude: '', longitude: '', precision: 'city',
-  weekday: '', time: '', skillLevel: 'mixed', maxPlayers: '',
-}
-
 /** Um campo em branco é "não mexas neste", e não "apaga o que lá está". */
 const optional = (value: string) => {
   const clean = value.trim()
@@ -65,17 +61,63 @@ export async function saveDiscoverySettings(peladaId: string, form: DiscoverySet
   if (error) throw error
 }
 
+/** O que está gravado, na forma que os campos usam — texto, sempre. */
+export function toDiscoverySettings(row: {
+  region: string; latitude: string; longitude: string; locationPrecision: LocationPrecision
+  matchWeekday: number | null; matchTime: string; skillLevel: SkillLevel; maxPlayers: number | null
+}): DiscoverySettings {
+  return {
+    region: row.region,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    precision: row.locationPrecision,
+    weekday: row.matchWeekday === null ? '' : String(row.matchWeekday),
+    time: row.matchTime,
+    skillLevel: row.skillLevel,
+    maxPlayers: row.maxPlayers === null ? '' : String(row.maxPlayers),
+  }
+}
+
+/**
+ * Carrega antes de mostrar, como o formulário das definições ao lado.
+ *
+ * Este escrevia bem e não sabia ler: nascia vazio e assim ficava. Quem gravasse
+ * a região e recarregasse via os campos em branco outra vez — de fora,
+ * indistinguível de não ter gravado nada, e foi exactamente essa a queixa.
+ */
 export function DiscoverySettingsForm() {
   const { t } = useI18n()
   const { pelada } = useCurrentPelada()
+  const query = usePeladaAdminSettings(pelada?.id, true)
+
+  if (query.isError) {
+    return (
+      <Card className="settings-card" role="alert">
+        <p>{t('peladaAdmin.loadError')}</p>
+        <Button variant="outline" onClick={() => void query.refetch()}>{t('dashboard.retry')}</Button>
+      </Card>
+    )
+  }
+  if (query.isPending || !query.data) {
+    return <Card className="settings-card" aria-busy="true"><p>{t('peladaAdmin.loading')}</p></Card>
+  }
+
+  return <DiscoveryFields initial={toDiscoverySettings(query.data)} peladaId={pelada?.id}/>
+}
+
+function DiscoveryFields({ initial, peladaId }: { initial: DiscoverySettings; peladaId: string | undefined }) {
+  const { t } = useI18n()
   const client = useQueryClient()
-  const [form, setForm] = useState<DiscoverySettings>(empty)
+  const [form, setForm] = useState<DiscoverySettings>(initial)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
   const save = useMutation({
-    mutationFn: () => saveDiscoverySettings(pelada!.id, form),
-    onSuccess: () => { void client.invalidateQueries({ queryKey: ['discover-peladas'] }) },
+    mutationFn: () => saveDiscoverySettings(peladaId!, form),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['discover-peladas'] })
+      void client.invalidateQueries({ queryKey: ['pelada-admin-settings', peladaId] })
+    },
   })
 
   const update = <K extends keyof DiscoverySettings>(key: K, value: DiscoverySettings[K]) =>
@@ -84,7 +126,7 @@ export function DiscoverySettingsForm() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setNotice(''); setError('')
-    if (!pelada) return
+    if (!peladaId) return
     try {
       await save.mutateAsync()
       setNotice(t('peladaAdmin.discoverySaved'))

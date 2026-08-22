@@ -33,6 +33,9 @@ function makeSettings(overrides: Record<string, unknown> = {}) {
     goalkeeper_mode: 'fixed',
     ratings_enabled: true,
     awards_enabled: true,
+    city: 'Lisboa',
+    country_code: 'PT',
+    timezone: 'Europe/Lisbon',
     ...overrides,
   }
 }
@@ -104,6 +107,9 @@ describe('PeladaSettingsForm', () => {
       p_description: 'Todas as quintas às 20h',
       p_visibility: 'public',
       p_join_mode: 'approval',
+      p_city: 'Lisboa',
+      p_country_code: 'PT',
+      p_timezone: 'Europe/Lisbon',
     }))
     expect(settingsMocks.rpc).toHaveBeenCalledWith('update_pelada_settings', expect.objectContaining({
       p_goalkeeper_mode: 'rotating',
@@ -111,6 +117,23 @@ describe('PeladaSettingsForm', () => {
       p_awards_enabled: false,
     }))
     expect(await screen.findByRole('status')).toHaveTextContent('Definições guardadas')
+  })
+
+  it('mostra a morada gravada e deixa mudá-la', async () => {
+    renderForm()
+    expect(await screen.findByLabelText('Cidade')).toHaveValue('Lisboa')
+    expect(screen.getByLabelText('País (2 letras)')).toHaveValue('PT')
+    expect(screen.getByLabelText('Fuso horário')).toHaveValue('Europe/Lisbon')
+
+    fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: 'Quarteira' } })
+    // Em minúsculas de propósito: quem escreve o país raramente carrega no shift.
+    fireEvent.change(screen.getByLabelText('País (2 letras)'), { target: { value: 'pt' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar definições' }))
+
+    await waitFor(() => expect(settingsMocks.rpc).toHaveBeenCalledWith(
+      'update_pelada_identity',
+      expect.objectContaining({ p_city: 'Quarteira', p_country_code: 'PT' }),
+    ))
   })
 
   it('explica quando o servidor recusa a gravação', async () => {

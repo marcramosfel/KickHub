@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { GoalkeeperMode } from '../domain/team-draw'
+import { SKILL_LEVELS, type LocationPrecision, type SkillLevel } from './discovery'
 import { isSupabaseConfigured, supabase } from './supabase'
 
 export type PeladaVisibility = 'private' | 'unlisted' | 'public'
@@ -19,12 +20,38 @@ export type PeladaAdminSettings = {
   description: string
   visibility: PeladaVisibility
   joinMode: PeladaJoinMode
+  /** Onde a pelada se joga. Sem isto, uma pelada nunca podia mudar de sítio. */
+  city: string
+  countryCode: string
+  timezone: string
   defaultFormat: string
   defaultTeamSize: number
   frequency: PeladaFrequency
   goalkeeperMode: GoalkeeperMode
   ratingsEnabled: boolean
   awardsEnabled: boolean
+  /**
+   * O que a descoberta mostra. Vem na mesma leitura de propósito: são dois
+   * formulários lado a lado sobre a mesma pelada, e duas leituras eram duas
+   * versões da verdade a poderem discordar uma da outra no mesmo ecrã.
+   */
+  region: string
+  latitude: string
+  longitude: string
+  locationPrecision: LocationPrecision
+  matchWeekday: number | null
+  matchTime: string
+  skillLevel: SkillLevel
+  maxPlayers: number | null
+}
+
+const precisions: LocationPrecision[] = ['hidden', 'city', 'approximate', 'exact']
+
+/** Um número que o servidor não tem é ausência, e não zero. */
+const numberOrNull = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 const oneOf = <T extends string>(options: readonly T[], value: unknown, fallback: T): T =>
@@ -37,12 +64,25 @@ export function toAdminSettings(row: Record<string, unknown>): PeladaAdminSettin
     description: typeof row.description === 'string' ? row.description : '',
     visibility: oneOf(visibilities, row.visibility, 'private'),
     joinMode: oneOf(joinModes, row.join_mode, 'approval'),
+    city: typeof row.city === 'string' ? row.city : '',
+    countryCode: typeof row.country_code === 'string' ? row.country_code : '',
+    timezone: typeof row.timezone === 'string' ? row.timezone : '',
     defaultFormat: oneOf(formats, row.default_format, '7x7'),
     defaultTeamSize: Number(row.default_team_size) || 7,
     frequency: oneOf(frequencies, row.frequency, 'weekly'),
     goalkeeperMode: oneOf(goalkeeperModes, row.goalkeeper_mode, 'fixed'),
     ratingsEnabled: row.ratings_enabled !== false,
     awardsEnabled: row.awards_enabled !== false,
+    region: typeof row.region === 'string' ? row.region : '',
+    // Coordenadas ficam texto: são campos de texto, e passá-las por `Number`
+    // aqui perdia as casas decimais que o organizador escreveu.
+    latitude: row.latitude === null || row.latitude === undefined ? '' : String(row.latitude),
+    longitude: row.longitude === null || row.longitude === undefined ? '' : String(row.longitude),
+    locationPrecision: oneOf(precisions, row.location_precision, 'city'),
+    matchWeekday: numberOrNull(row.match_weekday),
+    matchTime: typeof row.match_time === 'string' ? row.match_time : '',
+    skillLevel: oneOf(SKILL_LEVELS, row.skill_level, 'mixed'),
+    maxPlayers: numberOrNull(row.max_players),
   }
 }
 
@@ -78,6 +118,9 @@ export function useSavePeladaAdminSettings(peladaId: string | undefined) {
         p_description: values.description,
         p_visibility: values.visibility,
         p_join_mode: values.joinMode,
+        p_city: values.city,
+        p_country_code: values.countryCode,
+        p_timezone: values.timezone,
       })
       if (identity.error) throw identity.error
 
@@ -98,6 +141,7 @@ export function useSavePeladaAdminSettings(peladaId: string | undefined) {
         // O modo de guarda-redes é lido pelo sorteio, e o nome vem de
         // `my-peladas` — é de lá que saem o cabeçalho e o seletor de pelada.
         client.invalidateQueries({ queryKey: ['pelada-settings', peladaId] }),
+        client.invalidateQueries({ queryKey: ['my-peladas'] }),
         client.invalidateQueries({ queryKey: ['my-peladas'] }),
       ])
     },

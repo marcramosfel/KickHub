@@ -1,6 +1,6 @@
 begin;
 
-select plan(32);
+select plan(40);
 
 -- ------------------------------------------------------------------ contrato
 
@@ -220,6 +220,79 @@ select throws_ok(
   $$select public.set_pelada_member_role('e0000000-0000-4000-8000-0000000ac012', 'player')$$,
   'P0001', 'MEMBER_NOT_ACTIVE',
   'quem já saiu não volta a ter papel atribuído'
+);
+
+-- ------------------------------------------------------------------ a morada
+--
+-- A pelada estava presa na cidade onde tinha sido criada: havia coordenadas e
+-- região, e não havia campo nenhum para cidade, país ou fuso. Quem a mudasse de
+-- sítio via o cabeçalho continuar a dizer o sítio antigo — e a queixa era, com
+-- razão, que "não guarda".
+
+set local request.jwt.claims to '{"sub":"e1000000-0000-4000-8000-000000000002"}';
+
+select is(
+  (public.update_pelada_identity(
+    'e0000000-0000-4000-8000-0000000ac001', 'Nome Novo', null, 'public', 'approval',
+    ' Quarteira ', 'pt', 'Europe/Lisbon')).city,
+  'Quarteira',
+  'a pelada muda de cidade e o espaço em excesso cai'
+);
+select is(
+  (select country_code from public.peladas where id = 'e0000000-0000-4000-8000-0000000ac001'),
+  'PT',
+  'o país fica em maiúsculas, escreva-se como se escrever'
+);
+select is(
+  (select timezone from public.peladas where id = 'e0000000-0000-4000-8000-0000000ac001'),
+  'Europe/Lisbon',
+  'e o fuso acompanha, que é quem decide a hora a que os jogos aparecem'
+);
+
+-- Um fuso que não existe não dá erro ao ser gravado: dá horas erradas a toda a
+-- gente, mais tarde, sem ninguém perceber porquê.
+select throws_ok(
+  $$select public.update_pelada_identity(
+      'e0000000-0000-4000-8000-0000000ac001', 'Nome Novo', null, 'public', 'approval',
+      'Quarteira', 'PT', 'Europa/Algarve')$$,
+  'P0001', 'INVALID_TIMEZONE',
+  'um fuso inventado é recusado'
+);
+select throws_ok(
+  $$select public.update_pelada_identity(
+      'e0000000-0000-4000-8000-0000000ac001', 'Nome Novo', null, 'public', 'approval',
+      'Quarteira', 'Portugal', 'Europe/Lisbon')$$,
+  'P0001', 'INVALID_COUNTRY',
+  'e um país que não são duas letras também'
+);
+
+-- Quem chamar a função sem estes três — o código antigo, uma integração — não
+-- pode por isso apagar a morada de ninguém.
+select is(
+  (public.update_pelada_identity(
+    'e0000000-0000-4000-8000-0000000ac001', 'Nome Novo', null, 'public', 'approval')).city,
+  'Quarteira',
+  'omitir a morada não é apagá-la'
+);
+
+-- E o painel devolve o que os dois formulários mostram. Sem isto, o da
+-- descoberta gravava bem e nascia vazio, que de fora é igual a não ter gravado.
+select is(
+  (select city || '/' || country_code || '/' || timezone
+     from public.get_pelada_admin_settings('e0000000-0000-4000-8000-0000000ac001')),
+  'Quarteira/PT/Europe/Lisbon',
+  'a leitura de administração traz a morada'
+);
+select ok(
+  exists (
+    select 1 from information_schema.parameters
+    where specific_schema = 'public'
+      and specific_name in (
+        select specific_name from information_schema.routines
+        where routine_schema = 'public' and routine_name = 'get_pelada_admin_settings')
+      and parameter_name in ('region', 'latitude', 'longitude', 'location_precision')
+  ),
+  'e também as coordenadas que a descoberta usa'
 );
 
 -- --------------------------------------------------- quem foi promovido soube
