@@ -1,29 +1,57 @@
 begin;
 
-select plan(22);
+select plan(31);
 
 select has_table('public', 'legacy_claims', 'tabela de claims existe');
-select has_function('public', 'issue_legacy_claim', array['uuid','text'], 'emissão existe');
+select has_function('public', 'issue_legacy_claim', array['uuid','text','integer'], 'emissão existe');
 select has_function('public', 'claim_legacy_profile', array['text'], 'consumo existe');
 
 -- Ninguém lê esta tabela a partir do browser: nem os hashes, nem quem espera
 -- dono. Tudo passa pelas duas RPCs.
 select ok(not has_table_privilege('anon', 'public.legacy_claims', 'select'), 'anon não lê claims');
 select ok(not has_table_privilege('authenticated', 'public.legacy_claims', 'select'), 'nem authenticated');
-select ok(not has_function_privilege('anon', 'public.issue_legacy_claim(uuid,text)', 'execute'), 'anon não emite');
+select ok(not has_function_privilege('anon', 'public.issue_legacy_claim(uuid,text,integer)', 'execute'), 'anon não emite');
 select ok(not has_function_privilege('anon', 'public.claim_legacy_profile(text)', 'execute'), 'anon não reclama');
 
 -- O código não pode ser guardado em claro. Se alguém um dia trocar o hash por
 -- ele, isto apanha.
 select unalike(
-  pg_get_functiondef('public.issue_legacy_claim(uuid,text)'::regprocedure),
+  pg_get_functiondef('public.issue_legacy_claim(uuid,text,integer)'::regprocedure),
   '%values (v_membership.pelada_id, v_profile.id, v_code%',
   'a emissão grava o hash e não o código'
 );
 select alike(
-  pg_get_functiondef('public.issue_legacy_claim(uuid,text)'::regprocedure),
+  pg_get_functiondef('public.issue_legacy_claim(uuid,text,integer)'::regprocedure),
   '%sha256%',
   'e o hash é SHA-256'
+);
+
+-- O prazo é escolhido, mas com tecto: um código sem fim à vista deixa de ser um
+-- código e passa a ser uma palavra-passe partilhada.
+select alike(
+  pg_get_functiondef('public.issue_legacy_claim(uuid,text,integer)'::regprocedure),
+  '%p_expires_in_hours integer DEFAULT 168%',
+  'o prazo por omissão são sete dias'
+);
+select alike(
+  pg_get_functiondef('public.issue_legacy_claim(uuid,text,integer)'::regprocedure),
+  '%least(greatest(coalesce(p_expires_in_hours, 168), 1), 720)%',
+  'e está travado entre uma hora e trinta dias'
+);
+
+select has_function('public', 'issue_legacy_claims_for_pelada', array['uuid','text','integer'], 'emissão em massa existe');
+select has_function('public', 'peek_legacy_claim', array['text'], 'espreitar existe');
+select has_function('public', 'absorb_legacy_claim', array['text'], 'fusão existe');
+select ok(not has_function_privilege('anon', 'public.issue_legacy_claims_for_pelada(uuid,text,integer)', 'execute'), 'anon não emite em massa');
+select ok(not has_function_privilege('anon', 'public.peek_legacy_claim(text)', 'execute'), 'anon não espreita');
+select ok(not has_function_privilege('anon', 'public.absorb_legacy_claim(text)', 'execute'), 'anon não funde');
+
+-- Espreitar não pode consumir: se um dia gravar `consumed_at`, um link aberto
+-- por engano deixa de poder ser usado por quem o recebeu.
+select unalike(
+  pg_get_functiondef('public.peek_legacy_claim(text)'::regprocedure),
+  '%consumed_at = now()%',
+  'espreitar não gasta o código'
 );
 
 -- A ligação ao registo antigo tem chave estrangeira: é ela que garante que

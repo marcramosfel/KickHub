@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(23);
 
 -- §75: o papel de plataforma vive no perfil e não numa pertença a uma pelada.
 -- Ser dono da tua comunidade não pode ser um degrau para administrar as outras.
@@ -43,6 +43,17 @@ select alike(pg_get_functiondef('public.request_account_deletion()'::regprocedur
 -- §85: arquivar em vez de destruir.
 select alike(pg_get_functiondef('public.archive_pelada(uuid)'::regprocedure),
   '%status = ''archived''%', 'arquivar uma pelada não a destrói');
+
+-- Arquivar tinha de ter volta: uma decisão sem regresso, tomada num clique,
+-- não é uma decisão — é uma armadilha.
+select has_function('public', 'restore_pelada', array['uuid']::text[], 'desarquivar existe');
+select has_function('public', 'list_my_archived_peladas', array[]::text[], 'ver o que arquivei existe');
+select ok(not has_function_privilege('anon', 'public.restore_pelada(uuid)', 'execute'), 'anon não desarquiva');
+select ok(not has_function_privilege('anon', 'public.list_my_archived_peladas()', 'execute'), 'anon não vê arquivo alheio');
+
+-- E desarquivar não reabre ao público: reabrir é uma escolha à parte.
+select unalike(pg_get_functiondef('public.restore_pelada(uuid)'::regprocedure),
+  '%visibility%', 'desarquivar não mexe na visibilidade');
 
 -- §90–91: os limites existem e hoje não limitam nada.
 select is(
