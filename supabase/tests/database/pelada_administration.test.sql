@@ -228,8 +228,11 @@ select throws_ok(
 -- região, e não havia campo nenhum para cidade, país ou fuso. Quem a mudasse de
 -- sítio via o cabeçalho continuar a dizer o sítio antigo — e a queixa era, com
 -- razão, que "não guarda".
+--
+-- Como dono, e não como o admin de cima: o passo anterior removeu-o da pelada,
+-- e a partir daí ele não administra coisa nenhuma.
 
-set local request.jwt.claims to '{"sub":"e1000000-0000-4000-8000-000000000002"}';
+set local request.jwt.claims to '{"sub":"e1000000-0000-4000-8000-000000000001"}';
 
 select is(
   (public.update_pelada_identity(
