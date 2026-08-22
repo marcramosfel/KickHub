@@ -1,6 +1,7 @@
 import { ShieldCheck, Trophy } from 'lucide-react'
 import { Badge, Card, EmptyState } from '../components/ui'
 import { CardBadge } from './PlayerCards'
+import { HeroLeaders } from './HeroLeaders'
 import { PlayerPhoto } from './PlayerPhoto'
 import { computeCards, mainCard } from '../domain/player-cards'
 import { computeTitles, explainSquadOverall } from '../domain/player-overall'
@@ -165,6 +166,10 @@ function StatsOverview({ rows, totals }: { rows: RankingRow[]; totals: { gamesPl
           <Card><strong>{formatNumber(totals.activeMembers)}</strong><span>{t('ranking.totalMembers', { count: totals.activeMembers })}</span></Card>
         </div>
       ) : null}
+
+      {/* Os destaques em cards, antes da tabela. Uma tabela responde quem marcou
+          mais; um card responde a mesma coisa e ainda diz de quem se trata. */}
+      <HeroLeaders/>
 
       {/* Os destaques marcam quem saiu pela mesma razão que a tabela: sem isso,
           o mesmo ecrã apresentava alguém como artilheiro da pelada duas linhas
