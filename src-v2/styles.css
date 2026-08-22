@@ -420,3 +420,7 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 .achievement-gap{border-top:1px solid var(--border);padding-top:9px}
 .achievement-gap-mine{color:#4f7a12;font-weight:800}
 .achievement-note{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);margin:0}
+
+/* Um aviso que ocupa a linha inteira dentro de uma grelha de dois campos. */
+.settings-hint{grid-column:1/-1;margin:0;font-size:11px;line-height:1.6;color:#8a5a00;
+  background:rgba(255,183,77,.14);border-radius:10px;padding:8px 11px}

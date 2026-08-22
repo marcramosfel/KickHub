@@ -139,12 +139,18 @@ function SettingsFields({ initial, peladaId }: { initial: PeladaAdminSettings; p
               {visibilities.map((value) => <option key={value} value={value}>{t(visibilityKey(value))}</option>)}
             </select>
           </label>
+          {/* Uma pelada privada não aparece na Descoberta, e quem a procura
+              pelo nome conclui que a busca está partida. Dizê-lo aqui, ao lado
+              da decisão, é mais barato do que o descobrir do outro lado. */}
           <label htmlFor="pelada-join">{t('peladaAdmin.joinMode')}
             <select id="pelada-join" value={form.joinMode}
               onChange={(event) => update('joinMode', event.target.value as PeladaAdminSettings['joinMode'])}>
               {joinModes.map((value) => <option key={value} value={value}>{t(joinModeKey(value))}</option>)}
             </select>
           </label>
+          {form.visibility === 'private' && (
+            <p className="settings-hint" role="note">{t('peladaAdmin.privateNotDiscoverable')}</p>
+          )}
           <label htmlFor="pelada-format">{t('peladaAdmin.format')}
             <select id="pelada-format" value={form.defaultFormat}
               onChange={(event) => update('defaultFormat', event.target.value)}>
