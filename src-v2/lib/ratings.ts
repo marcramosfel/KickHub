@@ -54,3 +54,39 @@ export function useRatingMutations(gameId: string, peladaId: string | undefined)
     },
   })
 }
+
+/**
+ * As notas que recebi, jogo a jogo.
+ *
+ * Agregado e nunca a linha: a política `game_ratings_own_read` só deixa alguém
+ * ler as avaliações que **deu**, e as que recebeu são anónimas de propósito.
+ * Abaixo de três avaliadores num jogo o servidor devolve a contagem sem a
+ * média — com dois, numa pelada de dez, a média é praticamente uma assinatura.
+ */
+export type RatingHistoryEntry = {
+  gameId: string
+  playedAt: string
+  raters: number
+  /** `null` quando foram poucos para agregar sem identificar quem avaliou. */
+  average: number | null
+}
+
+export async function getMyRatingHistory(peladaId: string): Promise<RatingHistoryEntry[]> {
+  const { data, error } = await supabase.rpc('get_my_rating_history', { p_pelada_id: peladaId })
+  if (error) throw error
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    gameId: String(row.game_id ?? ''),
+    playedAt: String(row.played_at ?? ''),
+    raters: Number(row.raters) || 0,
+    average: row.average === null || row.average === undefined ? null : Number(row.average),
+  }))
+}
+
+export function useMyRatingHistory(peladaId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['my-rating-history', peladaId],
+    queryFn: () => getMyRatingHistory(peladaId!),
+    enabled: Boolean(peladaId) && enabled && isSupabaseConfigured,
+    staleTime: 30_000,
+  })
+}

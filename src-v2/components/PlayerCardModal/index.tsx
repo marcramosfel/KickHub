@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { attributesWithData } from '../../domain/player-attributes'
 import { unlockedCards, type PlayerCard } from '../../domain/player-cards'
 import { ShareImageButton } from '../ShareImageButton'
+import { useAuth } from '../../lib/auth'
+import { useCurrentPelada } from '../../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../../lib/i18n'
+import { useMyPlayerProfile } from '../../lib/player-profile'
+import { useMyRatingHistory } from '../../lib/ratings'
 import { Card, type CardPlayer } from './Card'
 import { prefersReducedMotion } from './useCountUp'
 import { useFlip, type OriginRect } from './useFlip'
@@ -47,11 +51,20 @@ export type PlayerCardEntry = {
   locked: readonly { key: string; icon: string; label: TranslationKey }[]
 }
 
-type Tab = 'card' | 'stats' | 'achievements'
+type Tab = 'card' | 'stats' | 'achievements' | 'ratings'
 
 const TABS: [Tab, TranslationKey][] = [
   ['card', 'card.tabCard'], ['stats', 'card.tabStats'], ['achievements', 'card.tabAchievements'],
 ]
+
+/**
+ * A aba das avaliações só existe no card de quem está a ver.
+ *
+ * As notas recebidas são anónimas por regra do produto — a política de leitura
+ * só deixa alguém ler as que **deu** — e por isso não há aba nenhuma a mostrar
+ * no card de outra pessoa. Não é uma omissão: é a regra.
+ */
+const OWN_TAB: [Tab, TranslationKey] = ['ratings', 'card.tabRatings']
 
 /** A largura da scrollbar, para a página não saltar ao bloquear o scroll. */
 function lockScroll() {
@@ -74,6 +87,11 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
   onClose: () => void
 }) {
   const { t, formatNumber } = useI18n()
+  const { pelada } = useCurrentPelada()
+  const { user } = useAuth()
+  // Qual das pertenças é a de quem está a ver. O card aberto é identificado
+  // pelo `membershipId`, e é o perfil próprio que sabe qual é o dele aqui.
+  const me = useMyPlayerProfile(user?.id)
   const dialog = useRef<HTMLDivElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
   const [tab, setTab] = useState<Tab>('card')
@@ -84,6 +102,8 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
   // as duas transformações lutavam pelo mesmo eixo.
   const [resting, setResting] = useState(prefersReducedMotion())
   const entry = entries[index]
+  const myMembershipId = me.data?.peladas.find((community) => community.id === pelada?.id)?.membershipId
+  const isMine = Boolean(myMembershipId && myMembershipId === entry?.card.id)
   useFlip(stage, origin ?? null)
 
   /**
@@ -196,6 +216,7 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
           {tab === 'card' && <Card key={entry.card.id} player={entry.card} size="md"/>}
           {tab === 'stats' && <StatsPanel entry={entry}/>}
           {tab === 'achievements' && <AchievementsPanel entry={entry}/>}
+          {tab === 'ratings' && <RatingsPanel/>}
 
           {entries.length > 1 && (
             <button className="card-arrow card-arrow-next" type="button" onClick={() => go(1)} aria-label={t('card.next')}>
@@ -209,7 +230,7 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
         )}
 
         <nav className="card-tabs" aria-label={t('card.sections')}>
-          {TABS.map(([id, label]) => (
+          {(isMine ? [...TABS, OWN_TAB] : TABS).map(([id, label]) => (
             <button
               key={id} type="button" aria-pressed={tab === id}
               className={tab === id ? 'card-tab card-tab-active' : 'card-tab'}
@@ -244,6 +265,55 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
           <p className="card-hint">{formatNumber(index + 1)}/{formatNumber(entries.length)}</p>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * As notas que recebi, jogo a jogo.
+ *
+ * Um jogo com poucos avaliadores mostra a contagem e esconde a média: com dois,
+ * numa pelada de dez, a média é praticamente uma assinatura de quem avaliou. É
+ * o servidor que decide isso — aqui só se diz porquê a quem está a ler.
+ */
+function RatingsPanel() {
+  const { t, formatNumber, formatDate } = useI18n()
+  const { pelada } = useCurrentPelada()
+  const history = useMyRatingHistory(pelada?.id)
+
+  if (history.isPending) return <p className="card-note">{t('card.ratingsLoading')}</p>
+  if (history.isError) return <p className="card-note" role="alert">{t('card.ratingsError')}</p>
+  if (!history.data?.length) return <p className="card-note">{t('card.ratingsEmpty')}</p>
+
+  const rated = history.data.filter((entry) => entry.average !== null)
+  const overall = rated.length
+    ? rated.reduce((total, entry) => total + (entry.average ?? 0), 0) / rated.length
+    : null
+
+  return (
+    <div className="card-ratings">
+      <p className="card-ratings-head">
+        {overall === null
+          ? t('card.ratingsNoAverage')
+          : t('card.ratingsAverage', {
+            value: formatNumber(overall, { maximumFractionDigits: 1 }),
+            games: formatNumber(rated.length),
+          })}
+      </p>
+      <ol>
+        {history.data.map((entry) => (
+          <li key={entry.gameId}>
+            <span>{formatDate(entry.playedAt, { dateStyle: 'medium' })}</span>
+            <b>
+              {entry.average === null
+                ? '—'
+                : formatNumber(entry.average, { maximumFractionDigits: 1 })}
+            </b>
+            <small>{t('card.ratingsRaters', { count: entry.raters })}</small>
+          </li>
+        ))}
+      </ol>
+      <p className="card-note">{t('card.ratingsPrivacy')}</p>
     </div>
   )
 }
