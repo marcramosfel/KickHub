@@ -14,11 +14,14 @@ export type ClaimFailure =
   | 'ACCOUNT_ALREADY_LINKED'
   | 'TOO_MANY_ATTEMPTS'
   | 'AUTH_REQUIRED'
+  | 'SAME_PROFILE'
+  | 'LEGACY_MEMBERSHIP_NOT_FOUND'
   | 'UNKNOWN'
 
 const KNOWN: ClaimFailure[] = [
   'INVALID_CLAIM', 'CLAIM_ALREADY_USED', 'CLAIM_EXPIRED', 'ALREADY_CLAIMED',
   'ACCOUNT_ALREADY_LINKED', 'TOO_MANY_ATTEMPTS', 'AUTH_REQUIRED',
+  'SAME_PROFILE', 'LEGACY_MEMBERSHIP_NOT_FOUND',
 ]
 
 export function toClaimFailure(error: unknown): ClaimFailure {
@@ -41,6 +44,20 @@ export async function claimLegacyProfile(code: string) {
   const { data, error } = await supabase.rpc('claim_legacy_profile', { p_code: normalizeClaimCode(code) })
   if (error) throw error
   return String(data ?? '')
+}
+
+/**
+ * Juntar o histórico deste código à conta em que já se está.
+ *
+ * O `claim_legacy_profile` recusa quem já tem perfil, e faz bem: apontar a conta
+ * a outro perfil deixava o primeiro sem dono, com as peladas que criou. Isto faz
+ * o contrário — a pertença do legado é que muda de perfil, e o histórico, que
+ * está preso à pertença e não ao perfil, nem se mexe.
+ */
+export async function absorbLegacyClaim(code: string) {
+  const { data, error } = await supabase.rpc('absorb_legacy_claim', { p_code: normalizeClaimCode(code) })
+  if (error) throw error
+  return data as { membership_id: string; pelada_id: string; role: string; merged: boolean }
 }
 
 export async function issueLegacyClaim(membershipId: string, reason: string) {
@@ -114,6 +131,16 @@ export function useClaimLegacyProfile() {
       // peladas são minhas" ficou velho no mesmo instante.
       void client.invalidateQueries()
     },
+  })
+}
+
+export function useAbsorbLegacyClaim() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => absorbLegacyClaim(code),
+    // Mudou quem é o jogador desta conta: o plantel, o ranking e o overall
+    // ficaram todos velhos ao mesmo tempo.
+    onSuccess: () => { void client.invalidateQueries() },
   })
 }
 

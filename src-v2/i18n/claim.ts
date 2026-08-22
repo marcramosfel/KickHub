@@ -16,6 +16,12 @@ const pt = {
   'claim.errorTOO_MANY_ATTEMPTS': 'Demasiadas tentativas. Espera um quarto de hora e tenta de novo.',
   'claim.errorAUTH_REQUIRED': 'Inicia sessão antes de reclamar o histórico.',
   'claim.errorUNKNOWN': 'Não foi possível reclamar agora. Tenta novamente.',
+  'claim.mergeTitle': 'Esta conta já é de um jogador',
+  'claim.mergeBody': 'Podes juntar os dois: o histórico deste código passa para a conta em que estás, e o perfil antigo deixa de existir. Nada se perde — os jogos, golos e avaliações vêm todos.',
+  'claim.mergeSubmit': 'Juntar à minha conta',
+  'claim.merging': 'A juntar…',
+  'claim.errorSAME_PROFILE': 'Esse histórico já é o teu.',
+  'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Esse jogador já não está nessa pelada.',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -36,6 +42,12 @@ const en: Record<Key, TranslationValue> = {
   'claim.errorTOO_MANY_ATTEMPTS': 'Too many attempts. Wait fifteen minutes and try again.',
   'claim.errorAUTH_REQUIRED': 'Sign in before claiming your history.',
   'claim.errorUNKNOWN': 'We could not claim it right now. Try again.',
+  'claim.mergeTitle': 'This account already belongs to a player',
+  'claim.mergeBody': 'You can merge them: the history behind this code moves to the account you are in, and the old profile goes away. Nothing is lost — matches, goals and ratings all come across.',
+  'claim.mergeSubmit': 'Merge into my account',
+  'claim.merging': 'Merging…',
+  'claim.errorSAME_PROFILE': 'That history is already yours.',
+  'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'That player is no longer in that pelada.',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -54,6 +66,12 @@ const es: Record<Key, TranslationValue> = {
   'claim.errorTOO_MANY_ATTEMPTS': 'Demasiados intentos. Espera un cuarto de hora e inténtalo de nuevo.',
   'claim.errorAUTH_REQUIRED': 'Inicia sesión antes de reclamar el historial.',
   'claim.errorUNKNOWN': 'No pudimos reclamarlo ahora. Inténtalo de nuevo.',
+  'claim.mergeTitle': 'Esta cuenta ya es de un jugador',
+  'claim.mergeBody': 'Puedes unirlas: el historial de este código pasa a la cuenta en la que estás, y el perfil antiguo desaparece. No se pierde nada — partidos, goles y valoraciones vienen todos.',
+  'claim.mergeSubmit': 'Unir a mi cuenta',
+  'claim.merging': 'Uniendo…',
+  'claim.errorSAME_PROFILE': 'Ese historial ya es tuyo.',
+  'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Ese jugador ya no está en esa pelada.',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -72,6 +90,12 @@ const fr: Record<Key, TranslationValue> = {
   'claim.errorTOO_MANY_ATTEMPTS': 'Trop de tentatives. Attends un quart d’heure et réessaie.',
   'claim.errorAUTH_REQUIRED': 'Connecte-toi avant de récupérer ton historique.',
   'claim.errorUNKNOWN': 'Impossible de le récupérer maintenant. Réessaie.',
+  'claim.mergeTitle': 'Ce compte appartient déjà à un joueur',
+  'claim.mergeBody': 'Tu peux les fusionner : l’historique de ce code passe au compte où tu es, et l’ancien profil disparaît. Rien ne se perd — matchs, buts et notes suivent tous.',
+  'claim.mergeSubmit': 'Fusionner avec mon compte',
+  'claim.merging': 'Fusion…',
+  'claim.errorSAME_PROFILE': 'Cet historique est déjà le tien.',
+  'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Ce joueur n’est plus dans cette pelada.',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -90,6 +114,12 @@ const de: Record<Key, TranslationValue> = {
   'claim.errorTOO_MANY_ATTEMPTS': 'Zu viele Versuche. Warte eine Viertelstunde und versuch es erneut.',
   'claim.errorAUTH_REQUIRED': 'Melde dich an, bevor du deine Historie übernimmst.',
   'claim.errorUNKNOWN': 'Wir konnten sie gerade nicht übernehmen. Versuch es erneut.',
+  'claim.mergeTitle': 'Dieses Konto gehört bereits zu einem Spieler',
+  'claim.mergeBody': 'Du kannst beide zusammenführen: Der Verlauf hinter diesem Code wandert in das Konto, in dem du bist, und das alte Profil verschwindet. Nichts geht verloren — Spiele, Tore und Bewertungen kommen alle mit.',
+  'claim.mergeSubmit': 'Mit meinem Konto zusammenführen',
+  'claim.merging': 'Wird zusammengeführt…',
+  'claim.errorSAME_PROFILE': 'Dieser Verlauf gehört dir bereits.',
+  'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Dieser Spieler ist nicht mehr in dieser Pelada.',
 }
 
 export const claimCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }
