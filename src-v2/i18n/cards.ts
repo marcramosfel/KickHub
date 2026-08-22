@@ -1,6 +1,14 @@
 import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
+  'achievements.eyebrow': 'Títulos da pelada',
+  'achievements.title': 'Conquistas',
+  'achievements.subtitle': 'Quem tem cada título agora — e o que te falta para o tomares.',
+  'achievements.noHolder': 'Ainda ninguém o tomou.',
+  'achievements.youHold': 'É teu. Segura-o.',
+  'achievements.behind': 'Estás a {count} de quem lidera.',
+  'achievements.tied': 'Estás empatado com quem lidera.',
+  'achievements.noPlayer': 'Liga a tua conta a um jogador desta pelada para veres a tua distância a cada título.',
   'cards.rarityCommon': 'Comum',
   'cards.raritySpecial': 'Especial',
   'cards.rarityRare': 'Raro',
@@ -41,6 +49,14 @@ const pt = {
 type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
+  'achievements.eyebrow': 'Pelada titles',
+  'achievements.title': 'Achievements',
+  'achievements.subtitle': 'Who holds each title right now — and what it takes to take it.',
+  'achievements.noHolder': 'Nobody has taken it yet.',
+  'achievements.youHold': 'It is yours. Hold on to it.',
+  'achievements.behind': 'You are {count} behind the leader.',
+  'achievements.tied': 'You are level with the leader.',
+  'achievements.noPlayer': 'Link your account to a player in this pelada to see how far you are from each title.',
   'cards.rarityCommon': 'Common',
   'cards.raritySpecial': 'Special',
   'cards.rarityRare': 'Rare',
@@ -80,6 +96,14 @@ const en: Record<Key, TranslationValue> = {
 }
 
 const es: Record<Key, TranslationValue> = {
+  'achievements.eyebrow': 'Títulos de la pelada',
+  'achievements.title': 'Logros',
+  'achievements.subtitle': 'Quién tiene cada título ahora — y qué te falta para quitárselo.',
+  'achievements.noHolder': 'Todavía no lo tiene nadie.',
+  'achievements.youHold': 'Es tuyo. Aguántalo.',
+  'achievements.behind': 'Estás a {count} del líder.',
+  'achievements.tied': 'Estás empatado con el líder.',
+  'achievements.noPlayer': 'Vincula tu cuenta a un jugador de esta pelada para ver tu distancia a cada título.',
   'cards.rarityCommon': 'Común',
   'cards.raritySpecial': 'Especial',
   'cards.rarityRare': 'Raro',
@@ -119,6 +143,14 @@ const es: Record<Key, TranslationValue> = {
 }
 
 const fr: Record<Key, TranslationValue> = {
+  'achievements.eyebrow': 'Titres de la pelada',
+  'achievements.title': 'Trophées',
+  'achievements.subtitle': 'Qui détient chaque titre — et ce qu’il faut pour le prendre.',
+  'achievements.noHolder': 'Personne ne l’a encore pris.',
+  'achievements.youHold': 'Il est à toi. Garde-le.',
+  'achievements.behind': 'Tu es à {count} du leader.',
+  'achievements.tied': 'Tu es à égalité avec le leader.',
+  'achievements.noPlayer': 'Relie ton compte à un joueur de cette pelada pour voir ta distance à chaque titre.',
   'cards.rarityCommon': 'Commune',
   'cards.raritySpecial': 'Spéciale',
   'cards.rarityRare': 'Rare',
@@ -158,6 +190,14 @@ const fr: Record<Key, TranslationValue> = {
 }
 
 const de: Record<Key, TranslationValue> = {
+  'achievements.eyebrow': 'Titel der Pelada',
+  'achievements.title': 'Erfolge',
+  'achievements.subtitle': 'Wer welchen Titel gerade hält — und was fehlt, um ihn zu holen.',
+  'achievements.noHolder': 'Noch hat ihn niemand geholt.',
+  'achievements.youHold': 'Er gehört dir. Halt ihn.',
+  'achievements.behind': 'Dir fehlen {count} auf die Spitze.',
+  'achievements.tied': 'Du bist gleichauf mit der Spitze.',
+  'achievements.noPlayer': 'Verknüpfe dein Konto mit einem Spieler dieser Pelada, um deinen Abstand zu jedem Titel zu sehen.',
   'cards.rarityCommon': 'Gewöhnlich',
   'cards.raritySpecial': 'Besonders',
   'cards.rarityRare': 'Selten',

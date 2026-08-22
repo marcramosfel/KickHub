@@ -386,6 +386,76 @@ export function computeTitles(rows: readonly TitleInput[]): Map<string, TitleKey
 }
 
 /**
+ * A classificação de cada título: quem o tem, com que valor, e o valor de toda
+ * a gente que é candidata.
+ *
+ * Existe para responder à pergunta que torna um título interessante — "o que me
+ * falta para o tomar?". Sem isto, uma conquista é um autocolante que aparece a
+ * quem já ganhou; com isto, é uma corrida que se vê de fora.
+ *
+ * Partilha `TITLE_METRICS` com o `computeTitles` de propósito. Duas listas do
+ * que cada título mede eram duas listas a discordarem — uma a dar o título e a
+ * outra a dizer que faltavam dois golos a quem já o tinha.
+ *
+ * `winStreak` fica de fora, e não por esquecimento: não é um lugar que se tome
+ * a ninguém, é uma marca que se atinge. Quem chega a três leva, e ninguém a
+ * perde por outro ter chegado a quatro.
+ */
+export type TitleStanding = {
+  key: TitleKey
+  tier: keyof typeof BONUS_TITULO
+  bonus: number
+  /** Uma taxa mostra-se em percentagem; um total, em unidades. */
+  format: 'count' | 'rate'
+  /** Quem lidera. Vazio quando ninguém chega ao mínimo — não há artilheiro numa pelada sem golos. */
+  holders: string[]
+  /** O valor que hoje ganha o título, ou `null` se ainda não há título nenhum. */
+  leadingValue: number | null
+  /** O valor de cada candidato. Quem não é elegível não aparece. */
+  values: ReadonlyMap<string, number>
+}
+
+export function titleStandings(rows: readonly TitleInput[]): TitleStanding[] {
+  return TITLE_METRICS.map((metric) => {
+    const candidates = rows.filter((row) => metric.eligible?.(row) ?? true)
+    const values = new Map(candidates.map((row) => [row.membershipId, metric.of(row)]))
+    const best = candidates.reduce((max, row) => Math.max(max, metric.of(row)), 0)
+    const holders = best > 0
+      ? candidates
+        .filter((row) => Math.abs(metric.of(row) - best) < SAME_VALUE)
+        .map((row) => row.membershipId)
+      : []
+    return {
+      key: metric.key,
+      tier: TITLE_TIER[metric.key],
+      bonus: BONUS_TITULO[TITLE_TIER[metric.key]],
+      format: metric.key === 'accuracy' ? 'rate' : 'count',
+      holders,
+      leadingValue: best > 0 ? best : null,
+      values,
+    }
+  })
+}
+
+/**
+ * O que falta a alguém para tomar um título.
+ *
+ * `null` quando a pergunta não se aplica: quem não é candidato — porque ainda
+ * não jogou as rodadas mínimas de uma taxa — não está três golos atrás, está
+ * fora da corrida, e dizer-lhe um número era mentir-lhe sobre a distância.
+ */
+export function distanceToTitle(standing: TitleStanding, membershipId: string) {
+  const mine = standing.values.get(membershipId)
+  if (mine === undefined) return null
+  if (standing.holders.includes(membershipId)) {
+    return { mine, leading: standing.leadingValue ?? mine, behind: 0, holding: true }
+  }
+  const leading = standing.leadingValue
+  if (leading === null) return { mine, leading: 0, behind: 0, holding: false }
+  return { mine, leading, behind: Math.max(0, leading - mine), holding: false }
+}
+
+/**
  * Golos sofridos por jogo, na média de todas as rodadas de baliza da pelada.
  *
  * É contra isto que os golos sofridos de cada guarda-redes se comparam, e não

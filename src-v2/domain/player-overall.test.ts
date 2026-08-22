@@ -3,6 +3,7 @@ import {
   computePlayerOverall, computeTitles, contributionPerGame, explainOverall,
   explainSquadOverall, isPostRatingProvisional, isProvisional, isWaeProvisional,
   leagueConcededPerGame, pesosDaTransicao, titleBonus, MAX_OVERALL, MIN_OVERALL,
+  distanceToTitle, titleStandings,
   type OverallInput, type TitleInput,
 } from './player-overall'
 
@@ -231,6 +232,53 @@ describe('prémios e títulos', () => {
 describe('títulos do plantel', () => {
   const row = (overrides: Partial<TitleInput> & { membershipId: string }): TitleInput => ({
     gamesPlayed: 1, goals: 0, assists: 0, wins: 0, craques: 0, currentWinStreak: 0, ...overrides,
+  })
+
+  /**
+   * A classificação é o que torna um título uma corrida em vez de um
+   * autocolante: sem ela ninguém sabe o que lhe falta para o tomar.
+   */
+  it('diz quem lidera cada título e com que valor', () => {
+    const standings = titleStandings([
+      row({ membershipId: 'a', goals: 9 }),
+      row({ membershipId: 'b', goals: 6 }),
+    ])
+    const artilheiro = standings.find((s) => s.key === 'topScorer')!
+    expect(artilheiro.holders).toEqual(['a'])
+    expect(artilheiro.leadingValue).toBe(9)
+    expect(artilheiro.tier).toBe('ouro')
+  })
+
+  it('mede a distância a quem lidera', () => {
+    const standings = titleStandings([
+      row({ membershipId: 'a', goals: 9 }),
+      row({ membershipId: 'b', goals: 6 }),
+    ])
+    const artilheiro = standings.find((s) => s.key === 'topScorer')!
+    expect(distanceToTitle(artilheiro, 'b')).toEqual({ mine: 6, leading: 9, behind: 3, holding: false })
+    expect(distanceToTitle(artilheiro, 'a')).toEqual({ mine: 9, leading: 9, behind: 0, holding: true })
+  })
+
+  /**
+   * Quem não é candidato não está "três atrás": está fora da corrida. Dar-lhe
+   * um número era mentir-lhe sobre a distância — e é por isso que se devolve
+   * nada em vez de zero.
+   */
+  it('não inventa distância a quem não é sequer candidato', () => {
+    const standings = titleStandings([
+      row({ membershipId: 'a', gamesPlayed: 10, wins: 8 }),
+      row({ membershipId: 'b', gamesPlayed: 1, wins: 1 }),
+    ])
+    const aproveitamento = standings.find((s) => s.key === 'accuracy')!
+    expect(aproveitamento.values.has('b')).toBe(false)
+    expect(distanceToTitle(aproveitamento, 'b')).toBeNull()
+  })
+
+  it('não dá título nenhum quando ninguém marcou', () => {
+    const standings = titleStandings([row({ membershipId: 'a' }), row({ membershipId: 'b' })])
+    const artilheiro = standings.find((s) => s.key === 'topScorer')!
+    expect(artilheiro.holders).toEqual([])
+    expect(artilheiro.leadingValue).toBeNull()
   })
 
   it('premeia todos os empatados', () => {

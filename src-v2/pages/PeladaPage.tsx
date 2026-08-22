@@ -15,11 +15,12 @@ import { Badge, Button, Card } from '../components/ui'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { PlayerCardProvider } from '../lib/player-card'
 import { useI18n, type TranslationKey } from '../lib/i18n'
+import { AchievementsSection } from '../components/AchievementsSection'
 import { inviteMaxUses, inviteTtlHours, useOnboarding } from '../lib/onboarding'
 
 const memberTabs: [string, TranslationKey][] = [
   ['', 'pelada.tabOverview'], ['jogos', 'pelada.tabGames'], ['atividade', 'pelada.tabActivity'], ['jogadores', 'pelada.tabPlayers'],
-  ['ranking', 'pelada.tabRanking'], ['selecao', 'pelada.tabSelection'], ['curiosidades', 'pelada.tabCuriosities'], ['estatisticas', 'pelada.tabStats'], ['admin', 'pelada.tabAdmin'],
+  ['ranking', 'pelada.tabRanking'], ['selecao', 'pelada.tabSelection'], ['conquistas', 'pelada.tabAchievements'], ['curiosidades', 'pelada.tabCuriosities'], ['estatisticas', 'pelada.tabStats'], ['admin', 'pelada.tabAdmin'],
 ]
 
 export function PeladaPage() {
@@ -52,7 +53,7 @@ export function PeladaPage() {
     </header>
     {/* Sem `<main id="main-content">`: o AppShell já tem o seu, e dois com o
         mesmo id partiam a ligação de saltar para o conteúdo. */}
-    <div className="page pelada-sections">{section === 'admin' ? <AdminPanel/> : section === 'jogos' ? <GamesSection/> : section === 'atividade' ? <FeedSection/> : section === 'jogadores' ? <SquadSection/> : section === 'ranking' ? <RankingSection variant="ranking"/> : section === 'selecao' ? <SelectionSection/> : section === 'curiosidades' ? <CuriositiesSection/> : section === 'estatisticas' ? <RankingSection variant="stats"/> : section ? <UnknownSection/> : <Overview/>}</div>
+    <div className="page pelada-sections">{section === 'admin' ? <AdminPanel/> : section === 'jogos' ? <GamesSection/> : section === 'atividade' ? <FeedSection/> : section === 'jogadores' ? <SquadSection/> : section === 'ranking' ? <RankingSection variant="ranking"/> : section === 'selecao' ? <SelectionSection/> : section === 'conquistas' ? <AchievementsSection/> : section === 'curiosidades' ? <CuriositiesSection/> : section === 'estatisticas' ? <RankingSection variant="stats"/> : section ? <UnknownSection/> : <Overview/>}</div>
   </div></PlayerCardProvider>
 }
 
