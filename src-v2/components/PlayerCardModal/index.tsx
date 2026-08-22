@@ -44,6 +44,8 @@ export type PlayerCardEntry = {
   card: CardPlayer
   /** A decomposição do overall, quando o servidor a manda. Sem ela, some. */
   breakdown?: readonly OverallPartRow[]
+  /** Prémios e títulos, em pontos, somados depois da média ponderada. */
+  adjustments?: readonly { key: string; points: number }[]
   stats: PlayerCardStats
   /** As conquistas desta pelada, para a terceira aba. */
   achievements: readonly PlayerCard[]
@@ -367,6 +369,18 @@ function StatsPanel({ entry }: { entry: PlayerCardEntry }) {
               </li>
             ))}
           </ul>
+          {/* Sem isto a conta não fecha: a soma das parcelas não dá o número
+              grande, e quem olha conclui que um dos dois está errado. */}
+          {entry.adjustments && entry.adjustments.length > 0 && (
+            <ul className="card-adjustments">
+              {entry.adjustments.map((item) => (
+                <li key={item.key}>
+                  <span>{t(`card.adjust${item.key}` as TranslationKey)}</span>
+                  <b>{item.points > 0 ? '+' : ''}{formatNumber(item.points, { maximumFractionDigits: 1 })}</b>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
     </div>

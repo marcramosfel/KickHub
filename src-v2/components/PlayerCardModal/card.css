@@ -314,3 +314,11 @@
 .card-ratings li span{font-size:11px;color:rgba(255,255,255,.66)}
 .card-ratings li b{font-size:16px;font-weight:800}
 .card-ratings li small{font-size:10px;color:rgba(255,255,255,.5)}
+
+/* Os ajustes, por baixo das parcelas e visivelmente separados: uns são pesos
+   de uma média, os outros são pontos somados depois. */
+.card-adjustments{list-style:none;margin:8px 0 0;padding:8px 0 0;display:grid;gap:5px;
+  border-top:1px dashed rgba(255,255,255,.22)}
+.card-adjustments li{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.card-adjustments span{font-size:11px;color:rgba(255,255,255,.68)}
+.card-adjustments b{font-size:13px;font-weight:800}

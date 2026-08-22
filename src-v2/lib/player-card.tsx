@@ -118,6 +118,12 @@ function toEntry(
     breakdown: player.overallParts.map((part) => ({
       key: part.key, value: part.value, weight: part.weight,
     })),
+    // Os ajustes são o que falta para a conta fechar. Sem eles, a soma das
+    // parcelas não dá o número mostrado, e quem olha conclui que um dos dois
+    // está errado — foi exactamente essa a dúvida que deu origem a isto.
+    adjustments: player.overallAdjustments.map((item) => ({
+      key: item.key, points: item.points,
+    })),
     achievements: list,
     locked: CATALOGUE.map((key) => ({
       key,

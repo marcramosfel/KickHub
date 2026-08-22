@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { computeTitles, explainSquadOverall, type OverallPart, type TitleKey } from '../domain/player-overall'
+import { computeTitles, explainSquadOverall, type OverallAdjustment, type OverallPart, type TitleKey } from '../domain/player-overall'
 import { usePeladaRanking } from './ranking'
 import { usePeladaSquad, type PlayerType, type Position } from './squad'
 
@@ -28,6 +28,9 @@ export type PeladaPlayer = {
   provisional: boolean
   /** As parcelas que fizeram o overall. Vazio quando ele ainda não existe. */
   overallParts: OverallPart[]
+  /** Prémios e títulos, somados depois da média. Sem isto a decomposição não
+   *  fecha: o número mostrado não é a soma das parcelas que se veem. */
+  overallAdjustments: OverallAdjustment[]
   /** Os títulos que o plantel lhe deu. Só existem comparando toda a gente. */
   titles: TitleKey[]
   gamesPlayed: number
@@ -73,6 +76,7 @@ export function usePeladaPlayers(peladaId: string | undefined, enabled = true) {
         overall: breakdown?.overall ?? null,
         provisional: breakdown?.provisional ?? true,
         overallParts: breakdown?.parts ?? [],
+        overallAdjustments: breakdown?.adjustments ?? [],
         titles: titlesByMember.get(member.membershipId) ?? [],
         gamesPlayed: stats?.gamesPlayed ?? 0,
         goals: stats?.goals ?? 0,
