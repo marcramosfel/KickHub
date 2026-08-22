@@ -22,6 +22,7 @@ const pt = {
   'claim.merging': 'A juntar…',
   'claim.errorSAME_PROFILE': 'Esse histórico já é o teu.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Esse jogador já não está nessa pelada.',
+  'claim.errorMEMBERSHIP_HAS_HISTORY': 'Já jogaste nessa pelada com esta conta. Duas carreiras na mesma pelada não se somam — fala com quem gere a pelada.',
 } as const satisfies Record<string, TranslationValue>
 
 type Key = keyof typeof pt
@@ -48,6 +49,7 @@ const en: Record<Key, TranslationValue> = {
   'claim.merging': 'Merging…',
   'claim.errorSAME_PROFILE': 'That history is already yours.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'That player is no longer in that pelada.',
+  'claim.errorMEMBERSHIP_HAS_HISTORY': 'You have already played in that pelada with this account. Two careers in one pelada cannot be added together — talk to whoever runs it.',
 }
 
 const es: Record<Key, TranslationValue> = {
@@ -72,6 +74,7 @@ const es: Record<Key, TranslationValue> = {
   'claim.merging': 'Uniendo…',
   'claim.errorSAME_PROFILE': 'Ese historial ya es tuyo.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Ese jugador ya no está en esa pelada.',
+  'claim.errorMEMBERSHIP_HAS_HISTORY': 'Ya has jugado en esa pelada con esta cuenta. Dos trayectorias en la misma pelada no se suman — habla con quien la gestiona.',
 }
 
 const fr: Record<Key, TranslationValue> = {
@@ -96,6 +99,7 @@ const fr: Record<Key, TranslationValue> = {
   'claim.merging': 'Fusion…',
   'claim.errorSAME_PROFILE': 'Cet historique est déjà le tien.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Ce joueur n’est plus dans cette pelada.',
+  'claim.errorMEMBERSHIP_HAS_HISTORY': 'Tu as déjà joué dans cette pelada avec ce compte. Deux parcours dans une même pelada ne s’additionnent pas — parles-en à qui la gère.',
 }
 
 const de: Record<Key, TranslationValue> = {
@@ -120,6 +124,7 @@ const de: Record<Key, TranslationValue> = {
   'claim.merging': 'Wird zusammengeführt…',
   'claim.errorSAME_PROFILE': 'Dieser Verlauf gehört dir bereits.',
   'claim.errorLEGACY_MEMBERSHIP_NOT_FOUND': 'Dieser Spieler ist nicht mehr in dieser Pelada.',
+  'claim.errorMEMBERSHIP_HAS_HISTORY': 'Du hast in dieser Pelada mit diesem Konto bereits gespielt. Zwei Laufbahnen in derselben Pelada lassen sich nicht addieren — sprich mit der Leitung.',
 }
 
 export const claimCatalog: LocalizedNamespace<Key> = { pt, en, es, fr, de }
