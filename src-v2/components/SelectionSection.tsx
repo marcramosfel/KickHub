@@ -9,8 +9,10 @@ import {
 import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
-import { usePeladaPlayers } from '../lib/pelada-players'
+import { usePeladaPlayers, type PeladaPlayer } from '../lib/pelada-players'
 import { usePeladaSettings } from '../lib/pelada-settings'
+import { usePeladaTotals } from '../lib/ranking'
+import { PlayerCardModal } from './PlayerCardModal'
 import { ShareButton } from './ShareButton'
 import { Avatar, Badge, Card, EmptyState } from './ui'
 
@@ -27,6 +29,13 @@ export function SelectionSection() {
   // A anti-seleção começa fechada. É uma piada, mas é uma piada sobre pessoas
   // reais — quem a quiser ver, abre-a.
   const [showWorst, setShowWorst] = useState(false)
+  const [openPlayer, setOpenPlayer] = useState<PeladaPlayer | null>(null)
+  const totals = usePeladaTotals(pelada?.id, true)
+
+  // O campo desenha `SelectedPlayer`, que é o jogador já colocado num lugar. O
+  // card precisa do jogador inteiro — daí a volta pelo plantel.
+  const openById = (membershipId: string) =>
+    setOpenPlayer(players.find((entry) => entry.membershipId === membershipId) ?? null)
 
   const teamSize = settings.data?.defaultTeamSize ?? DEFAULT_TEAM_SIZE
   const { best, worst } = useMemo(
@@ -65,6 +74,7 @@ export function SelectionSection() {
         title={t('selection.title')}
         subtitle={t('selection.season', { year: new Date().getFullYear() })}
         avatars={avatars}
+        onOpen={openById}
         crowned
       />
       <p className="selection-note">{t('selection.note')}</p>
@@ -85,6 +95,7 @@ export function SelectionSection() {
             title={t('selection.antiTitle')}
             subtitle={t('selection.antiSubtitle')}
             avatars={avatars}
+            onOpen={openById}
           />
           <p className="selection-note">{t('selection.antiNote')}</p>
           <button type="button" className="btn btn-ghost btn-sm selection-toggle" onClick={() => setShowWorst(false)}>
@@ -96,15 +107,25 @@ export function SelectionSection() {
           😬 {t('selection.antiShow')}
         </button>
       )}
+
+      {openPlayer && <PlayerCardModal
+        player={openPlayer}
+        squad={players}
+        avatars={avatars}
+        peladaName={pelada?.name ?? ''}
+        totalRounds={totals.data?.gamesPlayed}
+        onClose={() => setOpenPlayer(null)}
+      />}
     </div>
   )
 }
 
-function SelectionPoster({ selection, title, subtitle, avatars, crowned = false }: {
+function SelectionPoster({ selection, title, subtitle, avatars, onOpen, crowned = false }: {
   selection: Selection
   title: string
   subtitle: string
   avatars: Map<string, string>
+  onOpen: (membershipId: string) => void
   crowned?: boolean
 }) {
   const { t, formatNumber } = useI18n()
@@ -132,7 +153,7 @@ function SelectionPoster({ selection, title, subtitle, avatars, crowned = false 
       <div className="selection-pitch">
         <div className="selection-line selection-line-gk">
           {selection.goalkeeper
-            ? <PlayerSlot player={selection.goalkeeper} avatars={avatars} star={selection.goalkeeper.membershipId === starId}/>
+            ? <PlayerSlot player={selection.goalkeeper} avatars={avatars} onOpen={onOpen} star={selection.goalkeeper.membershipId === starId}/>
             : <EmptySlot position="GK"/>}
         </div>
         {selection.formation.lines.map((line) => (
@@ -140,7 +161,7 @@ function SelectionPoster({ selection, title, subtitle, avatars, crowned = false 
             {Array.from({ length: line.count }, (_, index) => {
               const player = selection.outfield.find((entry) => entry.slot === line.position && entry.slotIndex === index)
               return player
-                ? <PlayerSlot key={`${line.position}-${index}`} player={player} avatars={avatars} star={player.membershipId === starId}/>
+                ? <PlayerSlot key={`${line.position}-${index}`} player={player} avatars={avatars} onOpen={onOpen} star={player.membershipId === starId}/>
                 : <EmptySlot key={`${line.position}-${index}`} position={line.position}/>
             })}
           </div>
@@ -154,14 +175,22 @@ function SelectionPoster({ selection, title, subtitle, avatars, crowned = false 
   )
 }
 
-function PlayerSlot({ player, avatars, star }: {
+function PlayerSlot({ player, avatars, onOpen, star }: {
   player: { membershipId: string; displayName: string; overall: number; slot: SelectionPosition }
   avatars: Map<string, string>
+  onOpen: (membershipId: string) => void
   star: boolean
 }) {
   const { t, formatNumber } = useI18n()
+  // Um `<button>` e não uma `<div>` com onClick: assim chega-lhe o Tab, o
+  // Enter e o leitor de ecrã, sem `tabindex` inventado.
   return (
-    <div className={`selection-slot${star ? ' selection-slot-star' : ''}`}>
+    <button
+      type="button"
+      className={`selection-slot${star ? ' selection-slot-star' : ''}`}
+      onClick={() => onOpen(player.membershipId)}
+      aria-label={t('selection.openCard', { name: player.displayName })}
+    >
       {star && <span className="selection-crown" aria-hidden="true"><Crown/></span>}
       <Avatar name={player.displayName} size="md" src={avatars.get(player.membershipId)}/>
       <strong>{player.displayName}</strong>
@@ -169,7 +198,7 @@ function PlayerSlot({ player, avatars, star }: {
         <span className="selection-slot-position">{t(positionLabels[player.slot])}</span>
         <b>{formatNumber(player.overall)}</b>
       </small>
-    </div>
+    </button>
   )
 }
 

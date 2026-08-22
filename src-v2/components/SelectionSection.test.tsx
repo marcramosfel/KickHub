@@ -149,4 +149,43 @@ describe('SelectionSection', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     expect(screen.getByRole('heading', { name: 'Não foi possível montar a seleção.' })).toBeInTheDocument()
   })
+
+  it('carregar num jogador abre o card dele', async () => {
+    respondWith(fullSquad())
+    renderSelection()
+    await screen.findByRole('heading', { name: 'Seleção da Pelada', level: 2 })
+
+    // O lugar do campo é um botão: chega-lhe o Tab e o Enter, e não só o dedo.
+    const slot = await screen.findByRole('button', { name: /Ver o card de Hugo/ })
+    fireEvent.click(slot)
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('Hugo')
+  })
+
+  it('o card fecha-se com Escape', async () => {
+    respondWith(fullSquad())
+    renderSelection()
+    await screen.findByRole('heading', { name: 'Seleção da Pelada', level: 2 })
+
+    fireEvent.click(await screen.findByRole('button', { name: /Ver o card de Hugo/ }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('um lugar vazio não se abre — não há card de ninguém', async () => {
+    respondWith({
+      members: [member('Rui', 'GK'), member('Dias', 'MID')],
+      ranking: [
+        rankingRow('Rui', 80, { player_type: 'GOALKEEPER', gk_matches: 20, gk_saves: 60, gk_conceded: 20, gk_clean_sheets: 6, gk_wins: 12 }),
+        rankingRow('Dias', 76),
+      ],
+    })
+    const { container } = renderSelection()
+    await screen.findByRole('heading', { name: 'Seleção da Pelada', level: 2 })
+    const empty = container.querySelector('.selection-slot-empty')
+    expect(empty?.tagName).toBe('DIV')
+  })
 })

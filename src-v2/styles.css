@@ -263,3 +263,29 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 @media (max-width:760px){.pelada-back{margin-bottom:10px}}
 
 .profile-form{display:grid;gap:16px;padding:20px}.profile-form>header{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}.profile-form>header>svg{width:22px;color:#628b18}.profile-form h2{font-size:18px;margin:4px 0 0}.profile-form>header p:last-child{margin:6px 0 0;font-size:11px;line-height:1.65;color:var(--muted)}.profile-form form{display:grid;gap:12px}.profile-form label{display:grid;gap:5px;font-size:11px;font-weight:800;color:var(--muted)}.profile-form input,.profile-form select,.profile-form textarea{min-height:42px;padding:10px 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:700;font-family:inherit}.profile-form textarea{min-height:76px;resize:vertical;font-weight:500;line-height:1.6}.profile-form small{font-weight:500;line-height:1.5;color:var(--muted)}
+
+/* Área segura no topo.
+   O `index.html` pede `viewport-fit=cover` e uma barra de estado translúcida,
+   o que faz o conteúdo ser desenhado POR BAIXO do relógio e da bateria. Isso
+   só funciona se alguém descontar `env(safe-area-inset-top)` — e ninguém
+   descontava, por isso a marca e o nome da pelada ficavam por cima das horas.
+   A barra de baixo já o fazia; faltava o topo. */
+.app-topbar{height:calc(64px + env(safe-area-inset-top, 0px));padding-top:env(safe-area-inset-top, 0px)}
+.landing-nav{height:calc(68px + env(safe-area-inset-top, 0px));padding-top:env(safe-area-inset-top, 0px)}
+.sidebar{padding-top:calc(28px + env(safe-area-inset-top, 0px))}
+.back-link{top:calc(28px + env(safe-area-inset-top, 0px))}
+.auth-locale{top:calc(24px + env(safe-area-inset-top, 0px))}
+/* A página da pelada vive dentro do shell e o topo já vem descontado por ele.
+   Isto só conta quando não há barra — um ecrã largo sem `app-topbar`. */
+@media (min-width:761px){.pelada-hero{padding-top:calc(34px + env(safe-area-inset-top, 0px))}}
+
+/* O lugar do campo passou de <div> a <button>: precisa de perder o aspecto de
+   botão sem perder o foco visível nem o alvo de toque. */
+.selection-slot{border:0;background:none;font:inherit;color:inherit;cursor:pointer;padding:2px;border-radius:12px;transition:transform var(--motion-base),background var(--motion-base)}
+.selection-slot:hover:not(.selection-slot-empty){transform:translateY(-2px);background:rgba(255,255,255,.06)}
+.selection-slot:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.selection-slot-empty{cursor:default}
+.player-modal{position:relative;width:min(560px,100%);max-height:88vh;overflow-y:auto;padding:28px 22px 24px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-raised)}
+.player-modal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:18px 0 0}.player-modal-stats div{padding:10px;border-radius:11px;background:var(--surface-2);text-align:center}.player-modal-stats dt{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.player-modal-stats dd{margin:4px 0 0;font-family:var(--font-display);font-size:18px}
+.player-modal-note{margin:14px 0 0;font-size:11px;line-height:1.65;color:var(--muted);text-align:center}
+@media (max-width:760px){.player-modal{padding:24px 16px 18px}.player-modal-stats{grid-template-columns:repeat(2,1fr)}}

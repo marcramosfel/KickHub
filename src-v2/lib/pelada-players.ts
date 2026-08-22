@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { explainSquadOverall } from '../domain/player-overall'
+import { computeTitles, explainSquadOverall, type TitleKey } from '../domain/player-overall'
 import { usePeladaRanking } from './ranking'
 import { usePeladaSquad, type PlayerType, type Position } from './squad'
 
@@ -26,11 +26,20 @@ export type PeladaPlayer = {
   overall: number | null
   /** O número ainda é um palpite que a própria app diz não ser de confiança. */
   provisional: boolean
+  /** Os títulos que o plantel lhe deu. Só existem comparando toda a gente. */
+  titles: TitleKey[]
   gamesPlayed: number
   goals: number
   assists: number
+  wins: number
+  draws: number
+  losses: number
+  saves: number
   craques: number
   bagres: number
+  currentWinStreak: number
+  bestUnbeatenStreak: number
+  gkCleanSheets: number
   /** Golos sofridos por rodada de baliza. `null` = nunca lá esteve. */
   concededPerMatch: number | null
   avatarPath: string | null
@@ -44,6 +53,7 @@ export function usePeladaPlayers(peladaId: string | undefined, enabled = true) {
   const players = useMemo<PeladaPlayer[]>(() => {
     const rows = ranking.data ?? []
     const overallByMember = explainSquadOverall(rows)
+    const titlesByMember = computeTitles(rows)
     const statsByMember = new Map(rows.map((row) => [row.membershipId, row]))
     return (squad.data ?? []).map((member) => {
       const breakdown = overallByMember.get(member.membershipId)
@@ -57,11 +67,19 @@ export function usePeladaPlayers(peladaId: string | undefined, enabled = true) {
         acceptsOtherPositions: member.acceptsOtherPositions,
         overall: breakdown?.overall ?? null,
         provisional: breakdown?.provisional ?? true,
+        titles: titlesByMember.get(member.membershipId) ?? [],
         gamesPlayed: stats?.gamesPlayed ?? 0,
         goals: stats?.goals ?? 0,
         assists: stats?.assists ?? 0,
+        wins: stats?.wins ?? 0,
+        draws: stats?.draws ?? 0,
+        losses: stats?.losses ?? 0,
+        saves: stats?.saves ?? 0,
         craques: stats?.craques ?? 0,
         bagres: stats?.bagres ?? 0,
+        currentWinStreak: stats?.currentWinStreak ?? 0,
+        bestUnbeatenStreak: stats?.bestUnbeatenStreak ?? 0,
+        gkCleanSheets: stats?.gkCleanSheets ?? 0,
         concededPerMatch: stats && stats.gkMatches > 0 ? stats.gkConceded / stats.gkMatches : null,
         avatarPath: member.avatarPath,
         avatarBucket: member.avatarBucket,
