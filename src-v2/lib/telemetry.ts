@@ -131,8 +131,24 @@ export function resetTelemetry() {
  */
 export type UserFacingError = 'auth' | 'forbidden' | 'notFound' | 'conflict' | 'network' | 'unknown'
 
+/**
+ * A mensagem de uma falha, venha ela de onde vier.
+ *
+ * O supabase-js não atira `Error`: atira um objecto simples com `message`. Um
+ * `String(cause)` sobre isso dá "[object Object]", e a partir daí qualquer
+ * tentativa de reconhecer o erro falha em silêncio — o utilizador recebia a
+ * mensagem genérica em vez da que explica o que se passou.
+ */
+export function errorMessage(cause: unknown): string {
+  if (cause instanceof Error) return cause.message
+  if (cause && typeof cause === 'object' && 'message' in cause) {
+    return String((cause as { message: unknown }).message ?? '')
+  }
+  return String(cause ?? '')
+}
+
 export function classifyError(error: unknown): UserFacingError {
-  const raw = error instanceof Error ? error.message : String(error ?? '')
+  const raw = errorMessage(error)
   if (/AUTH_REQUIRED|JWT|not authenticated/i.test(raw)) return 'auth'
   if (/FORBIDDEN|permission denied|row-level security/i.test(raw)) return 'forbidden'
   if (/NOT_FOUND|no rows/i.test(raw)) return 'notFound'

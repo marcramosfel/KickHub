@@ -1,5 +1,6 @@
 import { CalendarDays, Check, Clock3, MapPin, Plus, ShieldCheck, UsersRound, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { GameDraw } from '../components/GameDraw'
 import { GameAwards } from '../components/GameAwards'
 import { GameRatings } from '../components/GameRatings'
@@ -13,8 +14,20 @@ export function GamesSection() {
   const { t } = useI18n()
   const { pelada, canAdmin } = useCurrentPelada()
   const games = usePeladaGames(pelada?.id, true)
-  const [composing, setComposing] = useState(false)
+  const [params, setParams] = useSearchParams()
+  // Quem chegou por "novo jogo" no cabeçalho da pelada já pediu o formulário;
+  // obrigá-lo a carregar outra vez ao chegar era perder o pedido a meio.
+  const [composing, setComposing] = useState(() => params.get('novo') === '1' && canAdmin)
   const [notice, setNotice] = useState('')
+
+  const closeComposer = () => {
+    setComposing(false)
+    // O parâmetro fica no endereço e reabria o formulário a cada regresso.
+    if (params.has('novo')) {
+      params.delete('novo')
+      setParams(params, { replace: true })
+    }
+  }
 
   return (
     <div className="games-section">
@@ -24,8 +37,8 @@ export function GamesSection() {
 
       {composing ? (
         <CreateGameForm
-          onClose={() => setComposing(false)}
-          onCreated={() => { setComposing(false); setNotice(t('games.createdNotice')) }}
+          onClose={closeComposer}
+          onCreated={() => { closeComposer(); setNotice(t('games.createdNotice')) }}
         />
       ) : null}
 

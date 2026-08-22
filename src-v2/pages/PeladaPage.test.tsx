@@ -165,4 +165,32 @@ describe('PeladaPage localizada', () => {
     expect(screen.getByLabelText('Privater Link')).toHaveValue('https://kickhub.test/convite/token-1')
     expect(screen.getByText(`Läuft am ${germanExpiry} ab. Du kannst jederzeit einen neuen Link erzeugen.`)).toBeInTheDocument()
   })
+
+  it('dá sempre caminho de volta ao painel global', () => {
+    renderPelada('/p/quinta-brava', 'pt')
+    // Entrar numa pelada não pode ser uma rua sem saída: era exactamente isso
+    // que acontecia com a página fora do AppShell.
+    expect(screen.getByRole('link', { name: /Voltar às minhas peladas/i })).toHaveAttribute('href', '/app')
+  })
+
+  it('os botões do cabeçalho levam mesmo a algum lado', () => {
+    renderPelada('/p/quinta-brava', 'pt')
+    expect(screen.getByRole('link', { name: /Definições/ })).toHaveAttribute('href', '/p/quinta-brava/admin')
+    expect(screen.getByRole('link', { name: /Novo jogo/ })).toHaveAttribute('href', '/p/quinta-brava/jogos?novo=1')
+  })
+
+  it('não deixa nenhum botão sem destino na visão geral', () => {
+    const { container } = renderPelada('/p/quinta-brava', 'pt')
+    // Um `<button>` sem `onClick` e sem `type=submit` nesta página é um botão
+    // morto — foi o que o utilizador encontrou.
+    const orphans = [...container.querySelectorAll('button')]
+      .filter((node) => node.getAttribute('type') !== 'submit' && !node.className.includes('pelada-switcher'))
+    expect(orphans.every((node) => node.onclick !== null || node.getAttribute('aria-expanded') !== null)).toBe(true)
+  })
+
+  it('um endereço de secção inventado assume-o em vez de anunciar um módulo', () => {
+    renderPelada('/p/quinta-brava/inexistente', 'pt')
+    expect(screen.getByRole('heading', { name: 'Esta secção não existe.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Voltar à visão geral/i })).toBeInTheDocument()
+  })
 })

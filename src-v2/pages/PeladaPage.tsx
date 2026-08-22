@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, CalendarDays, Check, Copy, Inbox, Link2, MapPin, Settings, ShieldCheck, Trophy, UserCheck, UsersRound, UserX } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, CalendarDays, Check, Copy, Inbox, Link2, MapPin, Settings, ShieldCheck, Trophy, UserCheck, UsersRound, UserX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { GamesSection } from '../components/GamesSection'
@@ -43,10 +43,13 @@ export function PeladaPage() {
   const tabs = canAdmin ? memberTabs : memberTabs.filter(([path]) => path !== 'admin')
   return <div className="pelada-page">
     <header className="pelada-hero" style={{ '--accent': pelada.accent } as React.CSSProperties}>
-      <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{t(pelada.visibility === 'private' ? 'pelada.private' : 'pelada.public')}</Badge><PeladaSwitcher/></div><p><MapPin/> {pelada.city}, {pelada.country} · {t('dashboard.membersCount', { count: pelada.members })}</p></div>{canAdmin && <div className="pelada-actions"><Button variant="outline"><Settings/> {t('pelada.settings')}</Button><Button><CalendarDays/> {t('pelada.newGame')}</Button></div>}</div>
+      <Link className="pelada-back" to="/app"><ArrowLeft/> {t('pelada.backToMyPeladas')}</Link>
+      <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{t(pelada.visibility === 'private' ? 'pelada.private' : 'pelada.public')}</Badge><PeladaSwitcher/></div><p><MapPin/> {pelada.city}, {pelada.country} · {t('dashboard.membersCount', { count: pelada.members })}</p></div>{canAdmin && <div className="pelada-actions"><Link className="btn btn-outline btn-md" to={`/p/${slug}/admin`}><Settings/> {t('pelada.settings')}</Link><Link className="btn btn-primary btn-md" to={`/p/${slug}/jogos?novo=1`}><CalendarDays/> {t('pelada.newGame')}</Link></div>}</div>
       <nav aria-label={t('pelada.sections')}>{tabs.map(([path, label]) => <NavLink key={path} end={!path} to={`/p/${slug}${path ? `/${path}` : ''}`}>{t(label)}</NavLink>)}</nav>
     </header>
-    <main id="main-content" className="page pelada-content">{section === 'admin' ? <AdminPanel/> : section === 'jogos' ? <GamesSection/> : section === 'atividade' ? <FeedSection/> : section === 'jogadores' ? <SquadSection/> : section === 'ranking' ? <RankingSection variant="ranking"/> : section === 'selecao' ? <SelectionSection/> : section === 'curiosidades' ? <CuriositiesSection/> : section === 'estatisticas' ? <RankingSection variant="stats"/> : section ? <SectionPlaceholder section={section}/> : <Overview/>}</main>
+    {/* Sem `<main id="main-content">`: o AppShell já tem o seu, e dois com o
+        mesmo id partiam a ligação de saltar para o conteúdo. */}
+    <div className="page pelada-sections">{section === 'admin' ? <AdminPanel/> : section === 'jogos' ? <GamesSection/> : section === 'atividade' ? <FeedSection/> : section === 'jogadores' ? <SquadSection/> : section === 'ranking' ? <RankingSection variant="ranking"/> : section === 'selecao' ? <SelectionSection/> : section === 'curiosidades' ? <CuriositiesSection/> : section === 'estatisticas' ? <RankingSection variant="stats"/> : section ? <UnknownSection/> : <Overview/>}</div>
   </div>
 }
 
@@ -56,10 +59,10 @@ function Overview() {
 
   return (
     <div className="authoritative-pelada-start">
-      <section className="pelada-welcome"><div><span className="eyebrow dark-text">{t('pelada.readyEyebrow')}</span><h2>{t('pelada.readyTitle', { name: pelada?.name ?? '' })}</h2></div>{canAdmin && <Button><CalendarDays/> {t('pelada.createFirstGame')}</Button>}</section>
+      <section className="pelada-welcome"><div><span className="eyebrow dark-text">{t('pelada.readyEyebrow')}</span><h2>{t('pelada.readyTitle', { name: pelada?.name ?? '' })}</h2></div>{canAdmin && <Link className="btn btn-primary btn-md" to={`/p/${slug}/jogos?novo=1`}><CalendarDays/> {t('pelada.createFirstGame')}</Link>}</section>
       <div className="pelada-start-grid">
         <Card><span><UsersRound/></span><div><p className="eyebrow dark-text">{t('pelada.squadEyebrow')}</p><h3>{t(canAdmin ? 'pelada.squadAdminTitle' : 'pelada.squadMemberTitle')}</h3><p>{t(canAdmin ? 'pelada.squadAdminBody' : 'pelada.squadMemberBody')}</p></div><Link to={`/p/${slug}/${canAdmin ? 'admin' : 'jogadores'}`}>{t(canAdmin ? 'pelada.manageEntries' : 'pelada.openSquad')} <ArrowRight/></Link></Card>
-        <Card><span><Settings/></span><div><p className="eyebrow dark-text">{t('pelada.configEyebrow')}</p><h3>{t(canAdmin ? 'pelada.configAdminTitle' : 'pelada.configMemberTitle')}</h3><p>{t(canAdmin ? 'pelada.configAdminBody' : 'pelada.configMemberBody')}</p></div>{canAdmin ? <Button variant="outline">{t('pelada.openSettings')}</Button> : <Link to={`/p/${slug}/jogos`}>{t('pelada.viewGames')} <ArrowRight/></Link>}</Card>
+        <Card><span><Settings/></span><div><p className="eyebrow dark-text">{t('pelada.configEyebrow')}</p><h3>{t(canAdmin ? 'pelada.configAdminTitle' : 'pelada.configMemberTitle')}</h3><p>{t(canAdmin ? 'pelada.configAdminBody' : 'pelada.configMemberBody')}</p></div>{canAdmin ? <Link to={`/p/${slug}/admin`}>{t('pelada.openSettings')} <ArrowRight/></Link> : <Link to={`/p/${slug}/jogos`}>{t('pelada.viewGames')} <ArrowRight/></Link>}</Card>
       </div>
     </div>
   )
@@ -68,7 +71,7 @@ function Overview() {
 function PeladaRouteState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   const { t } = useI18n()
   return (
-    <main className="pelada-route-state">
+    <div className="pelada-route-state">
       <Card>
         <span><ShieldCheck/></span>
         <p className="eyebrow dark-text">{t('pelada.routeEyebrow')}</p>
@@ -76,21 +79,27 @@ function PeladaRouteState({ title, body, action }: { title: string; body: string
         <p>{body}</p>
         {action}
       </Card>
-    </main>
+    </div>
   )
 }
 
-function SectionPlaceholder({ section }: { section: string }) {
+/**
+ * Uma secção que não existe.
+ *
+ * Isto era um cartaz de "módulo em breve" com um botão que não fazia nada —
+ * e todas as secções que ele anunciava já existem. O que sobra é um endereço
+ * escrito à mão, e a resposta honesta a isso é dizê-lo e dar o caminho de volta.
+ */
+function UnknownSection() {
   const { t } = useI18n()
   const { slug } = useCurrentPelada()
-  const content: Record<string, [TranslationKey, TranslationKey, React.ReactNode]> = {
-    jogos: ['pelada.gamesTitle', 'pelada.gamesBody', <CalendarDays key="jogos"/>],
-    jogadores: ['pelada.playersTitle', 'pelada.playersBody', <UsersRound key="jogadores"/>],
-    ranking: ['pelada.rankingModuleTitle', 'pelada.rankingModuleBody', <Trophy key="ranking"/>],
-    estatisticas: ['pelada.statsTitle', 'pelada.statsBody', <Activity key="estatisticas"/>],
-  }
-  const [title, body, icon] = content[section] ?? content.jogos
-  return <div className="section-placeholder"><span>{icon}</span><p className="eyebrow dark-text">{t('pelada.moduleEyebrow')}</p><h2>{t(title)}</h2><p>{t(body)}</p><div><Button>{t('pelada.startTask')}</Button><Link className="btn btn-outline btn-md" to={`/p/${slug}`}>{t('pelada.backToOverview')}</Link></div></div>
+  return <div className="section-placeholder">
+    <span><Activity/></span>
+    <p className="eyebrow dark-text">{t('pelada.moduleEyebrow')}</p>
+    <h2>{t('pelada.unknownSectionTitle')}</h2>
+    <p>{t('pelada.unknownSectionBody')}</p>
+    <div><Link className="btn btn-primary btn-md" to={`/p/${slug}`}>{t('pelada.backToOverview')}</Link></div>
+  </div>
 }
 
 function AdminPanel() {

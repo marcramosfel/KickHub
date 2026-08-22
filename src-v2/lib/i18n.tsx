@@ -18,6 +18,7 @@ import { curiositiesCatalog } from '../i18n/curiosities'
 import { cardsCatalog } from '../i18n/cards'
 import { simulatorCatalog } from '../i18n/simulator'
 import { accountCatalog } from '../i18n/account'
+import { profileFormCatalog } from '../i18n/profileForm'
 import { awardsCatalog } from '../i18n/awards'
 import { claimCatalog } from '../i18n/claim'
 import { legacyClaimsCatalog } from '../i18n/legacyClaims'
@@ -56,6 +57,7 @@ const catalogs = Object.fromEntries(supportedLocales.map((locale) => [locale, {
   ...cardsCatalog[locale],
   ...simulatorCatalog[locale],
   ...accountCatalog[locale],
+  ...profileFormCatalog[locale],
   ...ratingsCatalog[locale],
   ...awardsCatalog[locale],
   ...claimCatalog[locale],
@@ -63,7 +65,7 @@ const catalogs = Object.fromEntries(supportedLocales.map((locale) => [locale, {
   ...notificationsCatalog[locale],
 }])) as Record<Locale, typeof commonCatalog.pt & typeof landingCatalog.pt & typeof dashboardCatalog.pt & typeof createPeladaCatalog.pt
   & typeof authCatalog.pt & typeof inviteCatalog.pt & typeof discoverCatalog.pt & typeof profileCatalog.pt & typeof peladaCatalog.pt
-  & typeof peladaAdminCatalog.pt & typeof gamesCatalog.pt & typeof feedCatalog.pt & typeof squadCatalog.pt & typeof rankingCatalog.pt & typeof selectionCatalog.pt & typeof curiositiesCatalog.pt & typeof cardsCatalog.pt & typeof simulatorCatalog.pt & typeof accountCatalog.pt & typeof ratingsCatalog.pt & typeof awardsCatalog.pt & typeof claimCatalog.pt & typeof legacyClaimsCatalog.pt & typeof notificationsCatalog.pt>
+  & typeof peladaAdminCatalog.pt & typeof gamesCatalog.pt & typeof feedCatalog.pt & typeof squadCatalog.pt & typeof rankingCatalog.pt & typeof selectionCatalog.pt & typeof curiositiesCatalog.pt & typeof cardsCatalog.pt & typeof simulatorCatalog.pt & typeof accountCatalog.pt & typeof profileFormCatalog.pt & typeof ratingsCatalog.pt & typeof awardsCatalog.pt & typeof claimCatalog.pt & typeof legacyClaimsCatalog.pt & typeof notificationsCatalog.pt>
 
 export type TranslationKey = keyof typeof catalogs.pt
 type TranslationParams = Record<string, string | number>

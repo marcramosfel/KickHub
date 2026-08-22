@@ -1,4 +1,4 @@
-import { CalendarDays, MapPin, Share2, Shield, ShieldCheck } from 'lucide-react'
+import { CalendarDays, MapPin, Settings, Share2, Shield, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CardCollection } from '../components/PlayerCards'
@@ -68,7 +68,7 @@ function RealProfile({ data, avatarFallback }: { data: MyPlayerProfile; avatarFa
           <p>@{profile.username}{profile.city || profile.countryCode ? <> · <MapPin/> {[profile.city, profile.countryCode].filter(Boolean).join(', ')}</> : null}</p>
           <span className="position-pill">{position ? t(`squad.pos${position}` as TranslationKey) : t('profile.noPosition')}</span>
         </div>
-        <div className="profile-actions"><Button variant="outline" onClick={share}><Share2/> {t('profile.share')}</Button></div>
+        <div className="profile-actions"><Link className="btn btn-outline btn-md" to="/conta"><Settings/> {t('profileForm.editProfile')}</Link><Button variant="outline" onClick={share}><Share2/> {t('profile.share')}</Button></div>
       </div>
       <p className="profile-bio">{profile.bio || t('profile.bioFallback')}</p>
       {notice ? <p className="profile-share-notice" role="status">{notice}</p> : null}

@@ -5,6 +5,7 @@ import {
   useSavePrivacy, VISIBILITIES, type PrivacySettings, type Visibility,
 } from '../lib/account'
 import { useI18n, type TranslationKey } from '../lib/i18n'
+import { errorMessage } from '../lib/telemetry'
 import { Button, Card } from './ui'
 
 /**
@@ -117,7 +118,7 @@ export function DataPanel() {
     } catch (cause) {
       // Um dono de pelada activa não pode desaparecer e deixar a comunidade sem
       // ninguém. O servidor recusa, e a recusa merece a sua própria frase.
-      setError(String(cause).includes('OWNS_ACTIVE_PELADA')
+      setError(errorMessage(cause).includes('OWNS_ACTIVE_PELADA')
         ? t('account.deleteOwnerError')
         : t('account.deleteError'))
     } finally {

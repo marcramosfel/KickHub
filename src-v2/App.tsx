@@ -31,8 +31,11 @@ export function App() {
         <Route path="/reclamar" element={<ClaimPage/>}/>
         <Route path="/u/:username" element={<ProfilePage/>}/>
         <Route path="/conta" element={<AccountPage/>}/>
+        {/* Dentro do AppShell, e não ao lado dele. Fora, a página de uma pelada
+            ficava sem barra lateral e sem barra inferior — entrava-se numa
+            comunidade e deixava de haver caminho de volta ao global. */}
+        <Route path="/p/:slug/:section?" element={<CurrentPeladaProvider><PeladaPage/></CurrentPeladaProvider>}/>
       </Route>
-      <Route path="/p/:slug/:section?" element={<CurrentPeladaProvider><PeladaPage/></CurrentPeladaProvider>}/>
     </Route>
     <Route path="/home" element={<Navigate to="/app" replace/>}/>
     <Route path="*" element={<NotFoundPage/>}/>

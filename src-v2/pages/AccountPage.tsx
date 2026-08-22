@@ -1,3 +1,4 @@
+import { ProfileForm } from '../components/ProfileForm'
 import { DataPanel, PrivacyPanel } from '../components/PrivacyPanel'
 import { toPrivacySettings } from '../lib/account'
 import { useAuth } from '../lib/auth'
@@ -25,6 +26,8 @@ export function AccountPage() {
       </header>
 
       <div className="account-grid">
+        {/* O perfil primeiro: é o que a maioria vem aqui corrigir. */}
+        <ProfileForm/>
         <PrivacyPanel initial={toPrivacySettings((profile as { privacy?: unknown } | null)?.privacy)}/>
         <DataPanel/>
       </div>

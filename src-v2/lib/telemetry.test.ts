@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  classifyError, getTelemetryContext, logError, report, resetTelemetry,
+  classifyError, errorMessage, getTelemetryContext, logError, report, resetTelemetry,
   scrub, setTelemetryContext, setTelemetrySink,
 } from './telemetry'
 
@@ -88,7 +88,30 @@ describe('report', () => {
   })
 })
 
+describe('errorMessage', () => {
+  it('lê a mensagem de um Error', () => {
+    expect(errorMessage(new Error('rebentou'))).toBe('rebentou')
+  })
+
+  it('lê a mensagem de um objecto simples — o supabase-js não atira Error', () => {
+    expect(errorMessage({ message: 'USERNAME_TAKEN', code: '23505' })).toBe('USERNAME_TAKEN')
+  })
+
+  it('não devolve "[object Object]" a ninguém', () => {
+    expect(errorMessage({ message: 'FORBIDDEN' })).not.toContain('[object')
+  })
+
+  it('aguenta o que não tem mensagem nenhuma', () => {
+    expect(errorMessage(null)).toBe('')
+    expect(errorMessage('só uma string')).toBe('só uma string')
+  })
+})
+
 describe('classifyError', () => {
+  it('reconhece a recusa vinda de um objecto do supabase-js', () => {
+    expect(classifyError({ message: 'AUTH_REQUIRED' })).toBe('auth')
+  })
+
   it('reconhece a falta de sessão', () => {
     expect(classifyError(new Error('AUTH_REQUIRED'))).toBe('auth')
   })
