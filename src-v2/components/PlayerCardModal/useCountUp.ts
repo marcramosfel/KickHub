@@ -48,8 +48,18 @@ export function useCountUp(target: number | null, {
     }
     timer.current = window.setTimeout(() => { frame.current = requestAnimationFrame(step) }, delay)
 
+    /**
+     * A rede de segurança: o número TEM de acabar certo, anime ou não.
+     *
+     * O `requestAnimationFrame` não corre num separador que não está a compor
+     * frames — outra aba, uma janela em segundo plano. Sem isto o card ficava
+     * a zero até alguém lhe voltar a olhar, e um zero lê-se como um valor.
+     */
+    const settle = window.setTimeout(() => setValue(target), delay + duration + 60)
+
     return () => {
       window.clearTimeout(timer.current)
+      window.clearTimeout(settle)
       cancelAnimationFrame(frame.current)
     }
   }, [delay, duration, skip, target])

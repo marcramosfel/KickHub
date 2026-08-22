@@ -89,11 +89,18 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
    * O fecho é o inverso e mais rápido (§6.5). A foto de origem só volta a
    * aparecer no último frame — antes disso via-se a duplicar.
    */
-  const close = useCallback(() => {
-    if (prefersReducedMotion()) { onClose(); return }
-    setClosing(true)
-    window.setTimeout(onClose, 220)
+  const finish = useCallback(() => {
+    // Consome a entrada que este modal criou, para o "voltar" do telemóvel não
+    // ficar preso num passo que já não mostra nada.
+    if (window.history.state?.playerCard) window.history.back()
+    onClose()
   }, [onClose])
+
+  const close = useCallback(() => {
+    if (prefersReducedMotion()) { finish(); return }
+    setClosing(true)
+    window.setTimeout(finish, 220)
+  }, [finish])
 
   const go = useCallback((step: number) => {
     if (entries.length < 2) return
@@ -109,16 +116,29 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
   }, [index])
   useEffect(lockScroll, [])
 
-  // O botão "voltar" do telemóvel fecha o card em vez de sair do ecrã.
+  /**
+   * O botão "voltar" do telemóvel fecha o card em vez de sair do ecrã.
+   *
+   * O `cleanup` NÃO navega. Navegar ao desmontar parece inofensivo até ao
+   * StrictMode, que em desenvolvimento corre efeito → cleanup → efeito: o
+   * `history.back()` do cleanup disparava um `popstate` e o card fechava-se
+   * sozinho vinte milissegundos depois de abrir. Quem volta atrás é o `close`,
+   * de propósito e uma vez.
+   */
+  const closeRef = useRef(onClose)
+  useEffect(() => { closeRef.current = onClose })
+
   useEffect(() => {
-    window.history.pushState({ playerCard: true }, '')
-    const onPop = () => onClose()
-    window.addEventListener('popstate', onPop)
-    return () => {
-      window.removeEventListener('popstate', onPop)
-      if (window.history.state?.playerCard) window.history.back()
+    // A marca é o próprio estado do histórico, e não uma variável nossa: assim
+    // a segunda execução do StrictMode reconhece a entrada que a primeira criou
+    // e não empurra outra por cima.
+    if (!window.history.state?.playerCard) {
+      window.history.pushState({ playerCard: true }, '')
     }
-  }, [onClose])
+    const onPop = () => closeRef.current()
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

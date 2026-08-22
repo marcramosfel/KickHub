@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { computeAttributes, savePercentage } from '../domain/player-attributes'
 import { computeCards, mainCard, RARITY_ACCENT, type CardKey, type Rarity } from '../domain/player-cards'
 import { PlayerCardModal, type PlayerCardEntry } from '../components/PlayerCardModal'
@@ -184,6 +184,12 @@ export function PlayerCardProvider({ children }: { children: ReactNode }) {
     ready: players.length > 0,
   }), [avatars, players.length])
 
+  // Estáveis: um modal não deve remontar efeitos por causa de quem o monta.
+  const close = useCallback(() => { setOpenId(null); setOrigin(null) }, [])
+  const goTo = useCallback((next: number) => {
+    setOpenId(entries[next]?.card.id ?? null)
+  }, [entries])
+
   const index = openId ? entries.findIndex((entry) => entry.card.id === openId) : -1
 
   return (
@@ -194,8 +200,8 @@ export function PlayerCardProvider({ children }: { children: ReactNode }) {
           entries={entries}
           index={index}
           origin={origin}
-          onIndex={(next) => setOpenId(entries[next]?.card.id ?? null)}
-          onClose={() => { setOpenId(null); setOrigin(null) }}
+          onIndex={goTo}
+          onClose={close}
         />
       )}
     </PlayerCardContext.Provider>
