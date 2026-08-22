@@ -34,8 +34,11 @@ export function ClaimPage() {
     }
   }
 
+  // Sem `<main id="main-content">`: esta página vive dentro do AppShell, que já
+  // tem o seu. Dois com o mesmo id são HTML inválido e mandam a ligação de
+  // saltar para o conteúdo para o sítio errado.
   return (
-    <main id="main-content" className="page claim-page">
+    <div className="page claim-page">
       <Card className="claim-card">
         <span className="claim-icon" aria-hidden="true"><KeyRound size={22}/></span>
         <h1>{t('claim.title')}</h1>
@@ -63,6 +66,6 @@ export function ClaimPage() {
 
         <p className="claim-foot"><Check size={14}/> {t('claim.privacy')}</p>
       </Card>
-    </main>
+    </div>
   )
 }
