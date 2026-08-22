@@ -13,6 +13,7 @@ import { SelectionSection } from '../components/SelectionSection'
 import { SquadSection } from '../components/SquadSection'
 import { Badge, Button, Card } from '../components/ui'
 import { useCurrentPelada } from '../lib/current-pelada'
+import { PlayerCardProvider } from '../lib/player-card'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { inviteMaxUses, inviteTtlHours, useOnboarding } from '../lib/onboarding'
 
@@ -41,7 +42,9 @@ export function PeladaPage() {
   }
 
   const tabs = canAdmin ? memberTabs : memberTabs.filter(([path]) => path !== 'admin')
-  return <div className="pelada-page">
+  // O provedor do card envolve a pelada inteira: a foto de um jogador aparece
+  // no ranking, no plantel, na escalação e no resultado, e todas abrem o mesmo.
+  return <PlayerCardProvider><div className="pelada-page">
     <header className="pelada-hero" style={{ '--accent': pelada.accent } as React.CSSProperties}>
       <div className="pelada-hero-top"><Link className="pelada-back" to="/app"><ArrowLeft/> {t('pelada.backToMyPeladas')}</Link></div>
       <div className="pelada-hero-inner"><span className="pelada-monogram large">{pelada.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><div className="pelada-title-line"><h1>{pelada.name}</h1><Badge tone={pelada.visibility === 'private' ? 'neutral' : 'lime'}>{t(pelada.visibility === 'private' ? 'pelada.private' : 'pelada.public')}</Badge><PeladaSwitcher/></div><p><MapPin/> {pelada.city}, {pelada.country} · {t('dashboard.membersCount', { count: pelada.members })}</p></div>{canAdmin && <div className="pelada-actions"><Link className="btn btn-outline btn-md" to={`/p/${slug}/admin`}><Settings/> {t('pelada.settings')}</Link><Link className="btn btn-primary btn-md" to={`/p/${slug}/jogos?novo=1`}><CalendarDays/> {t('pelada.newGame')}</Link></div>}</div>
@@ -50,7 +53,7 @@ export function PeladaPage() {
     {/* Sem `<main id="main-content">`: o AppShell já tem o seu, e dois com o
         mesmo id partiam a ligação de saltar para o conteúdo. */}
     <div className="page pelada-sections">{section === 'admin' ? <AdminPanel/> : section === 'jogos' ? <GamesSection/> : section === 'atividade' ? <FeedSection/> : section === 'jogadores' ? <SquadSection/> : section === 'ranking' ? <RankingSection variant="ranking"/> : section === 'selecao' ? <SelectionSection/> : section === 'curiosidades' ? <CuriositiesSection/> : section === 'estatisticas' ? <RankingSection variant="stats"/> : section ? <UnknownSection/> : <Overview/>}</div>
-  </div>
+  </div></PlayerCardProvider>
 }
 
 function Overview() {

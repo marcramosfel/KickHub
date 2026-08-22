@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '../lib/i18n'
+import { PlayerCardProvider } from '../lib/player-card'
 import type { Pelada } from '../lib/pelada-types'
 import { SelectionSection } from './SelectionSection'
 
@@ -64,7 +65,11 @@ function renderSelection() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <I18nProvider><MemoryRouter><SelectionSection/></MemoryRouter></I18nProvider>
+      <I18nProvider><MemoryRouter>
+        {/* O card vive no provedor da pelada, não na secção: é o mesmo que
+            abre a partir do ranking, do plantel e do resultado. */}
+        <PlayerCardProvider><SelectionSection/></PlayerCardProvider>
+      </MemoryRouter></I18nProvider>
     </QueryClientProvider>,
   )
 }

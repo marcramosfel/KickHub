@@ -1,0 +1,257 @@
+/*
+  O card do jogador.
+
+  Duas regras mandam nisto:
+
+  1. Só `transform` e `opacity` animam. Nada de `width`, `top`, `box-shadow` ou
+     `filter` em loop — é o que faz a coisa engasgar num telemóvel.
+  2. `prefers-reduced-motion` desliga tudo o que se mexe, no fim do ficheiro, de
+     uma vez. Não é uma versão mais lenta: é a ausência do movimento.
+
+  Arte própria: formas, cores e tipografia do KickHub. Zero assets de terceiros.
+*/
+
+.fifa-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  aspect-ratio: 1 / 1.4;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  /* Sem `data-tilting` volta devagar ao lugar; a seguir ao ponteiro não há
+     transição nenhuma, senão o card arrasta-se atrás do rato. */
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fifa-card[data-tilting] { transition: none; }
+
+.fifa-card-sm { width: 190px; }
+.fifa-card-md { width: 288px; }
+.fifa-card-lg { width: 320px; }
+
+.fifa-card-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  gap: 6px;
+  padding: 18px 18px 14px;
+  overflow: hidden;
+  color: #f4f8f2;
+  font-variant-numeric: tabular-nums;
+  /* Cantos de cima retos, os de baixo chanfrados: é isto que faz o card ler
+     como card e não como caixa. */
+  clip-path: polygon(0 0, 100% 0, 100% 88%, 88% 100%, 0 100%);
+  border: 1px solid color-mix(in srgb, var(--rarity-accent) 55%, transparent);
+  /* Radial a partir de trás da foto, e não linear de cima a baixo: é o que dá
+     profundidade e faz a foto parecer recortada por cima do fundo. */
+  background:
+    radial-gradient(120% 90% at 50% 30%, var(--rarity-glow) 0%, var(--rarity-base) 62%, #070d0a 100%);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, .5),
+    0 24px 60px color-mix(in srgb, var(--rarity-accent) 20%, transparent);
+}
+
+/* ---------------------------------------------------------------- cabeçalho */
+.fifa-card-head { display: flex; align-items: flex-start; justify-content: space-between; }
+.fifa-card-rating { display: grid; gap: 2px; }
+.fifa-card-rating > strong {
+  font-family: var(--font-display);
+  font-size: 58px;
+  line-height: .9;
+  font-weight: 800;
+  color: #fff;
+  transition: color 220ms ease-out;
+}
+.fifa-card-lg .fifa-card-rating > strong { font-size: 66px; }
+.fifa-card-sm .fifa-card-rating > strong { font-size: 40px; }
+.fifa-card[data-settled] .fifa-card-rating > strong { color: var(--rarity-accent); }
+.fifa-card-position {
+  font-size: 12px; font-weight: 800; letter-spacing: .12em;
+  color: color-mix(in srgb, var(--rarity-accent) 80%, white);
+}
+.fifa-card-provisional {
+  margin-top: 3px; font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  color: rgba(244, 248, 242, .66);
+}
+.fifa-card-crest { font-size: 24px; line-height: 1; }
+
+/* ------------------------------------------------------------------- a foto */
+.fifa-card-photo {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  min-height: 0;
+}
+.fifa-card-photo img {
+  width: 76%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: bottom;
+  /* Sangra por cima da divisória: é o truque nº 1 dos cards de futebol. */
+  margin-bottom: -8px;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .55));
+}
+.fifa-card-initials {
+  display: grid; place-items: center;
+  width: 92px; height: 92px; margin-bottom: -8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--rarity-accent) 22%, transparent);
+  border: 2px solid color-mix(in srgb, var(--rarity-accent) 60%, transparent);
+  font-family: var(--font-display); font-size: 30px; font-weight: 800;
+}
+
+/* -------------------------------------------------------------------- nome */
+.fifa-card-name {
+  padding: 8px 0 6px;
+  border-top: 1px solid color-mix(in srgb, var(--rarity-accent) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--rarity-accent) 45%, transparent);
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700; letter-spacing: .02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fifa-card-lg .fifa-card-name { font-size: 25px; }
+.fifa-card-sm .fifa-card-name { font-size: 16px; }
+
+/* -------------------------------------------------------------- atributos */
+.fifa-card-attributes {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
+  padding-top: 2px;
+}
+.fifa-attr { display: grid; grid-template-columns: 30px auto 1fr; align-items: center; gap: 6px; }
+.fifa-attr-id { font-size: 11px; font-weight: 800; opacity: .7; letter-spacing: .06em; }
+.fifa-attr-value { font-size: 19px; font-weight: 700; line-height: 1.1; }
+.fifa-card-sm .fifa-attr-value { font-size: 14px; }
+.fifa-attr-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .16); overflow: hidden; }
+.fifa-attr-bar > i {
+  display: block; height: 100%; width: 100%;
+  transform-origin: left;
+  transform: scaleX(var(--fill));
+  background: currentColor;
+}
+/* A cor da faixa acompanha o número, que está sempre escrito ao lado. */
+.fifa-attr[data-band="low"]    { color: #ff6b6b; }
+.fifa-attr[data-band="fair"]   { color: #ff9e3d; }
+.fifa-attr[data-band="good"]   { color: #ffd63d; }
+.fifa-attr[data-band="great"]  { color: #58d773; }
+.fifa-attr[data-band="elite"]  { color: var(--rarity-accent); }
+.fifa-attr:not([data-band]) .fifa-attr-value { opacity: .4; }
+
+/* ------------------------------------------------------------------ rodapé */
+.fifa-card-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-top: 6px;
+  font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+}
+.fifa-card-title { color: var(--rarity-accent); }
+.fifa-card-rarity { color: rgba(244, 248, 242, .55); }
+
+/* --------------------------------------------------------------- camadas */
+.fifa-card-vignette,
+.fifa-card-grain,
+.fifa-card-holo,
+.fifa-card-shine { position: absolute; inset: 0; pointer-events: none; }
+
+.fifa-card-vignette { box-shadow: inset 0 0 60px rgba(0, 0, 0, .45); }
+
+/* Grão em SVG e não um PNG: mata o aspecto "gradiente de CSS" sem um pedido. */
+.fifa-card-grain {
+  opacity: .03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Texturas por raridade. A cor nunca é o único sinal. */
+.fifa-card[data-texture="diagonal"] .fifa-card-vignette {
+  background-image: repeating-linear-gradient(115deg, rgba(255,255,255,.05) 0 1px, transparent 1px 9px);
+}
+.fifa-card[data-texture="hex"] .fifa-card-vignette {
+  background-image: radial-gradient(circle at 50% 50%, rgba(255,255,255,.06) 1.5px, transparent 1.6px);
+  background-size: 16px 16px;
+}
+.fifa-card[data-texture="carbon"] .fifa-card-vignette {
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0 1px, transparent 1px 5px);
+}
+.fifa-card[data-texture="rays"] .fifa-card-vignette {
+  background-image: repeating-conic-gradient(from 0deg at 50% 34%, rgba(255,255,255,.07) 0deg 3deg, transparent 3deg 12deg);
+}
+
+.fifa-card-holo {
+  opacity: .18;
+  mix-blend-mode: color-dodge;
+  background: conic-gradient(from 0deg at var(--mx) var(--my),
+    #ff5a5a, #ffc531, #34d058, #38bdf8, #a855f7, #ff5a5a);
+}
+
+/* ------------------------------------------------------------- coreografia */
+.fifa-card-shine {
+  inset: -40%;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.55) 50%, transparent 60%);
+  transform: translateX(-120%) rotate(8deg);
+  mix-blend-mode: overlay;
+  opacity: 0;
+}
+.fifa-card[data-animate] .fifa-card-shine {
+  animation: fifa-sweep 700ms cubic-bezier(.4, 0, .2, 1) 280ms both;
+}
+.fifa-card-legendary[data-animate] .fifa-card-shine {
+  animation:
+    fifa-sweep 700ms cubic-bezier(.4, 0, .2, 1) 280ms both,
+    fifa-sweep-soft 700ms cubic-bezier(.4, 0, .2, 1) 480ms both;
+}
+@keyframes fifa-sweep {
+  from { opacity: 1; transform: translateX(-120%) rotate(8deg); }
+  to   { opacity: 1; transform: translateX(120%) rotate(8deg); }
+}
+@keyframes fifa-sweep-soft {
+  from { opacity: .6; transform: translateX(-120%) rotate(8deg); }
+  to   { opacity: .6; transform: translateX(120%) rotate(8deg); }
+}
+
+.fifa-card[data-animate] .fifa-attr {
+  opacity: 0;
+  animation: fifa-attr-in 220ms ease-out var(--delay) both;
+}
+@keyframes fifa-attr-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fifa-card[data-animate] .fifa-attr-bar > i {
+  animation: fifa-bar-fill 520ms cubic-bezier(.22, 1, .36, 1) var(--delay) both;
+}
+@keyframes fifa-bar-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(var(--fill)); }
+}
+
+/* O remate do overall: um pulso e um clarão, uma vez. */
+.fifa-card[data-animate] .fifa-card-rating > strong {
+  animation: fifa-rating-pop 180ms ease-out 1220ms both;
+}
+@keyframes fifa-rating-pop {
+  0%   { transform: scale(1); }
+  55%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/*
+  Nada aqui se mexe quando o sistema pede menos movimento. O card fica
+  exactamente igual — apenas parado, e com os números já no valor final.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .fifa-card,
+  .fifa-card * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .fifa-card { transform: none !important; }
+  .fifa-card-shine { display: none; }
+  .fifa-card-holo { display: none; }
+  .fifa-attr { opacity: 1 !important; }
+  .fifa-attr-bar > i { transform: scaleX(var(--fill)) !important; }
+}

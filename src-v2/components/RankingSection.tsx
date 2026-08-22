@@ -1,6 +1,7 @@
 import { ShieldCheck, Trophy } from 'lucide-react'
-import { Avatar, Badge, Card, EmptyState } from '../components/ui'
+import { Badge, Card, EmptyState } from '../components/ui'
 import { CardBadge } from './PlayerCards'
+import { PlayerPhoto } from './PlayerPhoto'
 import { computeCards, mainCard } from '../domain/player-cards'
 import { computeTitles, explainSquadOverall } from '../domain/player-overall'
 import { useSignedAvatars } from '../lib/avatars'
@@ -121,7 +122,7 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
             <tr key={row.membershipId}>
               <td>{formatNumber(index + 1)}</td>
               <th scope="row">
-                <Avatar name={row.displayName} size="sm" src={avatars.get(row.membershipId)}/>
+                <PlayerPhoto membershipId={row.membershipId} name={row.displayName} size="sm" src={avatars.get(row.membershipId)}/>
                 <strong><PlayerName row={row}/><CardBadge card={mainCard(cardsByMember.get(row.membershipId))}/></strong>
                 <small>{rate === null
                   ? t('ranking.noDecided')

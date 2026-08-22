@@ -11,7 +11,7 @@ import { ShareButton } from './ShareButton'
  * distingue nada para quem não a separa, e é por isso que cada card tem também
  * o seu emblema e o nome da raridade escrito.
  */
-const CARD_ICON: Readonly<Record<CardKey, string>> = {
+export const CARD_ICON: Readonly<Record<CardKey, string>> = {
   kingOfPelada: '👑', keeperKing: '🧤', legend: '🏛️',
   topScorer: '🔥', topAssists: '🅰️', mostWins: '🏆', mostCraques: '⭐', mostGames: '📅',
   winStreak: '🔗', accuracy: '🎯', unbeaten: '🛡️',
@@ -25,7 +25,8 @@ const rarityLabel: Record<Rarity, TranslationKey> = {
   epic: 'cards.rarityEpic', legendary: 'cards.rarityLegendary',
 }
 
-const titleKey = (key: CardKey) => `cards.${key}Title` as TranslationKey
+export const cardTitleKey = (key: CardKey) => `cards.${key}Title` as TranslationKey
+const titleKey = cardTitleKey
 const reasonKey = (key: CardKey) => `cards.${key}Reason` as TranslationKey
 
 /** O card de um jogador, no formato de cromo. */

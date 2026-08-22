@@ -1,6 +1,7 @@
 import { Check, Pencil, ShieldCheck, UserMinus, UsersRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Avatar, Badge, Button, Card, EmptyState } from '../components/ui'
+import { PlayerPhoto } from './PlayerPhoto'
+import { Badge, Button, Card, EmptyState } from '../components/ui'
 import { computePlayerOverall, explainSquadOverall, isProvisional, type OverallBreakdown } from '../domain/player-overall'
 import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
@@ -158,7 +159,7 @@ function MemberCard({ member, canAdmin, editing, breakdown, overallPending, avat
 
   return (
     <Card className="squad-card">
-      <Avatar name={member.displayName} size="md" src={avatarUrl}/>
+      <PlayerPhoto membershipId={member.membershipId} name={member.displayName} size="md" src={avatarUrl}/>
       <div className="squad-identity">
         <strong>{member.displayName}{member.isMe ? <span className="squad-you">{t('squad.you')}</span> : null}</strong>
         <small>{member.username ? `@${member.username} · ` : ''}{roleLabel(member.role, t)}</small>

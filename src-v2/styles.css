@@ -293,3 +293,45 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 .player-modal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:18px 0 0}.player-modal-stats div{padding:10px;border-radius:11px;background:var(--surface-2);text-align:center}.player-modal-stats dt{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.player-modal-stats dd{margin:4px 0 0;font-family:var(--font-display);font-size:18px}
 .player-modal-note{margin:14px 0 0;font-size:11px;line-height:1.65;color:var(--muted);text-align:center}
 @media (max-width:760px){.player-modal{padding:24px 16px 18px}.player-modal-stats{grid-template-columns:repeat(2,1fr)}}
+
+/* O pop-up do card. O card em si tem folha própria (PlayerCardModal/card.css). */
+.player-photo{border:0;background:none;padding:0;line-height:0;border-radius:50%;cursor:pointer;transition:transform 160ms ease-out,box-shadow 160ms ease-out}
+.player-photo:hover{transform:scale(1.04)}
+.player-photo:focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+.card-backdrop{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;background:rgba(4,10,8,.72);backdrop-filter:blur(8px) saturate(.8)}
+/* Sem `backdrop-filter` o fundo tem de escurecer mais, senão lê-se a app por trás. */
+@supports not (backdrop-filter: blur(2px)){.card-backdrop{background:rgba(4,10,8,.88)}}
+.card-dialog{position:relative;display:grid;gap:14px;justify-items:center;width:min(560px,100%);max-height:92vh;overflow-y:auto;padding:26px 18px 18px}
+.card-close{position:absolute;top:0;right:0;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#f2f7ee;cursor:pointer}
+.card-close:hover{background:rgba(255,255,255,.18)}
+.card-stage{position:relative;display:flex;align-items:center;gap:10px;perspective:1200px}
+/* O halo é o que faz o card flutuar em vez de estar colado ao fundo. */
+.card-halo{position:absolute;inset:8% 18%;border-radius:50%;background:var(--rarity-accent,#d8ff45);opacity:.35;filter:blur(60px);pointer-events:none;animation:card-halo 6s ease-in-out infinite}
+@keyframes card-halo{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.card-arrow{display:grid;place-items:center;width:44px;height:44px;flex:0 0 auto;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:rgba(255,255,255,.06);color:#f2f7ee;cursor:pointer}
+.card-arrow:hover{background:rgba(255,255,255,.14)}
+.card-tabs{display:flex;gap:6px}
+.card-tab{min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.06);color:rgba(242,247,238,.8);font-size:11px;font-weight:800;cursor:pointer}
+.card-tab-active{border-color:var(--brand);background:var(--brand);color:#132011}
+.card-panel{width:288px;min-height:403px;display:grid;align-content:start;gap:12px;padding:18px;border-radius:var(--radius);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}
+.card-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+.card-stat-grid div{padding:10px;border-radius:11px;background:rgba(0,0,0,.25);text-align:center}
+.card-stat-grid dt{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,247,238,.6)}
+.card-stat-grid dd{margin:4px 0 0;font-family:var(--font-display);font-size:19px;color:#f2f7ee}
+.card-achievements{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.card-achievement{display:grid;justify-items:center;gap:4px;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,.07);font-size:19px}
+.card-achievement small{font-size:7px;font-weight:800;letter-spacing:.04em;text-align:center;color:rgba(242,247,238,.75);line-height:1.2}
+.card-achievement-locked{opacity:.25;filter:grayscale(1)}
+.card-note{margin:0;max-width:320px;font-size:11px;line-height:1.6;text-align:center;color:rgba(242,247,238,.7)}
+.card-hint{margin:0;font-size:10px;font-weight:800;color:rgba(242,247,238,.45)}
+
+/* Abaixo de 640px o pop-up é uma folha que sobe de baixo. */
+@media (max-width:640px){
+  .card-backdrop{place-items:end center;padding:0}
+  .card-dialog{width:100%;max-height:92vh;border-radius:var(--radius) var(--radius) 0 0;background:rgba(7,16,11,.96);padding:22px 14px 18px;animation:card-sheet 260ms cubic-bezier(.16,1,.3,1) both}
+  .card-arrow{display:none}
+  .card-panel{width:100%;min-height:0}
+  .card-achievements{grid-template-columns:repeat(5,1fr)}
+}
+@keyframes card-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@media (prefers-reduced-motion: reduce){.card-halo,.card-dialog{animation:none!important}}

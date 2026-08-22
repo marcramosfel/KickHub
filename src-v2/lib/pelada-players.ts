@@ -40,6 +40,9 @@ export type PeladaPlayer = {
   currentWinStreak: number
   bestUnbeatenStreak: number
   gkCleanSheets: number
+  /** Média das estrelas dos companheiros, 0–5. `null` = nunca foi avaliado. */
+  postRatingAvg: number | null
+  postRatingCount: number
   /** Golos sofridos por rodada de baliza. `null` = nunca lá esteve. */
   concededPerMatch: number | null
   avatarPath: string | null
@@ -80,6 +83,8 @@ export function usePeladaPlayers(peladaId: string | undefined, enabled = true) {
         currentWinStreak: stats?.currentWinStreak ?? 0,
         bestUnbeatenStreak: stats?.bestUnbeatenStreak ?? 0,
         gkCleanSheets: stats?.gkCleanSheets ?? 0,
+        postRatingAvg: stats?.postRatingAvg ?? null,
+        postRatingCount: stats?.postRatingCount ?? 0,
         concededPerMatch: stats && stats.gkMatches > 0 ? stats.gkConceded / stats.gkMatches : null,
         avatarPath: member.avatarPath,
         avatarBucket: member.avatarBucket,

@@ -9,10 +9,9 @@ import {
 import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
-import { usePeladaPlayers, type PeladaPlayer } from '../lib/pelada-players'
+import { usePeladaPlayers } from '../lib/pelada-players'
+import { usePlayerCard } from '../lib/player-card'
 import { usePeladaSettings } from '../lib/pelada-settings'
-import { usePeladaTotals } from '../lib/ranking'
-import { PlayerCardModal } from './PlayerCardModal'
 import { ShareButton } from './ShareButton'
 import { Avatar, Badge, Card, EmptyState } from './ui'
 
@@ -29,13 +28,9 @@ export function SelectionSection() {
   // A anti-seleção começa fechada. É uma piada, mas é uma piada sobre pessoas
   // reais — quem a quiser ver, abre-a.
   const [showWorst, setShowWorst] = useState(false)
-  const [openPlayer, setOpenPlayer] = useState<PeladaPlayer | null>(null)
-  const totals = usePeladaTotals(pelada?.id, true)
-
-  // O campo desenha `SelectedPlayer`, que é o jogador já colocado num lugar. O
-  // card precisa do jogador inteiro — daí a volta pelo plantel.
-  const openById = (membershipId: string) =>
-    setOpenPlayer(players.find((entry) => entry.membershipId === membershipId) ?? null)
+  // O card é do provedor da pelada: o mesmo que abre a partir do ranking, do
+  // plantel e do resultado. Um modal próprio aqui seria um segundo card.
+  const { open: openById } = usePlayerCard()
 
   const teamSize = settings.data?.defaultTeamSize ?? DEFAULT_TEAM_SIZE
   const { best, worst } = useMemo(
@@ -107,15 +102,6 @@ export function SelectionSection() {
           😬 {t('selection.antiShow')}
         </button>
       )}
-
-      {openPlayer && <PlayerCardModal
-        player={openPlayer}
-        squad={players}
-        avatars={avatars}
-        peladaName={pelada?.name ?? ''}
-        totalRounds={totals.data?.gamesPlayed}
-        onClose={() => setOpenPlayer(null)}
-      />}
     </div>
   )
 }

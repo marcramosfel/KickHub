@@ -1,6 +1,7 @@
 import { Check, Shuffle } from 'lucide-react'
 import { useState } from 'react'
-import { Avatar, Badge, Button, Card } from '../components/ui'
+import { Badge, Button, Card } from '../components/ui'
+import { PlayerPhoto } from './PlayerPhoto'
 import { explainSquadOverall } from '../domain/player-overall'
 import { DrawError, generateBalancedTeams, type DrawResult } from '../domain/team-draw'
 import { useSignedAvatars, type AvatarSource } from '../lib/avatars'
@@ -125,7 +126,7 @@ export function GameDraw({ game }: { game: Game }) {
                 <ol>
                   {team.players.map((player) => (
                     <li key={player.id}>
-                      <Avatar name={player.name} size="sm" src={avatars.get(player.id)}/>
+                      <PlayerPhoto membershipId={player.id} name={player.name} size="sm" src={avatars.get(player.id)}/>
                       <span>{player.name}</span>
                       {player.isGoalkeeper ? <Badge tone="blue">{t('games.goalkeeperShort')}</Badge> : null}
                       <b title={player.estimatedOverall ? t('games.estimatedOverall') : undefined}>
@@ -173,7 +174,7 @@ function SavedTeams({ entries, avatars }: { entries: LineupEntry[]; avatars: Map
             <ol>
               {players.map((entry) => (
                 <li key={entry.membershipId}>
-                  <Avatar name={entry.displayName} size="sm" src={avatars.get(entry.membershipId)}/>
+                  <PlayerPhoto membershipId={entry.membershipId} name={entry.displayName} size="sm" src={avatars.get(entry.membershipId)}/>
                   <span>{entry.displayName}</span>
                   {entry.isGoalkeeper ? <Badge tone="blue">{t('games.goalkeeperShort')}</Badge> : null}
                   <b title={entry.overallEstimated ? t('games.estimatedOverall') : undefined}>
