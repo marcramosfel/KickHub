@@ -1,6 +1,6 @@
 begin;
 
-select plan(23);
+select plan(31);
 
 -- §75: o papel de plataforma vive no perfil e não numa pertença a uma pelada.
 -- Ser dono da tua comunidade não pode ser um degrau para administrar as outras.
@@ -54,6 +54,61 @@ select ok(not has_function_privilege('anon', 'public.list_my_archived_peladas()'
 -- E desarquivar não reabre ao público: reabrir é uma escolha à parte.
 select unalike(pg_get_functiondef('public.restore_pelada(uuid)'::regprocedure),
   '%visibility%', 'desarquivar não mexe na visibilidade');
+
+-- ------------------------------------------------------------------ planos
+--
+-- Os limites passaram a ser dados. Este bloco existe para que mudar um tecto
+-- continue a ser mudar uma linha, e para que a excepção da pelada fundadora
+-- nunca volte a ser uma condição pelo nome dela.
+select has_table('public', 'plans', 'a tabela de planos existe');
+select has_table('public', 'pelada_subscriptions', 'a tabela de subscrições existe');
+select ok(
+  (select count(*)::int from public.plans where is_selectable) >= 4,
+  'há planos para escolher'
+);
+
+-- Este ficheiro não tinha peladas, e as afirmações seguintes precisam de uma
+-- linha real: uma subscrição aponta para uma pelada por chave estrangeira.
+insert into public.profiles (id, display_name)
+values ('e2000000-0000-4000-8000-000000000001', 'Dono dos Planos');
+insert into public.peladas (id, slug, name, owner_profile_id, country_code, city)
+values ('e2000000-0000-4000-8000-000000000002', 'planos', 'Planos',
+        'e2000000-0000-4000-8000-000000000001', 'PT', 'Faro');
+
+-- Uma pelada sem subscrição é `free`. É o comportamento de hoje e é o que não
+-- se pode partir ao introduzir a cobrança.
+select is(
+  (public.pelada_entitlements('e2000000-0000-4000-8000-000000000002') ->> 'plan'),
+  'free',
+  'sem subscrição, o plano é o gratuito'
+);
+
+-- Cortesia sem motivo escrito não entra: uma excepção que ninguém consegue
+-- rever depois é uma excepção que fica lá para sempre.
+select throws_ok(
+  $$insert into public.pelada_subscriptions (pelada_id, plan_code, status)
+    values ('e2000000-0000-4000-8000-000000000002', 'pro_50', 'complimentary')$$,
+  '23514',
+  null,
+  'cortesia sem motivo é recusada'
+);
+
+-- E um período terminado não dá direitos, mesmo com o estado a dizer activo.
+select lives_ok(
+  $$insert into public.pelada_subscriptions (pelada_id, plan_code, status, current_period_end)
+    values ('e2000000-0000-4000-8000-000000000002', 'pro_50', 'active', now() - interval '1 day')$$,
+  'uma subscrição expirada pode existir'
+);
+select is(
+  (public.pelada_entitlements('e2000000-0000-4000-8000-000000000002') ->> 'plan'),
+  'free',
+  'mas não dá os direitos do plano'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.grant_complimentary_plan(uuid,text,text)', 'execute'),
+  'anon não distribui cortesias'
+);
 
 -- §90–91: os limites existem e hoje não limitam nada.
 select is(
