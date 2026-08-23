@@ -10,6 +10,7 @@ import {
 } from '../lib/discovery'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { useSeo } from '../lib/seo'
+import { PeladaPublicProfile } from '../components/PeladaPublicProfile'
 import type { Pelada } from '../lib/pelada-types'
 import { useOnboarding } from '../lib/onboarding'
 
@@ -53,7 +54,11 @@ export function DiscoverPage() {
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null)
   const [onlyWithRoom, setOnlyWithRoom] = useState(false)
 
-  const [selected, setSelected] = useState<Pelada | null>(null)
+  const [selected, setSelected] = useState<{ summary: Pelada; full: DiscoveredPelada } | null>(null)
+  const abrir = (pelada: DiscoveredPelada, index: number) => {
+    setSelected({ summary: toSummary(pelada, index), full: pelada })
+    setNotice('')
+  }
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
@@ -94,8 +99,8 @@ export function DiscoverPage() {
     if (!selected) return
     setBusy(true)
     try {
-      const status = await requestJoin(selected, message.trim())
-      setNotice(t(status === 'active' ? 'discover.noticeAlreadyMember' : 'discover.noticeRequestSent', { name: selected.name }))
+      const status = await requestJoin(selected.summary, message.trim())
+      setNotice(t(status === 'active' ? 'discover.noticeAlreadyMember' : 'discover.noticeRequestSent', { name: selected.summary.name }))
       setSelected(null)
       setMessage('')
     } catch {
@@ -148,10 +153,7 @@ export function DiscoverPage() {
         <Button variant="outline" onClick={() => void discovery.refetch()}>{t('dashboard.retry')}</Button>
       </Card>
     ) : view === 'map' && results.length ? (
-      <DiscoveryMap peladas={results} onSelect={(pelada) => {
-        setSelected(toSummary(pelada, results.indexOf(pelada)))
-        setNotice('')
-      }}/>
+      <DiscoveryMap peladas={results} onSelect={(pelada) => abrir(pelada, results.indexOf(pelada))}/>
     ) : results.length ? (
       <div className="discover-grid" aria-busy={discovery.isFetching}>
         {results.map((pelada, index) => (
@@ -160,7 +162,7 @@ export function DiscoverPage() {
             pelada={pelada}
             accent={accents[index % accents.length]}
             state={joinStates[pelada.id] ?? 'idle'}
-            onRequest={() => { setSelected(toSummary(pelada, index)); setNotice('') }}
+            onRequest={() => abrir(pelada, index)}
           />
         ))}
       </div>
@@ -173,10 +175,11 @@ export function DiscoverPage() {
     {selected && <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setSelected(null)}>
       <section className="join-dialog" role="dialog" aria-modal="true" aria-labelledby="join-title">
         <button className="dialog-close" type="button" onClick={() => setSelected(null)} aria-label={t('discover.close')}><X/></button>
-        <span className="pelada-monogram" style={{ background: selected.accent }}>{initials(selected.name)}</span>
-        <p className="eyebrow dark-text">{t('discover.dialogEyebrow')}</p><h2 id="join-title">{t('discover.dialogTitle', { name: selected.name })}</h2>
-        {selected.joinMode === 'open' ? <p>{t('discover.dialogOpenBody')}</p> : <label htmlFor="join-message">{t('discover.messageLabel')}<textarea id="join-message" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={messageLimit} placeholder={t('discover.messagePlaceholder')}/><small>{t('discover.messageCounter', { used: message.length, max: messageLimit })}</small></label>}
-        <div className="dialog-actions"><Button variant="ghost" onClick={() => setSelected(null)}>{t('discover.cancel')}</Button><Button disabled={busy} onClick={submitRequest}>{busy ? t('discover.sending') : selected.joinMode === 'open' ? t('discover.confirmJoin') : t('discover.sendRequest')} <ArrowRight/></Button></div>
+        <span className="pelada-monogram" style={{ background: selected.summary.accent }}>{initials(selected.summary.name)}</span>
+        <p className="eyebrow dark-text">{t('discover.dialogEyebrow')}</p><h2 id="join-title">{t('discover.dialogTitle', { name: selected.summary.name })}</h2>
+        <PeladaPublicProfile pelada={selected.full}/>
+        {selected.summary.joinMode === 'open' ? <p>{t('discover.dialogOpenBody')}</p> : <label htmlFor="join-message">{t('discover.messageLabel')}<textarea id="join-message" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={messageLimit} placeholder={t('discover.messagePlaceholder')}/><small>{t('discover.messageCounter', { used: message.length, max: messageLimit })}</small></label>}
+        <div className="dialog-actions"><Button variant="ghost" onClick={() => setSelected(null)}>{t('discover.cancel')}</Button><Button disabled={busy} onClick={submitRequest}>{busy ? t('discover.sending') : selected.summary.joinMode === 'open' ? t('discover.confirmJoin') : t('discover.sendRequest')} <ArrowRight/></Button></div>
       </section>
     </div>}
   </div>

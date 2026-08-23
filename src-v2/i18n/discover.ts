@@ -1,6 +1,17 @@
 import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
+  'publicProfile.where': 'Onde',
+  'publicProfile.when': 'Quando',
+  'publicProfile.frequency': 'Frequência',
+  'publicProfile.squad': 'Plantel',
+  'publicProfile.squadOf': '{count} de {max} jogadores',
+  'publicProfile.squadCount': '{count} jogadores',
+  'publicProfile.full': 'Plantel completo',
+  'publicProfile.howOpen': 'Entrada livre: podes juntar-te já, sem esperar por aprovação.',
+  'publicProfile.howApproval': 'Entrada por aprovação: envias um pedido e quem organiza decide.',
+  'publicProfile.howInvite': 'Só por convite: é preciso que alguém de dentro te convide.',
+  'discover.distance': 'a {value} km',
   'discover.eyebrow': 'ENCONTRA O TEU PRÓXIMO JOGO',
   'discover.title': 'Descobrir peladas',
   'discover.subtitle': 'Comunidades abertas perto de ti, com o ritmo e formato que procuras.',
@@ -77,6 +88,17 @@ const pt = {
 type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
+  'publicProfile.where': 'Where',
+  'publicProfile.when': 'When',
+  'publicProfile.frequency': 'Frequency',
+  'publicProfile.squad': 'Squad',
+  'publicProfile.squadOf': '{count} of {max} players',
+  'publicProfile.squadCount': '{count} players',
+  'publicProfile.full': 'Squad is full',
+  'publicProfile.howOpen': 'Open: you can join right away, with nothing to approve.',
+  'publicProfile.howApproval': 'By approval: you send a request and the organiser decides.',
+  'publicProfile.howInvite': 'Invite only: someone inside has to invite you.',
+  'discover.distance': '{value} km away',
   'discover.eyebrow': 'FIND YOUR NEXT MATCH',
   'discover.title': 'Discover groups',
   'discover.subtitle': 'Open communities near you, with the rhythm and format you are looking for.',
@@ -151,6 +173,17 @@ const en: Record<Key, TranslationValue> = {
 }
 
 const es: Record<Key, TranslationValue> = {
+  'publicProfile.where': 'Dónde',
+  'publicProfile.when': 'Cuándo',
+  'publicProfile.frequency': 'Frecuencia',
+  'publicProfile.squad': 'Plantilla',
+  'publicProfile.squadOf': '{count} de {max} jugadores',
+  'publicProfile.squadCount': '{count} jugadores',
+  'publicProfile.full': 'Plantilla completa',
+  'publicProfile.howOpen': 'Entrada libre: puedes unirte ya, sin esperar aprobación.',
+  'publicProfile.howApproval': 'Por aprobación: envías una solicitud y quien organiza decide.',
+  'publicProfile.howInvite': 'Solo por invitación: alguien de dentro tiene que invitarte.',
+  'discover.distance': 'a {value} km',
   'discover.eyebrow': 'ENCUENTRA TU PRÓXIMO PARTIDO',
   'discover.title': 'Descubrir grupos',
   'discover.subtitle': 'Comunidades abiertas cerca de ti, con el ritmo y el formato que buscas.',
@@ -225,6 +258,17 @@ const es: Record<Key, TranslationValue> = {
 }
 
 const fr: Record<Key, TranslationValue> = {
+  'publicProfile.where': 'Où',
+  'publicProfile.when': 'Quand',
+  'publicProfile.frequency': 'Fréquence',
+  'publicProfile.squad': 'Effectif',
+  'publicProfile.squadOf': '{count} sur {max} joueurs',
+  'publicProfile.squadCount': '{count} joueurs',
+  'publicProfile.full': 'Effectif complet',
+  'publicProfile.howOpen': 'Entrée libre : tu peux rejoindre tout de suite, sans validation.',
+  'publicProfile.howApproval': 'Sur validation : tu envoies une demande et l’organisateur décide.',
+  'publicProfile.howInvite': 'Sur invitation : il faut que quelqu’un de l’intérieur t’invite.',
+  'discover.distance': 'à {value} km',
   'discover.eyebrow': 'TROUVE TON PROCHAIN MATCH',
   'discover.title': 'Découvrir des groupes',
   'discover.subtitle': 'Des communautés ouvertes près de toi, au rythme et au format que tu cherches.',
@@ -299,6 +343,17 @@ const fr: Record<Key, TranslationValue> = {
 }
 
 const de: Record<Key, TranslationValue> = {
+  'publicProfile.where': 'Wo',
+  'publicProfile.when': 'Wann',
+  'publicProfile.frequency': 'Häufigkeit',
+  'publicProfile.squad': 'Kader',
+  'publicProfile.squadOf': '{count} von {max} Spielern',
+  'publicProfile.squadCount': '{count} Spieler',
+  'publicProfile.full': 'Kader ist voll',
+  'publicProfile.howOpen': 'Offen: du kannst sofort beitreten, ohne Freigabe.',
+  'publicProfile.howApproval': 'Mit Freigabe: du schickst eine Anfrage, die Leitung entscheidet.',
+  'publicProfile.howInvite': 'Nur mit Einladung: jemand von innen muss dich einladen.',
+  'discover.distance': '{value} km entfernt',
   'discover.eyebrow': 'FINDE DEIN NÄCHSTES SPIEL',
   'discover.title': 'Gruppen entdecken',
   'discover.subtitle': 'Offene Communities in deiner Nähe, im Rhythmus und Format, das du suchst.',
