@@ -306,7 +306,12 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 .card-backdrop{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:20px;background:rgba(4,10,8,.72);backdrop-filter:blur(8px) saturate(.8)}
 /* Sem `backdrop-filter` o fundo tem de escurecer mais, senão lê-se a app por trás. */
 @supports not (backdrop-filter: blur(2px)){.card-backdrop{background:rgba(4,10,8,.88)}}
-.card-dialog{position:relative;display:grid;gap:14px;justify-items:center;width:min(560px,100%);max-height:92vh;overflow-y:auto;padding:26px 18px 18px}
+.card-dialog{position:relative;display:grid;gap:14px;justify-items:center;width:min(560px,100%);max-height:92vh;overflow-y:auto;padding:26px 18px 18px;color:#f2f7ee}
+/* A cor de texto tem de estar aqui e não em cada elemento. O diálogo é
+   escuro e herdava o `--ink` da página, que é quase preto: sobre o fundo
+   dava contraste de 1:1. Tudo o que trazia cor própria via-se; tudo o
+   resto — os rótulos da decomposição, a palavra do resultado no
+   histórico, o cabeçalho das avaliações — desaparecia. */
 .card-close{position:absolute;top:0;right:0;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#f2f7ee;cursor:pointer}
 .card-close:hover{background:rgba(255,255,255,.18)}
 .card-stage{position:relative;display:flex;align-items:center;gap:10px;perspective:1200px}
@@ -326,7 +331,11 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 .card-stat-grid div{padding:10px;border-radius:11px;background:rgba(0,0,0,.25);text-align:center}
 .card-stat-grid dt{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,247,238,.6)}
 .card-stat-grid dd{margin:4px 0 0;font-family:var(--font-display);font-size:19px;color:#f2f7ee}
-.card-achievements{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.card-achievements{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+/* `minmax(0,1fr)` e não `1fr`: o mínimo implícito de `1fr` é `auto`, e um
+   rótulo mais comprido do que a sua fatia empurra a coluna. Era isso que
+   dava colunas de 52, 58 e 75 píxeis lado a lado — a grelha seguia o
+   texto em vez de o texto caber na grelha. */
 .card-achievement{display:grid;justify-items:center;gap:4px;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,.07);font-size:19px}
 .card-achievement small{font-size:7px;font-weight:800;letter-spacing:.04em;text-align:center;color:rgba(242,247,238,.75);line-height:1.2}
 .card-achievement-locked{opacity:.25;filter:grayscale(1)}
@@ -339,7 +348,7 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
   .card-dialog{width:100%;max-height:92vh;border-radius:var(--radius) var(--radius) 0 0;background:rgba(7,16,11,.96);padding:22px 14px 18px;animation:card-sheet 260ms cubic-bezier(.16,1,.3,1) both}
   .card-arrow{display:none}
   .card-panel{width:100%;min-height:0}
-  .card-achievements{grid-template-columns:repeat(5,1fr)}
+  .card-achievements{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
 @keyframes card-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media (prefers-reduced-motion: reduce){.card-halo,.card-dialog{animation:none!important}}
@@ -483,3 +492,9 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
   align-self:start;min-height:36px}
 .public-profile-map small{font-weight:500;color:var(--muted)}
 .public-profile-map:hover,.public-profile-map:focus-visible{background:var(--surface-2)}
+
+/* Um rótulo de uma palavra só — APROVEITAMENTO — não tem onde quebrar, e por
+   isso estica a célula e transborda a grelha. `anywhere` deixa-o partir; o
+   `min-width:0` impede o item de reclamar a largura da palavra inteira. */
+.card-achievement{min-width:0}
+.card-achievement small{overflow-wrap:anywhere;hyphens:auto}
