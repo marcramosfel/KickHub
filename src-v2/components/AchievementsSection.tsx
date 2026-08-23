@@ -8,7 +8,7 @@ import { usePeladaPlayers, type PeladaPlayer } from '../lib/pelada-players'
 import { useMyPlayerProfile } from '../lib/player-profile'
 import { CARD_ICON, cardTitleKey } from './PlayerCards'
 import { PlayerPhoto } from './PlayerPhoto'
-import { Badge, Card } from './ui'
+import { Badge, Button, Card } from './ui'
 
 /**
  * Os títulos da pelada, com dono e com corrida.
@@ -35,7 +35,8 @@ export function AchievementsSection() {
   const { t, formatNumber } = useI18n()
   const { pelada } = useCurrentPelada()
   const { user } = useAuth()
-  const { players } = usePeladaPlayers(pelada?.id)
+  const squad = usePeladaPlayers(pelada?.id)
+  const { players } = squad
   // Quem está a ver, do lado do jogador. O perfil próprio é que sabe qual das
   // pertenças é a desta pelada — o plantel só conhece pertenças, não contas.
   const me = useMyPlayerProfile(user?.id)
@@ -63,6 +64,28 @@ export function AchievementsSection() {
   // continua a valer por quem tem cada título.
   const myMembershipId = me.data?.peladas.find((community) => community.id === pelada?.id)?.membershipId
   const mine = myMembershipId ? byId.get(myMembershipId) : undefined
+
+  // Sem isto a secção mostrava nove títulos vazios enquanto o plantel carregava,
+  // e nove títulos vazios quando ele falhasse: dois estados diferentes com o
+  // mesmo desenho, e nenhum deles a dizer a verdade.
+  if (squad.isPending) {
+    return <Card className="settings-card" aria-busy="true"><p>{t('achievements.loading')}</p></Card>
+  }
+  if (squad.isError) {
+    return (
+      <Card className="settings-card" role="alert">
+        <p>{t('achievements.error')}</p>
+        <Button variant="outline" onClick={squad.refetch}>{t('dashboard.retry')}</Button>
+      </Card>
+    )
+  }
+  if (!players.length) {
+    return (
+      <Card className="settings-card">
+        <p>{t('achievements.emptySquad')}</p>
+      </Card>
+    )
+  }
 
   const value = (standing: TitleStanding, raw: number) => standing.format === 'rate'
     ? formatNumber(raw, { style: 'percent', maximumFractionDigits: 0 })

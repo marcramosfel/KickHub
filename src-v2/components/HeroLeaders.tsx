@@ -108,6 +108,9 @@ export function HeroLeaders() {
     ].filter(Boolean) as Hero[]
   }, [players])
 
+  // O carregamento não mostra nada em vez de mostrar uma grelha vazia que a
+  // seguir salta para cinco cards: a página por baixo tem a sua própria
+  // indicação, e um segundo esqueleto aqui era ruído.
   if (!heroes.length) return null
 
   return (

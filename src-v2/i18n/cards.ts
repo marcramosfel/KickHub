@@ -2,6 +2,9 @@ import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
   'achievements.eyebrow': 'Títulos da pelada',
+  'achievements.loading': 'A carregar os títulos…',
+  'achievements.error': 'Não foi possível carregar os títulos.',
+  'achievements.emptySquad': 'Ainda não há jogadores nesta pelada. Os títulos aparecem assim que houver quem os dispute.',
   'achievements.title': 'Conquistas',
   'achievements.subtitle': 'Quem tem cada título agora — e o que te falta para o tomares.',
   'achievements.noHolder': 'Ainda ninguém o tomou.',
@@ -53,6 +56,9 @@ type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
   'achievements.eyebrow': 'Pelada titles',
+  'achievements.loading': 'Loading the titles…',
+  'achievements.error': 'The titles could not be loaded.',
+  'achievements.emptySquad': 'No players in this pelada yet. Titles show up as soon as there is someone to contest them.',
   'achievements.title': 'Achievements',
   'achievements.subtitle': 'Who holds each title right now — and what it takes to take it.',
   'achievements.noHolder': 'Nobody has taken it yet.',
@@ -103,6 +109,9 @@ const en: Record<Key, TranslationValue> = {
 
 const es: Record<Key, TranslationValue> = {
   'achievements.eyebrow': 'Títulos de la pelada',
+  'achievements.loading': 'Cargando los títulos…',
+  'achievements.error': 'No se pudieron cargar los títulos.',
+  'achievements.emptySquad': 'Todavía no hay jugadores en esta pelada. Los títulos aparecen en cuanto haya quien los dispute.',
   'achievements.title': 'Logros',
   'achievements.subtitle': 'Quién tiene cada título ahora — y qué te falta para quitárselo.',
   'achievements.noHolder': 'Todavía no lo tiene nadie.',
@@ -153,6 +162,9 @@ const es: Record<Key, TranslationValue> = {
 
 const fr: Record<Key, TranslationValue> = {
   'achievements.eyebrow': 'Titres de la pelada',
+  'achievements.loading': 'Chargement des titres…',
+  'achievements.error': 'Impossible de charger les titres.',
+  'achievements.emptySquad': 'Aucun joueur dans cette pelada. Les titres apparaissent dès qu’il y a quelqu’un pour les disputer.',
   'achievements.title': 'Trophées',
   'achievements.subtitle': 'Qui détient chaque titre — et ce qu’il faut pour le prendre.',
   'achievements.noHolder': 'Personne ne l’a encore pris.',
@@ -203,6 +215,9 @@ const fr: Record<Key, TranslationValue> = {
 
 const de: Record<Key, TranslationValue> = {
   'achievements.eyebrow': 'Titel der Pelada',
+  'achievements.loading': 'Titel werden geladen…',
+  'achievements.error': 'Die Titel konnten nicht geladen werden.',
+  'achievements.emptySquad': 'Noch keine Spieler in dieser Pelada. Titel erscheinen, sobald jemand um sie kämpft.',
   'achievements.title': 'Erfolge',
   'achievements.subtitle': 'Wer welchen Titel gerade hält — und was fehlt, um ihn zu holen.',
   'achievements.noHolder': 'Noch hat ihn niemand geholt.',
