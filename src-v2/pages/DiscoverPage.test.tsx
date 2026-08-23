@@ -144,6 +144,9 @@ describe('DiscoverPage localizada', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Mapa/ }))
     // Nenhuma das três devolveu `location`, portanto o mapa não inventa pinos.
-    expect(await screen.findByText(/Nenhuma destas peladas autoriza/)).toBeInTheDocument()
+    // E o vazio explica a regra em vez de a deixar adivinhar: peladas privadas
+    // nunca chegam aqui, e é a razão mais provável de alguém não ver a sua.
+    expect(await screen.findByText(/autoriza mostrar onde joga/)).toBeInTheDocument()
+    expect(screen.getByText(/Peladas privadas nunca aparecem no mapa/)).toBeInTheDocument()
   })
 })

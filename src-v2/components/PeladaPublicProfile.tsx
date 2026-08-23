@@ -82,6 +82,24 @@ export function PeladaPublicProfile({ pelada }: { pelada: DiscoveredPelada }) {
         {full && <Badge tone="orange">{t('publicProfile.full')}</Badge>}
       </div>
 
+      {/* Abrir no mapa do telemóvel em vez de desenhar um mapa aqui.
+          Desenhar exigia um fornecedor de mosaicos, uma chave e pedidos a
+          partir do browser de quem procura — três decisões de produto para
+          responder a uma pergunta que a app de mapas de cada um já responde
+          melhor. O ponto enviado é o que a pelada autorizou publicar, com a
+          precisão que ela escolheu, e não a morada exacta. */}
+      {pelada.point && (
+        <a
+          className="public-profile-map"
+          href={`https://www.google.com/maps/search/?api=1&query=${pelada.point.lat},${pelada.point.lon}`}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <MapPin size={14}/> {t('publicProfile.openMap')}
+          <small>{t(`peladaAdmin.precision${pelada.point.precision.charAt(0).toUpperCase()}${pelada.point.precision.slice(1)}` as TranslationKey)}</small>
+        </a>
+      )}
+
       {/* Como se entra, dito por palavras e não por um modo em inglês. */}
       <p className="public-profile-how">
         <ShieldCheck size={14}/>
