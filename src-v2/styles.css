@@ -315,7 +315,10 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 @keyframes card-halo{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 .card-arrow{display:grid;place-items:center;width:44px;height:44px;flex:0 0 auto;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:rgba(255,255,255,.06);color:#f2f7ee;cursor:pointer}
 .card-arrow:hover{background:rgba(255,255,255,.14)}
-.card-tabs{display:flex;gap:6px}
+.card-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:100%}
+/* Quebram em vez de saírem do ecrã. Com cinco abas o alinhamento numa
+   linha só media 453px numa janela de 390, e as duas últimas ficavam
+   fora — invisíveis e sem nada que sugerisse que se podia rolar. */
 .card-tab{min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.06);color:rgba(242,247,238,.8);font-size:11px;font-weight:800;cursor:pointer}
 .card-tab-active{border-color:var(--brand);background:var(--brand);color:#132011}
 .card-panel{width:288px;min-height:403px;display:grid;align-content:start;gap:12px;padding:18px;border-radius:var(--radius);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}

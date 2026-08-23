@@ -299,6 +299,11 @@
 /* Um rato não precisa de giroscópio: o botão só existe onde o toque é o gesto. */
 @media (hover: hover) { .fifa-card-gyro { display: none; } }
 
+/* E onde ele existe, o espaço abaixo do card tem de existir também. O botão
+   está ancorado a -34px do card, e sem esta reserva ia pousar em cima do que
+   viesse a seguir — que passou a ser a barra de abas. */
+@media (hover: none) { .card-stage { margin-bottom: 44px; } }
+
 @media (prefers-reduced-motion: reduce) {
   .card-stage[data-rest] .fifa-card { animation: none !important; }
   .card-particles { display: none; }
