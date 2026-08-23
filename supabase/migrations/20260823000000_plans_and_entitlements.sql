@@ -35,6 +35,16 @@ create table if not exists public.plans (
   sort_order int not null default 0
 );
 
+-- O catálogo é público de propósito — um dia há uma página de planos, e os
+-- limites de cada um não são segredo nenhum. Mas o RLS liga-se na mesma: o
+-- contrato do esquema exige-o em todas as tabelas, e uma excepção "porque esta
+-- não tem nada de secreto" é como as excepções perigosas começam.
+alter table public.plans enable row level security;
+
+drop policy if exists plans_public_read on public.plans;
+create policy plans_public_read on public.plans
+  for select to anon, authenticated using (true);
+
 comment on table public.plans is
   'Os planos e os seus limites. Sem preços: a monetização decide-se à parte e '
   'um preço aqui seria uma promessa que a base de dados não pode cumprir.';
