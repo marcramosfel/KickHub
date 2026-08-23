@@ -1,7 +1,7 @@
 import { ArrowRight, BarChart3, CalendarDays, ShieldCheck, Sparkles, UsersRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Brand } from '../components/Brand'
-import { LocaleSelect, useI18n } from '../lib/i18n'
+import { LocaleSelect, useI18n, type TranslationKey } from '../lib/i18n'
 import { useSeo } from '../lib/seo'
 
 export function LandingPage() {
@@ -51,6 +51,27 @@ export function LandingPage() {
             <article><Sparkles/><span>02</span><h3>{t('landing.balanceTitle')}</h3><p>{t('landing.balanceBody')}</p></article>
             <article><BarChart3/><span>03</span><h3>{t('landing.historyTitle')}</h3><p>{t('landing.historyBody')}</p></article>
           </div>
+        </section>
+
+        {/* Como funciona, em sete passos e sem parágrafos. Quem chega aqui não
+            sabe o que é o KickHub, e três blocos de produto respondem ao "o quê"
+            sem responder ao "e eu, o que faço?". */}
+        <section id="como-funciona" className="landing-section">
+          <div className="section-heading">
+            <span className="eyebrow">{t('landing.howEyebrow')}</span>
+            <h2>{t('landing.howTitle')}</h2>
+          </div>
+          <ol className="how-steps">
+            {([1, 2, 3, 4, 5, 6, 7] as const).map((step) => (
+              <li key={step}>
+                <span aria-hidden="true">{String(step).padStart(2, '0')}</span>
+                <div>
+                  <h3>{t(`landing.howStep${step}Title` as TranslationKey)}</h3>
+                  <p>{t(`landing.howStep${step}Body` as TranslationKey)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </section>
 
         <section id="comunidade" className="community-band">
