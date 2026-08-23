@@ -7,7 +7,7 @@ import { useAuth } from '../../lib/auth'
 import { useCurrentPelada } from '../../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../../lib/i18n'
 import { useMyPlayerProfile } from '../../lib/player-profile'
-import { useMyRatingHistory } from '../../lib/ratings'
+import { useMyRatingHistory, usePlayerGameHistory } from '../../lib/ratings'
 import { Card, type CardPlayer } from './Card'
 import { prefersReducedMotion } from './useCountUp'
 import { useFlip, type OriginRect } from './useFlip'
@@ -53,10 +53,11 @@ export type PlayerCardEntry = {
   locked: readonly { key: string; icon: string; label: TranslationKey }[]
 }
 
-type Tab = 'card' | 'stats' | 'achievements' | 'ratings'
+type Tab = 'card' | 'stats' | 'achievements' | 'ratings' | 'history'
 
 const TABS: [Tab, TranslationKey][] = [
   ['card', 'card.tabCard'], ['stats', 'card.tabStats'], ['achievements', 'card.tabAchievements'],
+  ['history', 'card.tabHistory'],
 ]
 
 /**
@@ -219,6 +220,7 @@ export function PlayerCardModal({ entries, index, origin, onIndex, onClose }: {
           {tab === 'stats' && <StatsPanel entry={entry}/>}
           {tab === 'achievements' && <AchievementsPanel entry={entry}/>}
           {tab === 'ratings' && <RatingsPanel/>}
+          {tab === 'history' && <HistoryPanel membershipId={entry.card.id}/>}
 
           {entries.length > 1 && (
             <button className="card-arrow card-arrow-next" type="button" onClick={() => go(1)} aria-label={t('card.next')}>
@@ -317,6 +319,37 @@ function RatingsPanel() {
       </ol>
       <p className="card-note">{t('card.ratingsPrivacy')}</p>
     </div>
+  )
+}
+
+/**
+ * Jogo a jogo. Ao contrário das notas, isto não é privado: são as mesmas linhas
+ * que o ranking já soma à vista de todos os membros, aqui apenas sem as somar.
+ */
+function HistoryPanel({ membershipId }: { membershipId: string }) {
+  const { t, formatNumber, formatDate } = useI18n()
+  const { pelada } = useCurrentPelada()
+  const history = usePlayerGameHistory(pelada?.id, membershipId)
+
+  if (history.isPending) return <p className="card-note">{t('card.historyLoading')}</p>
+  if (history.isError) return <p className="card-note" role="alert">{t('card.historyError')}</p>
+  if (!history.data?.length) return <p className="card-note">{t('card.historyEmpty')}</p>
+
+  return (
+    <ol className="card-history">
+      {history.data.map((game) => (
+        <li key={game.gameId} data-outcome={game.outcome ?? undefined}>
+          <span>{formatDate(game.playedAt, { dateStyle: 'medium' })}</span>
+          <b>{game.outcome ? t(`card.outcome${game.outcome}` as TranslationKey) : '—'}</b>
+          <small>
+            {game.goals > 0 && <>⚽ {formatNumber(game.goals)} </>}
+            {game.assists > 0 && <>🅰️ {formatNumber(game.assists)} </>}
+            {game.saves > 0 && <>🧤 {formatNumber(game.saves)} </>}
+            {game.craque && <>👑</>}
+          </small>
+        </li>
+      ))}
+    </ol>
   )
 }
 

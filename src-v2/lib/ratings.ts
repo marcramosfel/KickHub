@@ -90,3 +90,49 @@ export function useMyRatingHistory(peladaId: string | undefined, enabled = true)
     staleTime: 30_000,
   })
 }
+
+/**
+ * O histórico de um jogador, jogo a jogo.
+ *
+ * Vive aqui e não num ficheiro próprio porque é lido no mesmo sítio das notas —
+ * as duas abas do card que olham para trás — e um terceiro módulo para duas
+ * funções seria arrumação sem arrumar nada.
+ */
+export type GameHistoryEntry = {
+  gameId: string
+  playedAt: string
+  goals: number
+  assists: number
+  saves: number
+  /** `null` quando o jogo ainda não tem resultado: por registar não é empate. */
+  outcome: 'win' | 'draw' | 'loss' | null
+  craque: boolean
+}
+
+export async function getPlayerGameHistory(peladaId: string, membershipId: string) {
+  const { data, error } = await supabase.rpc('get_player_game_history', {
+    p_pelada_id: peladaId,
+    p_membership_id: membershipId,
+  })
+  if (error) throw error
+  return ((data ?? []) as Record<string, unknown>[]).map((row): GameHistoryEntry => ({
+    gameId: String(row.game_id ?? ''),
+    playedAt: String(row.played_at ?? ''),
+    goals: Number(row.goals) || 0,
+    assists: Number(row.assists) || 0,
+    saves: Number(row.saves) || 0,
+    outcome: row.outcome === 'win' || row.outcome === 'draw' || row.outcome === 'loss'
+      ? row.outcome
+      : null,
+    craque: row.craque === true,
+  }))
+}
+
+export function usePlayerGameHistory(peladaId: string | undefined, membershipId: string | undefined) {
+  return useQuery({
+    queryKey: ['player-game-history', peladaId, membershipId],
+    queryFn: () => getPlayerGameHistory(peladaId!, membershipId!),
+    enabled: Boolean(peladaId && membershipId) && isSupabaseConfigured,
+    staleTime: 30_000,
+  })
+}

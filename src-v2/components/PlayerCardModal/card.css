@@ -322,3 +322,18 @@
 .card-adjustments li{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .card-adjustments span{font-size:11px;color:rgba(255,255,255,.68)}
 .card-adjustments b{font-size:13px;font-weight:800}
+
+/* ----------------------------------------------------------- historico */
+.card-history{list-style:none;margin:0;padding:0;display:grid;gap:6px;text-align:left;
+  max-height:240px;overflow:auto}
+.card-history li{display:grid;grid-template-columns:1fr auto auto;align-items:baseline;gap:10px;
+  padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.06);
+  border-left:3px solid transparent}
+/* O resultado tem cor e palavra: quem não distingue verde de vermelho continua
+   a ler "Vitória". */
+.card-history li[data-outcome="win"]{border-left-color:#8fd14f}
+.card-history li[data-outcome="draw"]{border-left-color:#d0c78a}
+.card-history li[data-outcome="loss"]{border-left-color:#d1735f}
+.card-history li span{font-size:11px;color:rgba(255,255,255,.66)}
+.card-history li b{font-size:11px;font-weight:800}
+.card-history li small{font-size:11px;white-space:nowrap}
