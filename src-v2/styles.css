@@ -331,7 +331,13 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 .card-stat-grid div{padding:10px;border-radius:11px;background:rgba(0,0,0,.25);text-align:center}
 .card-stat-grid dt{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,247,238,.6)}
 .card-stat-grid dd{margin:4px 0 0;font-family:var(--font-display);font-size:19px;color:#f2f7ee}
-.card-achievements{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.card-achievements{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:1fr;gap:8px}
+/* Quatro colunas fixas e não `auto-fill`. O painel encolhe ao conteúdo —
+   o diálogo centra os filhos — e `auto-fill` precisa de uma largura já
+   decidida para saber quantas cabem. Com a cadeia toda a encolher, ele
+   resolvia para uma coluna de 70px e arrastava o painel inteiro com ele.
+   `grid-auto-rows:1fr` é o que garante que todas as peças ficam do mesmo
+   tamanho: sem isso, cada linha crescia até ao seu rótulo mais alto. */
 /* `minmax(0,1fr)` e não `1fr`: o mínimo implícito de `1fr` é `auto`, e um
    rótulo mais comprido do que a sua fatia empurra a coluna. Era isso que
    dava colunas de 52, 58 e 75 píxeis lado a lado — a grelha seguia o
@@ -348,7 +354,6 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
   .card-dialog{width:100%;max-height:92vh;border-radius:var(--radius) var(--radius) 0 0;background:rgba(7,16,11,.96);padding:22px 14px 18px;animation:card-sheet 260ms cubic-bezier(.16,1,.3,1) both}
   .card-arrow{display:none}
   .card-panel{width:100%;min-height:0}
-  .card-achievements{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
 @keyframes card-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media (prefers-reduced-motion: reduce){.card-halo,.card-dialog{animation:none!important}}
@@ -497,4 +502,4 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
    isso estica a célula e transborda a grelha. `anywhere` deixa-o partir; o
    `min-width:0` impede o item de reclamar a largura da palavra inteira. */
 .card-achievement{min-width:0}
-.card-achievement small{overflow-wrap:anywhere;hyphens:auto}
+.card-achievement small{overflow-wrap:anywhere}
