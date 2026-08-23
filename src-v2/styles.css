@@ -503,3 +503,11 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
    `min-width:0` impede o item de reclamar a largura da palavra inteira. */
 .card-achievement{min-width:0}
 .card-achievement small{overflow-wrap:anywhere}
+
+/* Um botão contornado dentro da folha do card. O `.btn-outline` global pinta
+   `var(--ink)`, que é a cor certa sobre fundo claro e invisível sobre este —
+   e a borda, essa, usa `var(--border)`, que é clara. Daí o botão aparecer como
+   um contorno com texto quase nenhum lá dentro, que se lê como desactivado.
+   A regra clara que já existia estava presa a `.pelada-actions`. */
+.card-dialog .btn-outline{border-color:rgba(255,255,255,.24);color:#f2f7ee}
+.card-dialog .btn-outline:hover{background:rgba(255,255,255,.08)}
