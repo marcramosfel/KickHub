@@ -18,6 +18,9 @@ import { usePeladaSquad, type PlayerType, type Position } from './squad'
 export type PeladaPlayer = {
   membershipId: string
   displayName: string
+  /** Já não joga aqui. Um destaque tem de o dizer: apresentar alguém como
+   *  artilheiro da pelada sem mencionar que saiu é apresentar mal. */
+  isFormer: boolean
   playerType: PlayerType | null
   primaryPosition: Position | null
   secondaryPosition: Position | null
@@ -69,6 +72,7 @@ export function usePeladaPlayers(peladaId: string | undefined, enabled = true) {
       return {
         membershipId: member.membershipId,
         displayName: member.displayName,
+        isFormer: stats?.isFormer ?? false,
         playerType: member.playerType,
         primaryPosition: member.primaryPosition,
         secondaryPosition: member.secondaryPosition,

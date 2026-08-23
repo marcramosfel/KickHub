@@ -120,9 +120,15 @@ export function HeroLeaders() {
           <Card className="hero-card">
             <Badge tone="lime"><span aria-hidden="true">{hero.icon}</span> {t(hero.labelKey)}</Badge>
             <div className="hero-card-who">
-              <PlayerPhoto membershipId={hero.player.membershipId} name={hero.player.displayName} size="md"/>
+              <PlayerPhoto membershipId={hero.player.membershipId} name={hero.player.displayName}
+                size="md" src={avatars.get(hero.player.membershipId)}/>
               <div>
-                <strong>{hero.player.displayName}</strong>
+                <strong>
+                  {hero.player.displayName}
+                  {/* Sem isto, o mesmo ecrã apresentava alguém como artilheiro
+                      da pelada sem dizer que ele já não joga lá. */}
+                  {hero.player.isFormer && <span className="ranking-former">{t('ranking.former')}</span>}
+                </strong>
                 <span>{formatNumber(hero.value)} {t(hero.unitKey)}</span>
               </div>
             </div>

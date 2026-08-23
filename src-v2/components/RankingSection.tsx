@@ -1,5 +1,5 @@
 import { ShieldCheck, Trophy } from 'lucide-react'
-import { Badge, Card, EmptyState } from '../components/ui'
+import { Card, EmptyState } from '../components/ui'
 import { CardBadge } from './PlayerCards'
 import { HeroLeaders } from './HeroLeaders'
 import { PlayerPhoto } from './PlayerPhoto'
@@ -47,7 +47,7 @@ export function RankingSection({ variant }: { variant: 'ranking' | 'stats' }) {
       ) : !played ? (
         <EmptyState icon={<Trophy/>} title={t('ranking.emptyTitle')} body={t('ranking.emptyBody')}/>
       ) : variant === 'stats' ? (
-        <StatsOverview rows={rows} totals={totals.data ?? null}/>
+        <StatsOverview totals={totals.data ?? null}/>
       ) : (
         <RankingTable rows={rows}/>
       )}
@@ -151,11 +151,8 @@ function RankingTable({ rows }: { rows: RankingRow[] }) {
   )
 }
 
-function StatsOverview({ rows, totals }: { rows: RankingRow[]; totals: { gamesPlayed: number; goals: number; assists: number; activeMembers: number } | null }) {
+function StatsOverview({ totals }: { totals: { gamesPlayed: number; goals: number; assists: number; activeMembers: number } | null }) {
   const { t, formatNumber } = useI18n()
-  const topScorer = rows.find((row) => row.goals > 0)
-  const topAssists = [...rows].sort((a, b) => b.assists - a.assists).find((row) => row.assists > 0)
-
   return (
     <>
       {totals ? (
@@ -171,26 +168,10 @@ function StatsOverview({ rows, totals }: { rows: RankingRow[]; totals: { gamesPl
           mais; um card responde a mesma coisa e ainda diz de quem se trata. */}
       <HeroLeaders/>
 
-      {/* Os destaques marcam quem saiu pela mesma razão que a tabela: sem isso,
-          o mesmo ecrã apresentava alguém como artilheiro da pelada duas linhas
-          abaixo de o ter dado como ex-membro. */}
-      <div className="stats-highlights">
-        <Card>
-          <Badge tone="lime">{t('ranking.topScorer')}</Badge>
-          <strong>{topScorer ? <PlayerName row={topScorer}/> : t('ranking.noneYet')}</strong>
-          {topScorer ? <small>{formatNumber(topScorer.goals)} {t('ranking.goals')}</small> : null}
-        </Card>
-        <Card>
-          <Badge tone="blue">{t('ranking.topAssists')}</Badge>
-          <strong>{topAssists ? <PlayerName row={topAssists}/> : t('ranking.noneYet')}</strong>
-          {topAssists ? <small>{formatNumber(topAssists.assists)} {t('ranking.assists')}</small> : null}
-        </Card>
-        <Card>
-          <Badge tone="orange">{t('ranking.contribution')}</Badge>
-          <strong>{rows[0] ? formatNumber(contribution(rows[0])) : t('ranking.noneYet')}</strong>
-          {rows[0] ? <small><PlayerName row={rows[0]}/></small> : null}
-        </Card>
-      </div>
+      {/* Os três cards antigos — artilheiro, assistências, participação — saíram
+          daqui. Os destaques acima dizem exactamente o mesmo com a cara, o
+          número e a frase, e a mesma informação duas vezes no mesmo ecrã não é
+          ênfase: é o leitor a perguntar-se qual das duas está certa. */}
     </>
   )
 }

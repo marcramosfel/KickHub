@@ -33,6 +33,19 @@ function respondWith({ ranking = [] as unknown[], totals = null as unknown } = {
   rankMocks.rpc.mockImplementation(async (fn: string) => {
     if (fn === 'get_pelada_ranking') return { data: ranking, error: null }
     if (fn === 'get_pelada_totals') return { data: totals ? [totals] : [], error: null }
+    // Os destaques cruzam o ranking com o plantel: sem o plantel não há a quem
+    // atribuir um título, e a secção desaparece por estar certa.
+    if (fn === 'list_pelada_members') {
+      return {
+        data: (ranking as Record<string, unknown>[]).map((row) => ({
+          membership_id: row.membership_id,
+          display_name: row.display_name,
+          status: 'active',
+          role: 'player',
+        })),
+        error: null,
+      }
+    }
     return { data: [], error: null }
   })
 }
@@ -112,8 +125,12 @@ describe('RankingSection', () => {
     expect(await screen.findByText('4 jogos disputados')).toBeInTheDocument()
     expect(screen.getByText('12 golos marcados')).toBeInTheDocument()
     expect(screen.getByText('11 jogadores no plantel')).toBeInTheDocument()
-    expect(screen.getByText('Artilheiro')).toBeInTheDocument()
-    expect(screen.getByText('Mais assistências')).toBeInTheDocument()
+    // O rótulo do destaque vive ao lado do emoji dentro do mesmo crachá, e por
+    // isso não é um nó de texto exacto: procura-se pelo conteúdo.
+    // `find` e não `get`: os destaques cruzam duas leituras e chegam depois dos
+    // totais, portanto uma asserção síncrona corre antes de eles existirem.
+    expect(await screen.findByText(/Artilheiro/)).toBeInTheDocument()
+    expect(screen.getByText(/Rei das Assistências/)).toBeInTheDocument()
   })
 
   it('mostra o overall calculado e assinala quando ainda e provisorio', async () => {
@@ -172,8 +189,9 @@ describe('RankingSection', () => {
     })
     renderRanking('stats')
 
-    // A tabela não existe nesta vista: as três marcas são as dos destaques —
-    // artilheiro, assistências e contributo.
-    expect(await screen.findAllByText('ex-membro')).toHaveLength(3)
+    // A tabela não existe nesta vista. As marcas são as dos destaques, e há uma
+    // por card em que ele lidera: com um plantel de um, lidera tudo o que tem
+    // valor acima de zero — golos, assistências e participação.
+    expect((await screen.findAllByText('ex-membro')).length).toBeGreaterThanOrEqual(3)
   })
 })

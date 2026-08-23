@@ -1,6 +1,7 @@
 import { Trophy } from 'lucide-react'
 import { useMemo } from 'react'
 import { distanceToTitle, titleStandings, type TitleStanding } from '../domain/player-overall'
+import { useSignedAvatars } from '../lib/avatars'
 import { useAuth } from '../lib/auth'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n } from '../lib/i18n'
@@ -36,7 +37,10 @@ export function AchievementsSection() {
   const { pelada } = useCurrentPelada()
   const { user } = useAuth()
   const squad = usePeladaPlayers(pelada?.id)
-  const { players } = squad
+  const { players, avatarSources } = squad
+  // O `PlayerPhoto` não vai buscar a foto sozinho: recebe-a já assinada, e sem
+  // ela mostra as iniciais — que é uma foto em falta a parecer-se com um design.
+  const avatars = useSignedAvatars(avatarSources)
   // Quem está a ver, do lado do jogador. O perfil próprio é que sabe qual das
   // pertenças é a desta pelada — o plantel só conhece pertenças, não contas.
   const me = useMyPlayerProfile(user?.id)
@@ -126,7 +130,8 @@ export function AchievementsSection() {
                     {/* O empate premeia todos, e por isso podem ser vários. */}
                     {holders.map((holder) => (
                       <span key={holder.membershipId}>
-                        <PlayerPhoto membershipId={holder.membershipId} name={holder.displayName} size="sm"/>
+                        <PlayerPhoto membershipId={holder.membershipId} name={holder.displayName}
+                          size="sm" src={avatars.get(holder.membershipId)}/>
                         <b>{holder.displayName}</b>
                       </span>
                     ))}
