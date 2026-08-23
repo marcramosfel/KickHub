@@ -2,6 +2,7 @@ import { Check, Shuffle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '../components/ui'
 import { MatchField, type FieldTeam } from './MatchField'
+import { ShareImageButton } from './ShareImageButton'
 import { explainSquadOverall } from '../domain/player-overall'
 import { DrawError, generateBalancedTeams, type DrawResult } from '../domain/team-draw'
 import { useSignedAvatars, type AvatarSource } from '../lib/avatars'
@@ -148,7 +149,33 @@ export function GameDraw({ game }: { game: Game }) {
           </div>
         </>
       ) : savedTeams.length > 0 ? (
-        <SavedTeams entries={savedTeams} avatars={avatars}/>
+        <>
+          <SavedTeams entries={savedTeams} avatars={avatars}/>
+          {/* O sorteio guardado é o que vai para o grupo. O preview ainda pode
+              ser deitado fora, e partilhar um sorteio que não vai acontecer é
+              pior do que não partilhar nenhum. */}
+          <div className="draw-actions">
+            <ShareImageButton
+              size="sm"
+              filename="kickhub-sorteio.png"
+              text={t('games.shareDrawText')}
+              spec={() => ({
+                eyebrow: t('games.shareDrawEyebrow'),
+                title: `${t('games.teamA')} vs ${t('games.teamB')}`,
+                subtitle: game.location || undefined,
+                columns: (['A', 'B'] as const).map((key) => ({
+                  heading: key === 'A' ? t('games.teamA') : t('games.teamB'),
+                  items: savedTeams
+                    .filter((entry) => entry.team === key)
+                    .map((entry) => entry.isGoalkeeper
+                      ? `${entry.displayName} (${t('games.goalkeeperShort')})`
+                      : entry.displayName),
+                })),
+                footer: pelada?.name,
+              })}
+            />
+          </div>
+        </>
       ) : null}
     </div>
   )

@@ -1,6 +1,8 @@
 import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
+  'games.shareDrawEyebrow': 'Sorteio das equipas',
+  'games.shareDrawText': 'As equipas estão sorteadas.',
   'field.formation': 'Formação {formation}',
   'field.inferredPosition': 'Posição não declarada — colocado no meio-campo.',
   'field.loadingCards': 'A carregar os cards dos jogadores.',
@@ -96,6 +98,8 @@ const pt = {
 type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
+  'games.shareDrawEyebrow': 'Team draw',
+  'games.shareDrawText': 'The teams are drawn.',
   'field.formation': 'Formation {formation}',
   'field.inferredPosition': 'No position on file — placed in midfield.',
   'field.loadingCards': 'Loading the player cards.',
@@ -189,6 +193,8 @@ const en: Record<Key, TranslationValue> = {
 }
 
 const es: Record<Key, TranslationValue> = {
+  'games.shareDrawEyebrow': 'Sorteo de equipos',
+  'games.shareDrawText': 'Los equipos están sorteados.',
   'field.formation': 'Formación {formation}',
   'field.inferredPosition': 'Sin posición declarada — colocado en el mediocampo.',
   'field.loadingCards': 'Cargando las cartas de los jugadores.',
@@ -282,6 +288,8 @@ const es: Record<Key, TranslationValue> = {
 }
 
 const fr: Record<Key, TranslationValue> = {
+  'games.shareDrawEyebrow': 'Tirage des équipes',
+  'games.shareDrawText': 'Les équipes sont tirées.',
   'field.formation': 'Formation {formation}',
   'field.inferredPosition': 'Poste non déclaré — placé au milieu.',
   'field.loadingCards': 'Chargement des cartes des joueurs.',
@@ -375,6 +383,8 @@ const fr: Record<Key, TranslationValue> = {
 }
 
 const de: Record<Key, TranslationValue> = {
+  'games.shareDrawEyebrow': 'Team-Auslosung',
+  'games.shareDrawText': 'Die Teams stehen.',
   'field.formation': 'Formation {formation}',
   'field.inferredPosition': 'Keine Position hinterlegt — ins Mittelfeld gestellt.',
   'field.loadingCards': 'Spielerkarten werden geladen.',

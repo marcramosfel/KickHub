@@ -155,7 +155,9 @@ export async function renderShareCard(spec: ShareCardSpec): Promise<Blob | null>
   // daria dois cartões diferentes conforme o jogador tivesse ou não retrato — o
   // espaço leva o símbolo em marca de água, ténue o suficiente para não competir
   // com o número.
-  if (!drewPhoto) {
+  // E nunca por baixo de uma escalação: ali o espaço já está ocupado por nomes,
+  // e um símbolo grande atrás deles rouba-lhes a legibilidade em troca de nada.
+  if (!drewPhoto && !spec.columns?.length) {
     ctx.save()
     ctx.globalAlpha = 0.06
     drawMark(ctx, W - 300, y + 300, 420)
