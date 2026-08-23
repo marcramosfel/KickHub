@@ -1,24 +1,38 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { RequireAuth } from './components/RequireAuth'
 import { CurrentPeladaProvider } from './lib/current-pelada'
 import { AuthPage } from './pages/AuthPage'
-import { ClaimPage } from './pages/ClaimPage'
-import { CreatePeladaPage } from './pages/CreatePeladaPage'
-import { AccountPage } from './pages/AccountPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { DiscoverPage } from './pages/DiscoverPage'
 import { LandingPage } from './pages/LandingPage'
-import { InvitePage } from './pages/InvitePage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { PeladaPage } from './pages/PeladaPage'
-import { ProfilePage } from './pages/ProfilePage'
+
+/**
+ * Tudo o que vive atrás da autenticação carrega quando for preciso.
+ *
+ * Quem chega à landing pela primeira vez estava a descarregar a aplicação
+ * inteira — o painel de administração, o assistente de criação, o modal do card
+ * com as suas partículas — para ler uma página de apresentação. São 564 kB de
+ * JavaScript para uma pessoa que ainda não decidiu se quer entrar.
+ *
+ * A landing, o ecrã de entrada e o 404 ficam de fora da divisão: são os três
+ * sítios onde um segundo pedido antes de aparecer alguma coisa se nota mais do
+ * que os quilobytes que poupa.
+ */
+const AccountPage = lazy(() => import('./pages/AccountPage').then((m) => ({ default: m.AccountPage })))
+const ClaimPage = lazy(() => import('./pages/ClaimPage').then((m) => ({ default: m.ClaimPage })))
+const CreatePeladaPage = lazy(() => import('./pages/CreatePeladaPage').then((m) => ({ default: m.CreatePeladaPage })))
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const DiscoverPage = lazy(() => import('./pages/DiscoverPage').then((m) => ({ default: m.DiscoverPage })))
+const InvitePage = lazy(() => import('./pages/InvitePage').then((m) => ({ default: m.InvitePage })))
+const PeladaPage = lazy(() => import('./pages/PeladaPage').then((m) => ({ default: m.PeladaPage })))
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 
 export function App() {
   return <Routes>
     <Route path="/" element={<LandingPage/>}/>
     <Route path="/entrar" element={<AuthPage/>}/>
-    <Route element={<RequireAuth/>}>
+    <Route element={<Suspense fallback={<RouteFallback/>}><RequireAuth/></Suspense>}>
       <Route path="/convite/:token" element={<InvitePage/>}/>
       <Route element={<AppShell/>}>
         <Route path="/app" element={<DashboardPage/>}/>
@@ -43,4 +57,15 @@ export function App() {
     <Route path="/home" element={<Navigate to="/app" replace/>}/>
     <Route path="*" element={<NotFoundPage/>}/>
   </Routes>
+}
+
+/**
+ * O que se vê enquanto o pedaço da rota chega.
+ *
+ * Deliberadamente calado: numa ligação decente isto dura menos do que um
+ * piscar, e uma mensagem de "a carregar" que aparece e desaparece nesse tempo
+ * lê-se como um salto. O `aria-busy` diz o que é preciso a quem ouve a página.
+ */
+function RouteFallback() {
+  return <div className="route-fallback" aria-busy="true" aria-live="polite"/>
 }

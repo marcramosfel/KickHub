@@ -86,7 +86,7 @@ describe('KickHub V2 com dados reais', () => {
     await waitFor(() => expect(appMocks.signInWithGoogle).toHaveBeenCalledWith('/convite/123456789012345678901234567890123456789012345678'))
   })
 
-  it('mostra apenas as memberships reais depois da autenticação', () => {
+  it('mostra apenas as memberships reais depois da autenticação', async () => {
     appMocks.user = { id: 'user-1', email: 'marcos@example.com' }
     appMocks.peladas = [{
       id: 'pelada-1', slug: 'browns', name: 'Pelada Browns', city: 'Zürich', country: 'CH',
@@ -94,7 +94,10 @@ describe('KickHub V2 com dados reais', () => {
       accent: '#d8ff45', visibility: 'private', description: 'Tenant real do staging',
     }]
     renderAt('/app')
-    expect(screen.getByRole('heading', { name: 'Minhas peladas' })).toBeInTheDocument()
+    // As rotas autenticadas carregam num pedaço à parte, portanto a primeira
+    // coisa a aparecer é o espaço reservado. Esperar por elas é o teste a
+    // reconhecer a divisão, e não a contorná-la.
+    expect(await screen.findByRole('heading', { name: 'Minhas peladas' })).toBeInTheDocument()
     expect(screen.getAllByText('Pelada Browns').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OWNER').length).toBeGreaterThan(0)
   })

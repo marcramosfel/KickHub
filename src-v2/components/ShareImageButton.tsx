@@ -1,7 +1,7 @@
 import { ImageDown } from 'lucide-react'
 import { useState } from 'react'
 import { useI18n } from '../lib/i18n'
-import { shareCardImage, type ShareCardSpec } from '../lib/share-image'
+import type { ShareCardSpec } from '../lib/share-image'
 import { Button } from './ui'
 
 /**
@@ -29,6 +29,10 @@ export function ShareImageButton({ spec, filename, text, size = 'md' }: {
     setBusy(true)
     setFailed(false)
     try {
+      // Carregado ao carregar no botão, e não com a página. O desenhador do
+      // canvas só serve quem decide partilhar, e fazer toda a gente pagá-lo à
+      // cabeça era pagar por um clique que a maioria não dá.
+      const { shareCardImage } = await import('../lib/share-image')
       await shareCardImage(spec(), filename, text)
     } catch {
       setFailed(true)

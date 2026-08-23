@@ -511,3 +511,8 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
    A regra clara que já existia estava presa a `.pelada-actions`. */
 .card-dialog .btn-outline{border-color:rgba(255,255,255,.24);color:#f2f7ee}
 .card-dialog .btn-outline:hover{background:rgba(255,255,255,.08)}
+
+/* Enquanto o pedaço da rota chega. Reserva a altura do ecrã para a página não
+   saltar quando ele chegar, e não escreve nada: numa ligação decente isto dura
+   menos do que um piscar, e uma mensagem que aparece e some lê-se como falha. */
+.route-fallback{min-height:100vh;background:var(--bg)}
