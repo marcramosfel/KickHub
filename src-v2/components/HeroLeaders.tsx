@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { titleStandings } from '../domain/player-overall'
+import { useSignedAvatars } from '../lib/avatars'
 import { useCurrentPelada } from '../lib/current-pelada'
 import { useI18n, type TranslationKey } from '../lib/i18n'
 import { usePeladaPlayers, type PeladaPlayer } from '../lib/pelada-players'
 import { PlayerPhoto } from './PlayerPhoto'
+import { ShareImageButton } from './ShareImageButton'
 import { Badge, Card } from './ui'
 
 /**
@@ -52,7 +54,10 @@ const LINES_PER_HERO = 3
 export function HeroLeaders() {
   const { t, formatNumber } = useI18n()
   const { pelada } = useCurrentPelada()
-  const { players } = usePeladaPlayers(pelada?.id)
+  const { players, avatarSources } = usePeladaPlayers(pelada?.id)
+  // As fotos já assinadas: o cartão desenha-as no canvas, e ir buscá-las de
+  // novo era assinar trinta URLs para usar uma.
+  const avatars = useSignedAvatars(avatarSources)
 
   const heroes = useMemo<Hero[]>(() => {
     if (!players.length) return []
@@ -121,6 +126,23 @@ export function HeroLeaders() {
             <p className="hero-card-line">
               {t(`${hero.labelKey}Line${pickLine(hero.id, hero.player.membershipId, LINES_PER_HERO) + 1}` as TranslationKey)}
             </p>
+            {/* Cada destaque partilha-se sozinho. Um botão só, algures na
+                página, obrigava a escolher qual — e a resposta é sempre "o
+                daquele jogador", que é o que se está a olhar. */}
+            <ShareImageButton
+              size="sm"
+              filename={`kickhub-${hero.id}.png`}
+              text={`${hero.player.displayName} — ${t(hero.labelKey)}`}
+              spec={() => ({
+                eyebrow: t(hero.labelKey),
+                title: hero.player.displayName,
+                subtitle: pelada?.name,
+                photo: avatars.get(hero.player.membershipId),
+                highlight: formatNumber(hero.value),
+                stats: [{ label: t(hero.unitKey), value: formatNumber(hero.value) }],
+                footer: t(`${hero.labelKey}Line${pickLine(hero.id, hero.player.membershipId, LINES_PER_HERO) + 1}` as TranslationKey),
+              })}
+            />
           </Card>
         </li>
       ))}

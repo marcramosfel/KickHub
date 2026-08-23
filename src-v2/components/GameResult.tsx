@@ -7,12 +7,13 @@ import { useI18n } from '../lib/i18n'
 import { listConfirmedPlayers } from '../lib/lineups'
 import { useGameResult, useResultMutations, type StatInput } from '../lib/results'
 import { ShareButton } from './ShareButton'
+import { ShareImageButton } from './ShareImageButton'
 
 type StatDraft = StatInput & { displayName: string }
 
 export function GameResult({ game }: { game: Game }) {
   const { t, formatNumber } = useI18n()
-  const { canAdmin } = useCurrentPelada()
+  const { canAdmin, pelada } = useCurrentPelada()
   const result = useGameResult(game.id, true)
   const [editing, setEditing] = useState(false)
   const [notice, setNotice] = useState('')
@@ -46,10 +47,35 @@ export function GameResult({ game }: { game: Game }) {
         <>
           <p className="final-score">{t('games.finalScore', { scoreA: formatNumber(recorded.scoreA), scoreB: formatNumber(recorded.scoreB) })}</p>
           {recorded.notes ? <p className="result-notes">{recorded.notes}</p> : null}
-          <ShareButton content={() => ({
-            title: t('games.shareResultTitle'),
-            text: t('games.shareResultText', { scoreA: recorded.scoreA, scoreB: recorded.scoreB }),
-          })}/>
+          <div className="result-share">
+            <ShareButton content={() => ({
+              title: t('games.shareResultTitle'),
+              text: t('games.shareResultText', { scoreA: recorded.scoreA, scoreB: recorded.scoreB }),
+            })}/>
+            {/* Os destaques são quem marcou, e não quem jogou: uma lista de
+                vinte nomes num cartão não se lê no telemóvel de ninguém. */}
+            <ShareImageButton
+              size="sm"
+              filename="kickhub-resultado.png"
+              text={t('games.shareResultText', { scoreA: recorded.scoreA, scoreB: recorded.scoreB })}
+              spec={() => ({
+                eyebrow: t('games.shareResultTitle'),
+                title: `${recorded.scoreA} — ${recorded.scoreB}`,
+                subtitle: game.location || undefined,
+                columns: [{
+                  heading: t('games.scorers'),
+                  items: recorded.players
+                    .filter((player) => player.goals > 0 || player.assists > 0)
+                    .map((player) => [
+                      player.displayName,
+                      player.goals > 0 ? `⚽ ${player.goals}` : '',
+                      player.assists > 0 ? `🅰️ ${player.assists}` : '',
+                    ].filter(Boolean).join('  ')),
+                }],
+                footer: pelada?.name,
+              })}
+            />
+          </div>
           {recorded.players.length === 0 ? (
             <p className="result-empty">{t('games.noStatsYet')}</p>
           ) : (

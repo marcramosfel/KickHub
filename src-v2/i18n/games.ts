@@ -2,6 +2,7 @@ import type { LocalizedNamespace, TranslationValue } from './types'
 
 const pt = {
   'games.shareDrawEyebrow': 'Sorteio das equipas',
+  'games.scorers': 'Quem marcou',
   'games.shareDrawText': 'As equipas estão sorteadas.',
   'field.formation': 'Formação {formation}',
   'field.inferredPosition': 'Posição não declarada — colocado no meio-campo.',
@@ -99,6 +100,7 @@ type Key = keyof typeof pt
 
 const en: Record<Key, TranslationValue> = {
   'games.shareDrawEyebrow': 'Team draw',
+  'games.scorers': 'Who scored',
   'games.shareDrawText': 'The teams are drawn.',
   'field.formation': 'Formation {formation}',
   'field.inferredPosition': 'No position on file — placed in midfield.',
@@ -194,6 +196,7 @@ const en: Record<Key, TranslationValue> = {
 
 const es: Record<Key, TranslationValue> = {
   'games.shareDrawEyebrow': 'Sorteo de equipos',
+  'games.scorers': 'Quién marcó',
   'games.shareDrawText': 'Los equipos están sorteados.',
   'field.formation': 'Formación {formation}',
   'field.inferredPosition': 'Sin posición declarada — colocado en el mediocampo.',
@@ -289,6 +292,7 @@ const es: Record<Key, TranslationValue> = {
 
 const fr: Record<Key, TranslationValue> = {
   'games.shareDrawEyebrow': 'Tirage des équipes',
+  'games.scorers': 'Qui a marqué',
   'games.shareDrawText': 'Les équipes sont tirées.',
   'field.formation': 'Formation {formation}',
   'field.inferredPosition': 'Poste non déclaré — placé au milieu.',
@@ -384,6 +388,7 @@ const fr: Record<Key, TranslationValue> = {
 
 const de: Record<Key, TranslationValue> = {
   'games.shareDrawEyebrow': 'Team-Auslosung',
+  'games.scorers': 'Wer getroffen hat',
   'games.shareDrawText': 'Die Teams stehen.',
   'field.formation': 'Formation {formation}',
   'field.inferredPosition': 'Keine Position hinterlegt — ins Mittelfeld gestellt.',

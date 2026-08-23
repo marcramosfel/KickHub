@@ -13,6 +13,7 @@ import { usePeladaPlayers } from '../lib/pelada-players'
 import { usePlayerCard } from '../lib/player-card'
 import { usePeladaSettings } from '../lib/pelada-settings'
 import { ShareButton } from './ShareButton'
+import { ShareImageButton } from './ShareImageButton'
 import { Avatar, Badge, Card, EmptyState } from './ui'
 
 const positionLabels: Record<SelectionPosition, TranslationKey> = {
@@ -73,13 +74,35 @@ export function SelectionSection() {
         crowned
       />
       <p className="selection-note">{t('selection.note')}</p>
-      <span className="selection-toggle"><ShareButton content={() => ({
-        title: t('selection.title'),
-        text: t('selection.shareText', {
-          formation: best.formation.name,
-          names: [best.goalkeeper, ...best.outfield].filter(Boolean).map((player) => player!.displayName).join(', '),
-        }),
-      })}/></span>
+      <span className="selection-toggle">
+        <ShareButton content={() => ({
+          title: t('selection.title'),
+          text: t('selection.shareText', {
+            formation: best.formation.name,
+            names: [best.goalkeeper, ...best.outfield].filter(Boolean).map((player) => player!.displayName).join(', '),
+          }),
+        })}/>
+        <ShareImageButton
+          size="sm"
+          filename="kickhub-selecao.png"
+          text={t('selection.title')}
+          spec={() => {
+            const onze = [best.goalkeeper, ...best.outfield].filter(Boolean)
+            const metade = Math.ceil(onze.length / 2)
+            return {
+              eyebrow: t('selection.title'),
+              title: best.formation.name,
+              subtitle: t('selection.season', { year: new Date().getFullYear() }),
+              // Duas colunas porque onze nomes numa só saem do cartão.
+              columns: [
+                { heading: '', items: onze.slice(0, metade).map((p) => p!.displayName) },
+                { heading: '', items: onze.slice(metade).map((p) => p!.displayName) },
+              ],
+              footer: pelada?.name,
+            }
+          }}
+        />
+      </span>
 
       {showWorst ? (
         <>

@@ -464,3 +464,7 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
   color:#6c971a;line-height:1.4}
 .how-steps h3{margin:0;font-size:14px;font-weight:800}
 .how-steps p{margin:5px 0 0;font-size:12px;line-height:1.65;color:var(--muted)}
+
+/* Os botoes de partilha do resultado e da selecao, lado a lado sem se
+   empurrarem quando o ecra estreita. */
+.result-share,.selection-toggle{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
