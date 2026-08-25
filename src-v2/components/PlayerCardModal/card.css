@@ -27,7 +27,7 @@
 .fifa-card[data-tilting] { transition: none; }
 
 .fifa-card-sm { width: 190px; }
-.fifa-card-md { width: 288px; }
+.fifa-card-md { width: var(--card-w); }
 .fifa-card-lg { width: 320px; }
 
 .fifa-card-face {
@@ -312,8 +312,7 @@
 /* --------------------------------------------------------- avaliações */
 .card-ratings{display:grid;gap:10px;text-align:left}
 .card-ratings-head{margin:0;font-size:13px;font-weight:800}
-.card-ratings ol{list-style:none;margin:0;padding:0;display:grid;gap:6px;
-  max-height:220px;overflow:auto}
+.card-ratings ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .card-ratings li{display:grid;grid-template-columns:1fr auto auto;align-items:baseline;gap:10px;
   padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.06)}
 .card-ratings li span{font-size:11px;color:rgba(255,255,255,.66)}
@@ -329,8 +328,7 @@
 .card-adjustments b{font-size:13px;font-weight:800}
 
 /* ----------------------------------------------------------- historico */
-.card-history{list-style:none;margin:0;padding:0;display:grid;gap:6px;text-align:left;
-  max-height:240px;overflow:auto}
+.card-history{list-style:none;margin:0;padding:0;display:grid;gap:6px;text-align:left}
 .card-history li{display:grid;grid-template-columns:1fr auto auto;align-items:baseline;gap:10px;
   padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.06);
   border-left:3px solid transparent}
@@ -342,3 +340,7 @@
 .card-history li span{font-size:11px;color:rgba(255,255,255,.66)}
 .card-history li b{font-size:11px;font-weight:800}
 .card-history li small{font-size:11px;white-space:nowrap}
+
+/* Uma zona de rolagem por separador, e é o painel. Estas listas tinham a sua
+   própria, e duas barras encaixadas uma na outra fazem o polegar arrastar a
+   errada. */

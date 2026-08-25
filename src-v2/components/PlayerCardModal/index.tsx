@@ -285,9 +285,9 @@ function RatingsPanel() {
   const { pelada } = useCurrentPelada()
   const history = useMyRatingHistory(pelada?.id)
 
-  if (history.isPending) return <p className="card-note">{t('card.ratingsLoading')}</p>
-  if (history.isError) return <p className="card-note" role="alert">{t('card.ratingsError')}</p>
-  if (!history.data?.length) return <p className="card-note">{t('card.ratingsEmpty')}</p>
+  if (history.isPending) return <div className="card-panel"><p className="card-note">{t('card.ratingsLoading')}</p></div>
+  if (history.isError) return <div className="card-panel"><p className="card-note" role="alert">{t('card.ratingsError')}</p></div>
+  if (!history.data?.length) return <div className="card-panel"><p className="card-note">{t('card.ratingsEmpty')}</p></div>
 
   const rated = history.data.filter((entry) => entry.average !== null)
   const overall = rated.length
@@ -295,7 +295,7 @@ function RatingsPanel() {
     : null
 
   return (
-    <div className="card-ratings">
+    <div className="card-panel"><div className="card-ratings">
       <p className="card-ratings-head">
         {overall === null
           ? t('card.ratingsNoAverage')
@@ -318,7 +318,7 @@ function RatingsPanel() {
         ))}
       </ol>
       <p className="card-note">{t('card.ratingsPrivacy')}</p>
-    </div>
+    </div></div>
   )
 }
 
@@ -331,12 +331,12 @@ function HistoryPanel({ membershipId }: { membershipId: string }) {
   const { pelada } = useCurrentPelada()
   const history = usePlayerGameHistory(pelada?.id, membershipId)
 
-  if (history.isPending) return <p className="card-note">{t('card.historyLoading')}</p>
-  if (history.isError) return <p className="card-note" role="alert">{t('card.historyError')}</p>
-  if (!history.data?.length) return <p className="card-note">{t('card.historyEmpty')}</p>
+  if (history.isPending) return <div className="card-panel"><p className="card-note">{t('card.historyLoading')}</p></div>
+  if (history.isError) return <div className="card-panel"><p className="card-note" role="alert">{t('card.historyError')}</p></div>
+  if (!history.data?.length) return <div className="card-panel"><p className="card-note">{t('card.historyEmpty')}</p></div>
 
   return (
-    <ol className="card-history">
+    <div className="card-panel"><ol className="card-history">
       {history.data.map((game) => (
         <li key={game.gameId} data-outcome={game.outcome ?? undefined}>
           <span>{formatDate(game.playedAt, { dateStyle: 'medium' })}</span>
@@ -349,7 +349,7 @@ function HistoryPanel({ membershipId }: { membershipId: string }) {
           </small>
         </li>
       ))}
-    </ol>
+    </ol></div>
   )
 }
 

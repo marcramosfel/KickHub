@@ -314,7 +314,7 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
    histórico, o cabeçalho das avaliações — desaparecia. */
 .card-close{position:absolute;top:0;right:0;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#f2f7ee;cursor:pointer}
 .card-close:hover{background:rgba(255,255,255,.18)}
-.card-stage{position:relative;display:flex;align-items:center;gap:10px;perspective:1200px}
+.card-stage{--card-w:288px;position:relative;display:flex;align-items:center;gap:10px;perspective:1200px}
 /* O halo é o que faz o card flutuar em vez de estar colado ao fundo. */
 .card-halo{position:absolute;inset:8% 18%;border-radius:50%;background:var(--rarity-accent,#d8ff45);opacity:.35;filter:blur(60px);pointer-events:none;animation:card-halo 6s ease-in-out infinite}
 @keyframes card-halo{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
@@ -326,7 +326,13 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
    fora — invisíveis e sem nada que sugerisse que se podia rolar. */
 .card-tab{min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.06);color:rgba(242,247,238,.8);font-size:11px;font-weight:800;cursor:pointer}
 .card-tab-active{border-color:var(--brand);background:var(--brand);color:#132011}
-.card-panel{width:288px;min-height:403px;display:grid;align-content:start;gap:12px;padding:18px;border-radius:var(--radius);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}
+.card-panel{width:var(--card-w);height:calc(var(--card-w) * 1.4);overflow-y:auto;display:grid;align-content:start;gap:12px;padding:18px;border-radius:var(--radius);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}
+/* Todos os separadores com a mesma altura, e essa altura é a do card:
+   288 de largura por 1.4 do `aspect-ratio` dão 403. Sem isto cada aba
+   media o que o seu conteúdo pedia, e a folha saltava de posição a cada
+   toque — o Histórico com seis linhas ficava a meio do ecrã e as
+   Estatísticas empurravam tudo para cima. Derivado do token e não
+   escrito à mão duas vezes, senão um dos dois muda sozinho um dia. */
 .card-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
 .card-stat-grid div{padding:10px;border-radius:11px;background:rgba(0,0,0,.25);text-align:center}
 .card-stat-grid dt{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,247,238,.6)}
@@ -353,7 +359,7 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
   .card-backdrop{place-items:end center;padding:0}
   .card-dialog{width:100%;max-height:92vh;border-radius:var(--radius) var(--radius) 0 0;background:rgba(7,16,11,.96);padding:22px 14px 18px;animation:card-sheet 260ms cubic-bezier(.16,1,.3,1) both}
   .card-arrow{display:none}
-  .card-panel{width:100%;min-height:0}
+  .card-panel{width:100%}
 }
 @keyframes card-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media (prefers-reduced-motion: reduce){.card-halo,.card-dialog{animation:none!important}}
