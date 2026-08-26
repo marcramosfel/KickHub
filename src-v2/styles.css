@@ -314,7 +314,7 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
    histórico, o cabeçalho das avaliações — desaparecia. */
 .card-close{position:absolute;top:0;right:0;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#f2f7ee;cursor:pointer}
 .card-close:hover{background:rgba(255,255,255,.18)}
-.card-stage{--card-w:288px;position:relative;display:flex;align-items:center;gap:10px;perspective:1200px}
+.card-stage{--card-w:288px;position:relative;display:flex;align-items:center;justify-content:center;gap:10px;perspective:1200px;min-height:0}
 /* O halo é o que faz o card flutuar em vez de estar colado ao fundo. */
 .card-halo{position:absolute;inset:8% 18%;border-radius:50%;background:var(--rarity-accent,#d8ff45);opacity:.35;filter:blur(60px);pointer-events:none;animation:card-halo 6s ease-in-out infinite}
 @keyframes card-halo{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
@@ -357,9 +357,20 @@ input, select, textarea { width: 100%; min-height: 50px; color: var(--ink); back
 /* Abaixo de 640px o pop-up é uma folha que sobe de baixo. */
 @media (max-width:640px){
   .card-backdrop{place-items:end center;padding:0}
-  .card-dialog{width:100%;max-height:92vh;border-radius:var(--radius) var(--radius) 0 0;background:rgba(7,16,11,.96);padding:22px 14px 18px;animation:card-sheet 260ms cubic-bezier(.16,1,.3,1) both}
+  .card-dialog{width:100%;height:92dvh;max-height:92dvh;overflow:hidden;grid-template-rows:1fr auto auto;align-content:stretch;border-radius:var(--radius) var(--radius) 0 0;background:rgba(7,16,11,.96);padding:22px 14px calc(18px + env(safe-area-inset-bottom));animation:card-sheet 260ms cubic-bezier(.16,1,.3,1) both}
+/* A folha tem altura fixa e não altura de conteúdo. Era isso que fazia o
+   topo saltar a cada separador: as Estatísticas empurravam-na quase até
+   ao cimo do ecrã e o Histórico deixava-a a meio. Agora ocupa sempre a
+   mesma fatia, e é o conteúdo que se ajusta lá dentro — as abas e o
+   botão de partilhar ficam encostados ao fundo, no mesmo sítio, sempre.
+   `dvh` e não `vh` porque a barra do Safari cresce e encolhe, e `vh`
+   mede a janela sem ela. */
   .card-arrow{display:none}
-  .card-panel{width:100%}
+  .card-panel{width:100%;height:100%;align-self:stretch}
+/* No telemóvel o painel deixa de ter a altura do card e passa a ter a do
+   espaço que sobra — que é sempre o mesmo, porque a folha tem altura
+   fixa. É isto que faz Estatísticas, Conquistas, Avaliações e Histórico
+   ocuparem exactamente a mesma caixa. O que não couber rola lá dentro. */
 }
 @keyframes card-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media (prefers-reduced-motion: reduce){.card-halo,.card-dialog{animation:none!important}}
